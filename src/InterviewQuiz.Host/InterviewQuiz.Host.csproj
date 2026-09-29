@@ -27,10 +27,11 @@
     <ProjectReference Include="..\Modules\Access\InterviewQuiz.Access\InterviewQuiz.Access.csproj" />
     <ProjectReference Include="..\Modules\Openings\InterviewQuiz.Openings.Application\InterviewQuiz.Openings.Application.csproj" />
     <ProjectReference Include="..\Modules\Openings\InterviewQuiz.Openings.Infrastructure\InterviewQuiz.Openings.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Catalog\InterviewQuiz.Catalog\InterviewQuiz.Catalog.csproj" />
     <ProjectReference Include="..\Modules\Delivery\InterviewQuiz.Delivery\InterviewQuiz.Delivery.csproj" />
     <ProjectReference Include="..\Modules\Evaluation\InterviewQuiz.Evaluation\InterviewQuiz.Evaluation.csproj" />
     <ProjectReference Include="..\Modules\Search\InterviewQuiz.Search\InterviewQuiz.Search.csproj" />
+    <ProjectReference Include="..\Modules\Catalog\InterviewQuiz.Catalog.Application\InterviewQuiz.Catalog.Application.csproj" />
+    <ProjectReference Include="..\Modules\Catalog\InterviewQuiz.Catalog.Infrastructure\InterviewQuiz.Catalog.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

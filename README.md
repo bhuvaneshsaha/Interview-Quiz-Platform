@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slice 1 delivers the **host**, **Access** (JWT + Identity + permissions), **Openings**, and the **web client** (sign-in, openings, permission-aware admin). Candidate magic-link and Entra ID are **not** in this slice.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slice 1 delivers the **host**, **Access** (JWT + Identity + permissions), **Openings**, and the **web client**. Slice 2 adds **Catalog quiz authoring**. Candidate magic-link, templates publish, AI drafts, and Entra ID are **not** in this slice.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault)
 
 ## Migrate and run
 
-Development auto-applies EF migrations, seeds the permission catalog, Development Identity users/roles, and sample openings plus default field keys (`Client`, `Project`, `Role`). **Never seeded in Production.**
+Development auto-applies EF migrations, seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), and one sample quiz (every v1 question type) under the backend opening. **Never seeded in Production.**
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
@@ -70,6 +70,12 @@ dotnet ef database update \
   --project src/Modules/Openings/InterviewQuiz.Openings.Infrastructure \
   --startup-project src/InterviewQuiz.Host \
   --context OpeningsDbContext
+
+# Catalog schema (quizzes / questions)
+dotnet ef database update \
+  --project src/Modules/Catalog/InterviewQuiz.Catalog.Infrastructure \
+  --startup-project src/InterviewQuiz.Host \
+  --context CatalogDbContext
 
 dotnet run --project src/InterviewQuiz.Host
 ```
@@ -151,6 +157,25 @@ Concurrency: `row_version` integer token on Opening (incremented on update). PUT
 
 In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other modules must not read the `openings` schema.
 
+## Catalog API (slice 2 — quiz authoring)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `GET` | `/api/quizzes` | `quizzes.read` |
+| `POST` | `/api/quizzes` | `quizzes.write` |
+| `GET` | `/api/quizzes/{id}` | `quizzes.read` **or** `quizzes.write` |
+| `PUT` | `/api/quizzes/{id}` | `quizzes.write` |
+
+List query: `openingId`, `page`, `pageSize` (capped at 100). JSON is camelCase. Question `type` / `scoringMode` / `creditMode` are strings (`multipleChoiceSingle`, `auto`, `partial`, …). PUT replaces the full question list and requires `rowVersion`. Create may send an empty `questions` array. Unknown `openingId` returns 400 `"Opening does not exist."` (Catalog calls `IOpeningLookup` in-process; it does not read the `openings` schema).
+
+A quiz belongs to **exactly one** opening. Template reuse across openings is slice 3. Code question types are rejected.
+
+Concurrency: integer `row_version` on Quiz (incremented on update), same pattern as Opening.
+
+In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time.
+
+Not in this slice: publish-template, AI drafts, assignments, magic-link.
+
 ## Web client (Angular SPA / PWA)
 
 Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`).
@@ -187,6 +212,7 @@ Unit tests always run (JWT validation, `HasPermission`, login success/failure wi
 - `src/InterviewQuiz.Kernel` — clock, pagination, tags, permission code constants
 - `src/Modules/Access` — Identity user store, JWT issue/refresh/revoke, permission catalog, roles as permission sets (`access` schema)
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
-- `src/Modules/Catalog|Delivery|Evaluation|Search` — empty composition stubs
+- `src/Modules/Catalog` — Domain / Application / Infrastructure (`catalog` schema; quiz authoring)
+- `src/Modules/Delivery|Evaluation|Search` — empty composition stubs
 - `src/interview-quiz-web` — Angular SPA + installable PWA (slice 1)
 - `deploy/local/compose.yaml` — local PostgreSQL 16

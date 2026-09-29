@@ -67,6 +67,7 @@ public static class AccessModule
 
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddSingleton<IAuthorizationHandler, HasPermissionHandler>();
+        services.AddSingleton<IAuthorizationHandler, HasAnyPermissionHandler>();
 
         services.AddSingleton<IJwtAccessTokenIssuer, JwtAccessTokenIssuer>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();

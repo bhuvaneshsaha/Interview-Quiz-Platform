@@ -79,6 +79,7 @@ public sealed class DevelopmentAccessSeeder
             "Dev Template author",
             "Local sample bundle (not a product role).",
             [
+                PermissionCodes.Openings.Read,
                 PermissionCodes.Catalog.QuizzesRead,
                 PermissionCodes.Catalog.QuizzesWrite,
                 PermissionCodes.Catalog.TemplatesRead,

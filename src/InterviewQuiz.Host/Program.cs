@@ -1,7 +1,12 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using InterviewQuiz.Access;
 using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Seeding;
-using InterviewQuiz.Catalog;
+using InterviewQuiz.Catalog.Domain;
+using InterviewQuiz.Catalog.Infrastructure;
+using InterviewQuiz.Catalog.Infrastructure.Persistence;
+using InterviewQuiz.Catalog.Infrastructure.Seeding;
 using InterviewQuiz.Delivery;
 using InterviewQuiz.Evaluation;
 using InterviewQuiz.Host.Hosting;
@@ -42,12 +47,19 @@ try
 
     builder.Services.AddAccessModule(builder.Configuration);
     builder.Services.AddOpeningsModule(builder.Configuration);
-    builder.Services.AddCatalogModule();
+    builder.Services.AddCatalogModule(builder.Configuration);
     builder.Services.AddDeliveryModule();
     builder.Services.AddEvaluationModule();
     builder.Services.AddSearchModule();
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers().AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.Converters.Add(new QuestionTypeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
+    });
     builder.Services.AddProblemDetails(options =>
     {
         options.CustomizeProblemDetails = context =>
@@ -66,7 +78,8 @@ try
     builder.Services
         .AddHealthChecks()
         .AddDbContextCheck<AccessDbContext>("access-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
-        .AddDbContextCheck<OpeningsDbContext>("openings-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
+        .AddDbContextCheck<OpeningsDbContext>("openings-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+        .AddDbContextCheck<CatalogDbContext>("catalog-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
     builder.Services.AddOpenApi(options =>
     {
@@ -141,11 +154,15 @@ try
         using var scope = app.Services.CreateScope();
         var accessDb = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
         var openingsDb = scope.ServiceProvider.GetRequiredService<OpeningsDbContext>();
+        var catalogDb = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
         await accessDb.Database.MigrateAsync();
         await openingsDb.Database.MigrateAsync();
+        await catalogDb.Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentOpeningSeeder>()
+            .SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentQuizSeeder>()
             .SeedAsync();
     }
 

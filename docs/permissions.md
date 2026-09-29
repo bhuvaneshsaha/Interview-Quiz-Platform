@@ -56,7 +56,7 @@ Split from Brief “Manage admin defaults” so field defaults are not bundled w
 | `ai.rules.manage` | Manage company AI rule sets | Versioned JSON rule sets (global + per-question-type fields) |
 | `ai.draft.use` | Use AI draft | Generate a draft from resume + rules; human must edit before assign |
 
-A Dev author can hold `templates.write` / `quizzes.write` **without** `openings.write` or `ai.rules.manage`.
+A Dev author can hold `templates.write` / `quizzes.write` **without** `openings.write` or `ai.rules.manage`. The Development seed bundle also includes `openings.read` so the author can pick an opening in the quiz editor without needing `openings.write`.
 
 ---
 
@@ -113,7 +113,7 @@ Names below are **sample Identity role rows** for local seed only. Production op
 | Seed name | Permission codes (union) |
 |-----------|---------------------------|
 | Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `filters.write`, `filters.share` |
-| Dev Template author | `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `ai.draft.use`, `filters.write` |
+| Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `ai.draft.use`, `filters.write` |
 | Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review` |
 | Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, plus read of openings/catalog as needed to administer |
 

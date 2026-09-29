@@ -1,11 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\InterviewQuiz.Catalog.Domain\InterviewQuiz.Catalog.Domain.csproj" />
     <ProjectReference Include="..\..\..\InterviewQuiz.Kernel\InterviewQuiz.Kernel.csproj" />
+    <ProjectReference Include="..\..\Openings\InterviewQuiz.Openings.Application\InterviewQuiz.Openings.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

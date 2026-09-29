@@ -6,6 +6,7 @@ namespace InterviewQuiz.Access.Authorization;
 public sealed class PermissionPolicyProvider : IAuthorizationPolicyProvider
 {
     public const string PolicyPrefix = "permission:";
+    public const string AnyPolicyPrefix = "permission-any:";
 
     private readonly DefaultAuthorizationPolicyProvider _fallback;
 
@@ -20,6 +21,18 @@ public sealed class PermissionPolicyProvider : IAuthorizationPolicyProvider
 
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
+        if (policyName.StartsWith(AnyPolicyPrefix, StringComparison.Ordinal))
+        {
+            var permissions = policyName[AnyPolicyPrefix.Length..]
+                .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var policy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .AddRequirements(new HasAnyPermissionRequirement(permissions))
+                .Build();
+
+            return Task.FromResult<AuthorizationPolicy?>(policy);
+        }
+
         if (policyName.StartsWith(PolicyPrefix, StringComparison.Ordinal))
         {
             var permission = policyName[PolicyPrefix.Length..];
