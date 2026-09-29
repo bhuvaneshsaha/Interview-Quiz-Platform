@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using InterviewQuiz.Access.Infrastructure;
+using InterviewQuiz.Access.Infrastructure.Seeding;
 using InterviewQuiz.Kernel.Pagination;
+using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Application.Contracts;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +26,52 @@ public sealed class OpeningsApiTests
     {
         await using var factory = await CreateMigratedFactory();
         var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/openings");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Post_without_openings_write_is_forbidden()
+    {
+        await using var factory = await CreateMigratedFactory();
+        var client = CreateAuthenticatedClient(factory, JwtTestTokens.ReaderOnly());
+
+        var response = await client.PostAsJsonAsync("/api/openings", new CreateOpeningRequest
+        {
+            Title = "Should fail",
+            JobDescription = "Missing openings.write.",
+            Owner = "tester@example.com",
+            StartDate = new DateOnly(2026, 10, 6),
+            ExpectedCloseDate = new DateOnly(2026, 12, 6),
+            Headcount = 1,
+            ExpectedExperienceYears = 2,
+            Handlers = ["tester@example.com"],
+            Tags = new Dictionary<string, string>()
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Expired_token_is_unauthorized()
+    {
+        await using var factory = await CreateMigratedFactory();
+        var client = CreateAuthenticatedClient(factory, JwtTestTokens.CreateExpired(PermissionCodes.Openings.Read));
+
+        var response = await client.GetAsync("/api/openings");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Wrong_audience_is_unauthorized()
+    {
+        await using var factory = await CreateMigratedFactory();
+        var client = CreateAuthenticatedClient(
+            factory,
+            JwtTestTokens.CreateWrongAudience(PermissionCodes.Openings.Read));
 
         var response = await client.GetAsync("/api/openings");
 
@@ -87,10 +135,13 @@ public sealed class OpeningsApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static HttpClient CreateAuthenticatedClient(InterviewQuizWebApplicationFactory factory)
+    private static HttpClient CreateAuthenticatedClient(
+        InterviewQuizWebApplicationFactory factory,
+        string? accessToken = null)
     {
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", "tester@example.com");
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken ?? JwtTestTokens.Recruiter());
         client.DefaultRequestHeaders.Add("X-Correlation-ID", "integration-test");
         return client;
     }
@@ -103,6 +154,8 @@ public sealed class OpeningsApiTests
             .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<OpeningsDbContext>()
             .Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
+            .SeedAsync();
         return factory;
     }
 }

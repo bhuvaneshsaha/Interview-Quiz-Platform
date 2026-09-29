@@ -4,8 +4,7 @@ namespace InterviewQuiz.Access.Authorization;
 
 /// <summary>
 /// Authorizes by permission code, never by role name.
-/// Until Auth wires claims, <see cref="TemporaryAllowAuthenticatedPermissionHandler"/>
-/// succeeds for any authenticated identity and fails closed for anonymous.
+/// <see cref="HasPermissionHandler"/> succeeds only when the principal has that permission claim.
 /// </summary>
 public sealed class HasPermissionAttribute : AuthorizeAttribute
 {

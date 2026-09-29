@@ -1,5 +1,6 @@
 using InterviewQuiz.Access;
 using InterviewQuiz.Access.Infrastructure;
+using InterviewQuiz.Access.Infrastructure.Seeding;
 using InterviewQuiz.Catalog;
 using InterviewQuiz.Delivery;
 using InterviewQuiz.Evaluation;
@@ -9,10 +10,10 @@ using InterviewQuiz.Openings.Infrastructure;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.OpenApi;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -52,27 +53,6 @@ try
         };
     });
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-
-    var useDevelopmentAuth = builder.Environment.IsDevelopment()
-        || builder.Environment.IsEnvironment("Testing");
-
-    if (useDevelopmentAuth)
-    {
-        builder.Services
-            .AddAuthentication(DevelopmentTestAuthHandler.SchemeName)
-            .AddScheme<AuthenticationSchemeOptions, DevelopmentTestAuthHandler>(
-                DevelopmentTestAuthHandler.SchemeName,
-                _ => { });
-    }
-    else
-    {
-        builder.Services
-            .AddAuthentication(UnconfiguredAuthenticationHandler.SchemeName)
-            .AddScheme<AuthenticationSchemeOptions, UnconfiguredAuthenticationHandler>(
-                UnconfiguredAuthenticationHandler.SchemeName,
-                _ => { });
-    }
-
     builder.Services.AddAuthorization();
 
     builder.Services
@@ -80,16 +60,32 @@ try
         .AddDbContextCheck<AccessDbContext>("access-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
         .AddDbContextCheck<OpeningsDbContext>("openings-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
-    builder.Services.AddOpenApi();
+    builder.Services.AddOpenApi(options =>
+    {
+        options.AddDocumentTransformer<BearerSecurityDocumentTransformer>();
+    });
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
-        options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+        options.SwaggerDoc("v1", new OpenApiInfo
         {
             Title = "Interview Quiz API",
             Version = "v1",
-            Description = "Modular Monolith host. Login is not implemented yet (Auth next). " +
-                          "In Development/Testing send Authorization: Test {user}."
+            Description =
+                "Modular Monolith host. Employee login is email/password (JWT bearer). " +
+                "Candidate magic-link and Entra ID are not in this slice."
+        });
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Access token from POST /api/auth/login."
+        });
+        options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", doc)] = []
         });
     });
 
@@ -137,6 +133,8 @@ try
         var openingsDb = scope.ServiceProvider.GetRequiredService<OpeningsDbContext>();
         await accessDb.Database.MigrateAsync();
         await openingsDb.Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
+            .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentOpeningSeeder>()
             .SeedAsync();
     }

@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular (SPA/PWA later). Slice 1 delivers the **host** and the **Openings** module. **Login is not implemented yet** — Auth owns JWT bearer, ASP.NET Core Identity, magic-link, and Entra later.
+ASP.NET Core Modular Monolith + Angular (SPA/PWA later). Slice 1 delivers the **host**, **Access** (JWT + Identity + permissions), and **Openings**. Candidate magic-link and Entra ID are **not** in this slice.
 
 ## Prerequisites
 
@@ -42,17 +42,23 @@ export ConnectionStrings__InterviewQuiz="Host=localhost;Port=5432;Database=inter
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional. When set, traces and metrics are exported via OTLP |
 | `OTEL_SERVICE_NAME` | Optional. Defaults to `interviewquiz-api` |
 | `FileStorage__Root` | Later (resumes). Not used in slice 1 |
-| `Jwt__*` | Later (Auth). Not used yet |
+| `Jwt__SigningKey` | HMAC-SHA256 signing key (required, ≥ 32 characters). **Never** use the Development key in Production |
+| `Jwt__Issuer` | JWT issuer (defaults to `InterviewQuiz` in appsettings) |
+| `Jwt__Audience` | JWT audience (defaults to `InterviewQuiz` in appsettings) |
+| `Jwt__AccessTokenMinutes` | Access token lifetime (default `15`) |
+| `Jwt__RefreshTokenDays` | Refresh token lifetime (default `14`) |
+
+Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
 ## Migrate and run
 
-Development auto-applies EF migrations and seeds sample openings plus default field keys (`Client`, `Project`, `Role`). **Never seeded in Production.**
+Development auto-applies EF migrations, seeds the permission catalog, Development Identity users/roles, and sample openings plus default field keys (`Client`, `Project`, `Role`). **Never seeded in Production.**
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
 export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
 
-# Access schema (permission catalog)
+# Access schema (Identity, roles, refresh tokens, permission catalog)
 dotnet ef database update \
   --project src/Modules/Access/InterviewQuiz.Access \
   --startup-project src/InterviewQuiz.Host \
@@ -71,7 +77,7 @@ HTTP profile: `http://localhost:5147` (see `Properties/launchSettings.json`).
 
 ### OpenAPI
 
-- Document: `http://localhost:5147/openapi/v1.json` (Development)
+- Document: `http://localhost:5147/openapi/v1.json` (Development) — bearer security scheme
 - Swagger UI: `http://localhost:5147/swagger` (Development)
 
 ### Health
@@ -81,17 +87,50 @@ HTTP profile: `http://localhost:5147` (see `Properties/launchSettings.json`).
 
 Correlation: send `traceparent` and/or `X-Correlation-ID`. The host generates a correlation id if missing and echoes `X-Correlation-ID`.
 
-## Temporary Development authentication
+## Authentication (JWT bearer)
 
-Until Auth wires JWT:
+Employee entry is **email + password → JWT**. The API default scheme is JwtBearer in every environment. Identity is the **user store only** (no cookie auth as the API mechanism). Refresh tokens are stored **hashed** in PostgreSQL (`access.refresh_tokens`), rotated on refresh, and revoked on logout. Access tokens carry flattened **permission codes** (claim type `permission`), not role names.
 
-```http
-Authorization: Test recruiter@example.com
+There is **no self-registration**. Admins provision users (`users.manage`).
+
+Not in this slice: candidate magic-link, Entra ID.
+
+### Sign in locally (Development dummy users)
+
+These accounts exist only when the host runs in Development (or tests seed them). Do not use them in Production.
+
+| Email | Password | Sample bundle |
+|-------|----------|----------------|
+| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter |
+| `author.dev@example.com` | `Dev.Author!1` | Dev Template author |
+| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer |
+| `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin |
+
+```bash
+curl -s http://localhost:5147/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin.dev@example.com","password":"Dev.Admin!1"}'
 ```
 
-Enabled only in `Development` and `Testing`. Mutating and read opening endpoints also have `[HasPermission("openings.write")]` (etc.). The current handler **fails closed for anonymous** and **allows any authenticated identity**. Auth will replace this with permission claims. Production currently uses a fail-closed placeholder scheme so the host cannot be called as authenticated until JWT is wired.
+Use `Authorization: Bearer {accessToken}` on subsequent requests. Call `POST /api/auth/refresh` with the refresh token to rotate; the new access token re-reads permissions from the database (role changes take effect on the next tokens). Call `POST /api/auth/logout` with the refresh token to revoke it.
 
-Do **not** use `[Authorize(Roles = ...)]`. Role/user tables are not in this slice.
+Angular should keep tokens out of `localStorage` if a safer option exists (memory + refresh). Service workers must not cache tokens, `/me`, login, or refresh.
+
+Do **not** use `[Authorize(Roles = ...)]`. Roles are operator-composed permission sets; API and UI check permission codes only.
+
+## Access API
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/api/auth/login` | anonymous |
+| `POST` | `/api/auth/refresh` | anonymous (valid refresh token) |
+| `POST` | `/api/auth/logout` | anonymous (refresh token body) |
+| `GET` | `/api/me` | authenticated |
+| `GET` | `/api/me/permissions` | authenticated |
+| `GET` | `/api/permissions` | `roles.manage` |
+| `GET\|POST\|PUT\|DELETE` | `/api/roles` | `roles.manage` |
+| `POST\|DELETE` | `/api/roles/{id}/users` | `roles.manage` |
+| `GET\|POST\|PUT` | `/api/users` | `users.manage` |
 
 ## Openings API (slice 1)
 
@@ -117,13 +156,13 @@ In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run. WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents).
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`).
 
 ## Solution layout
 
 - `src/InterviewQuiz.Host` — composition root
 - `src/InterviewQuiz.Kernel` — clock, pagination, tags, permission code constants
-- `src/Modules/Access` — permission catalog table (`access` schema); Auth will add Identity/JWT
+- `src/Modules/Access` — Identity user store, JWT issue/refresh/revoke, permission catalog, roles as permission sets (`access` schema)
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
 - `src/Modules/Catalog|Delivery|Evaluation|Search` — empty composition stubs
 - `deploy/local/compose.yaml` — local PostgreSQL 16

@@ -25,6 +25,7 @@
     <Project Path="src/Modules/Search/InterviewQuiz.Search/InterviewQuiz.Search.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/InterviewQuiz.Access.UnitTests/InterviewQuiz.Access.UnitTests.csproj" />
     <Project Path="tests/InterviewQuiz.Host.IntegrationTests/InterviewQuiz.Host.IntegrationTests.csproj" />
     <Project Path="tests/InterviewQuiz.Openings.UnitTests/InterviewQuiz.Openings.UnitTests.csproj" />
   </Folder>
