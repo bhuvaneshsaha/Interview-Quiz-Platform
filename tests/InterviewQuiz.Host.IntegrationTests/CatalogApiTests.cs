@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using InterviewQuiz.Catalog.Application.Contracts;
+using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
@@ -20,11 +21,7 @@ public sealed class CatalogApiTests
         _factory = factory;
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly JsonSerializerOptions JsonOptions = CatalogJson.SerializerOptions;
 
     [RequiresDatabaseFact]
     public async Task Post_then_get_quiz()
