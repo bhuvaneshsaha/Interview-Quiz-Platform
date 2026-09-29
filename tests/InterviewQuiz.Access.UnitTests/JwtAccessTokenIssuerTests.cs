@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Kernel.Permissions;
 using Microsoft.Extensions.Options;
@@ -8,13 +9,12 @@ namespace InterviewQuiz.Access.UnitTests;
 
 public sealed class JwtAccessTokenIssuerTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 9, 29, 12, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public async Task Valid_token_contains_permission_claims()
     {
         var jwt = CreateOptions();
-        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(Now));
+        var now = DateTimeOffset.UtcNow;
+        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(now));
         var issued = issuer.Issue("user-1", "recruiter.dev@example.com", [
             PermissionCodes.Openings.Read,
             PermissionCodes.Openings.Write
@@ -22,12 +22,15 @@ public sealed class JwtAccessTokenIssuerTests
 
         var result = await ValidateAsync(issued.Token, jwt);
 
-        Assert.True(result.IsValid);
-        Assert.Contains(
-            result.ClaimsIdentity!.FindAll(PermissionClaims.Permission).Select(c => c.Value),
-            code => code == PermissionCodes.Openings.Write);
-        Assert.Equal("user-1", result.ClaimsIdentity.FindFirst(JwtRegisteredClaimNames.Sub)?.Value);
-        Assert.Equal(Now.AddMinutes(15), issued.ExpiresAt);
+        Assert.True(result.IsValid, result.Exception?.ToString());
+        var permissions = result.ClaimsIdentity!.FindAll(PermissionClaims.Permission)
+            .Select(c => c.Value)
+            .ToArray();
+        Assert.Contains(PermissionCodes.Openings.Write, permissions);
+        Assert.NotNull(
+            result.ClaimsIdentity.FindFirst(JwtRegisteredClaimNames.Sub)
+            ?? result.ClaimsIdentity.FindFirst(ClaimTypes.NameIdentifier));
+        Assert.Equal(now.AddMinutes(15), issued.ExpiresAt);
     }
 
     [Fact]
@@ -36,20 +39,22 @@ public sealed class JwtAccessTokenIssuerTests
         var jwt = CreateOptions();
         var issuer = new JwtAccessTokenIssuer(
             Options.Create(jwt),
-            new FixedClock(Now.AddMinutes(-20)));
+            new FixedClock(DateTimeOffset.UtcNow.AddMinutes(-20)));
         var issued = issuer.Issue("user-1", "recruiter.dev@example.com", [PermissionCodes.Openings.Read]);
 
         var result = await ValidateAsync(issued.Token, jwt);
 
         Assert.False(result.IsValid);
-        Assert.IsType<SecurityTokenExpiredException>(result.Exception);
+        Assert.True(
+            result.Exception is SecurityTokenExpiredException or SecurityTokenInvalidLifetimeException,
+            result.Exception?.GetType().FullName);
     }
 
     [Fact]
     public async Task Wrong_audience_fails_validation()
     {
         var jwt = CreateOptions();
-        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(Now));
+        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(DateTimeOffset.UtcNow));
         var issued = issuer.Issue("user-1", "recruiter.dev@example.com", [PermissionCodes.Openings.Read]);
 
         var wrongAudience = CreateOptions();

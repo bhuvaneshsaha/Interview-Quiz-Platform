@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace InterviewQuiz.Access;
@@ -51,10 +52,12 @@ public static class AccessModule
             .AddJwtBearer();
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtOptions>>((bearer, jwtAccessor) =>
+            .Configure<IOptions<JwtOptions>, IHostEnvironment>((bearer, jwtAccessor, environment) =>
             {
+                var local = environment.IsDevelopment() || environment.IsEnvironment("Testing");
                 bearer.MapInboundClaims = false;
-                bearer.IncludeErrorDetails = false;
+                bearer.IncludeErrorDetails = local;
+                bearer.RequireHttpsMetadata = !local;
                 bearer.SaveToken = false;
                 bearer.TokenValidationParameters = JwtTokenValidation.Create(jwtAccessor.Value);
             });

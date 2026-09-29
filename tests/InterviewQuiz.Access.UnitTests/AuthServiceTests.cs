@@ -11,7 +11,7 @@ namespace InterviewQuiz.Access.UnitTests;
 
 public sealed class AuthServiceTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 9, 29, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     [Fact]
     public async Task Login_succeeds_with_valid_password()
@@ -70,6 +70,7 @@ public sealed class AuthServiceTests
         var handler = new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler();
         var jwt = CreateJwtOptions();
         var result = await handler.ValidateTokenAsync(refreshed.AccessToken, JwtTokenValidation.Create(jwt));
+        Assert.True(result.IsValid, result.Exception?.ToString());
         var permissions = result.ClaimsIdentity!.FindAll(PermissionClaims.Permission).Select(c => c.Value).ToArray();
         Assert.Contains(PermissionCodes.Openings.Write, permissions);
     }
