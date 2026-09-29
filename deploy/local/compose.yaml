@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: interviewquiz
+      POSTGRES_PASSWORD: interviewquiz_dev_only
+      POSTGRES_DB: interviewquiz
+    volumes:
+      - interviewquiz-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interviewquiz -d interviewquiz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  interviewquiz-pg:

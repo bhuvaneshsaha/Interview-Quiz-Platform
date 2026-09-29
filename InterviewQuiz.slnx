@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InterviewQuiz.Host/InterviewQuiz.Host.csproj" />
+    <Project Path="src/InterviewQuiz.Kernel/InterviewQuiz.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Access/">
+    <Project Path="src/Modules/Access/InterviewQuiz.Access/InterviewQuiz.Access.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/">
+    <Project Path="src/Modules/Catalog/InterviewQuiz.Catalog/InterviewQuiz.Catalog.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Delivery/">
+    <Project Path="src/Modules/Delivery/InterviewQuiz.Delivery/InterviewQuiz.Delivery.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Evaluation/">
+    <Project Path="src/Modules/Evaluation/InterviewQuiz.Evaluation/InterviewQuiz.Evaluation.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Openings/">
+    <Project Path="src/Modules/Openings/InterviewQuiz.Openings.Application/InterviewQuiz.Openings.Application.csproj" />
+    <Project Path="src/Modules/Openings/InterviewQuiz.Openings.Domain/InterviewQuiz.Openings.Domain.csproj" />
+    <Project Path="src/Modules/Openings/InterviewQuiz.Openings.Infrastructure/InterviewQuiz.Openings.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Search/">
+    <Project Path="src/Modules/Search/InterviewQuiz.Search/InterviewQuiz.Search.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InterviewQuiz.Host.IntegrationTests/InterviewQuiz.Host.IntegrationTests.csproj" />
+    <Project Path="tests/InterviewQuiz.Openings.UnitTests/InterviewQuiz.Openings.UnitTests.csproj" />
+  </Folder>
+</Solution>
