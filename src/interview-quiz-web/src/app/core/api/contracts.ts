@@ -127,6 +127,138 @@ export interface ReplaceOpeningFieldDefinitionsRequest {
   items: OpeningFieldDefinitionDto[];
 }
 
+export type QuestionType =
+  | 'multipleChoiceSingle'
+  | 'multipleChoiceMulti'
+  | 'trueFalse'
+  | 'shortText'
+  | 'longText'
+  | 'dragDropSharedBank'
+  | 'dragDropPerSlot'
+  | 'ordering';
+
+export type ScoringMode = 'auto' | 'aiAssist' | 'humanOnly';
+
+export type CreditMode = 'partial' | 'allOrNothing';
+
+export interface ChoiceOptionBody {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface MultipleChoiceBody {
+  options: ChoiceOptionBody[];
+}
+
+export interface TrueFalseBody {
+  correct: boolean;
+}
+
+export interface ShortTextBody {
+  acceptableAnswers: string[];
+  caseSensitive: boolean;
+}
+
+export interface LongTextBody {
+  maxLength?: number;
+  guidance?: string;
+}
+
+export interface SharedBankSlotBody {
+  id: string;
+  label: string;
+  correctItemId: string;
+}
+
+export interface BankItemBody {
+  id: string;
+  text: string;
+  isDistractor: boolean;
+}
+
+export interface DragDropSharedBankBody {
+  slots: SharedBankSlotBody[];
+  bank: BankItemBody[];
+}
+
+export interface PerSlotBody {
+  id: string;
+  label: string;
+  options: ChoiceOptionBody[];
+}
+
+export interface DragDropPerSlotBody {
+  slots: PerSlotBody[];
+}
+
+export interface OrderingItemBody {
+  id: string;
+  text: string;
+  correctIndex: number;
+}
+
+export interface OrderingBody {
+  items: OrderingItemBody[];
+}
+
+export type QuestionBody =
+  | MultipleChoiceBody
+  | TrueFalseBody
+  | ShortTextBody
+  | LongTextBody
+  | DragDropSharedBankBody
+  | DragDropPerSlotBody
+  | OrderingBody;
+
+export interface QuestionResponse {
+  id: string;
+  sortOrder: number;
+  type: QuestionType;
+  stem: string;
+  scoringMode: ScoringMode;
+  creditMode: CreditMode | null;
+  points: number;
+  body: QuestionBody;
+}
+
+export interface QuizResponse {
+  id: string;
+  openingId: string;
+  title: string;
+  description: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  questions: QuestionResponse[];
+  rowVersion: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface QuestionRequest {
+  id?: string;
+  type: QuestionType;
+  stem: string;
+  scoringMode?: ScoringMode;
+  creditMode?: CreditMode;
+  points: number;
+  body: QuestionBody;
+}
+
+export interface CreateQuizRequest {
+  openingId: string;
+  title: string;
+  description?: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  questions: QuestionRequest[];
+}
+
+export interface UpdateQuizRequest extends CreateQuizRequest {
+  id: string;
+  rowVersion: number;
+}
+
 export interface ProblemDetails {
   type?: string;
   title?: string;

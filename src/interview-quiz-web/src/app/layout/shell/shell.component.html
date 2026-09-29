@@ -10,6 +10,7 @@
   <nav class="shell-nav" aria-label="Primary">
     <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
     <a routerLink="/openings" routerLinkActive="is-active" *hasPermission="codes.OpeningsRead">Openings</a>
+    <a routerLink="/quizzes" routerLinkActive="is-active" *hasPermission="codes.QuizzesRead">Quizzes</a>
     <a
       routerLink="/opening-fields"
       routerLinkActive="is-active"

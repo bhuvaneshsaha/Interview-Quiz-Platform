@@ -52,6 +52,30 @@ export const routes: Routes = [
         title: 'Opening',
       },
       {
+        path: 'quizzes',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.QuizzesRead },
+        loadComponent: () =>
+          import('./features/quizzes/quiz-list/quiz-list.component').then((m) => m.QuizList),
+        title: 'Quizzes',
+      },
+      {
+        path: 'quizzes/new',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.QuizzesWrite },
+        loadComponent: () =>
+          import('./features/quizzes/quiz-form/quiz-form.component').then((m) => m.QuizForm),
+        title: 'Create quiz',
+      },
+      {
+        path: 'quizzes/:id',
+        canActivate: [permissionGuard],
+        data: { permission: [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite] },
+        loadComponent: () =>
+          import('./features/quizzes/quiz-form/quiz-form.component').then((m) => m.QuizForm),
+        title: 'Quiz',
+      },
+      {
         path: 'opening-fields',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.OpeningsFieldsManage },

@@ -31,10 +31,13 @@ None
 None
 
 ### Configuration
-Standalone. Requires `OnlineStatus` (`providedIn: 'root'`).
+Standalone. Requires `OnlineStatus` (`providedIn: 'root'`). Storybook stories provide a mock `{ online: signal(boolean) }` so Online vs Offline do not depend on `navigator.onLine`.
 
 ## Variants and states
-Visible only when `navigator.onLine` is false (and `offline` window events).
+- Online: `OnlineStatus.online()` is true (banner hidden)
+- Offline: `OnlineStatus.online()` is false (banner visible)
+
+In the app this tracks `navigator.onLine` and `window` `online`/`offline` events. In Storybook the service is mocked.
 
 ## Usage
 
@@ -61,6 +64,7 @@ Uses `role="status"` so assistive tech hears the message without stealing focus.
 
 ## Related
 - [PageStatus](PageStatus.md)
+- Storybook: `Shared/OfflineBanner` (`npm run storybook` in `src/interview-quiz-web`, port 6006)
 
 ## Source of truth
 `OfflineBanner` template in `offline-banner.component.html`.

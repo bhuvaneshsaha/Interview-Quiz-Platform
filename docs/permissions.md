@@ -1,6 +1,6 @@
-# Permission catalog (draft)
+# Permission catalog
 
-Status: Architecture draft for Auth to seed and wire. Codes are stable app-defined strings. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. Slice 2 quiz authoring is live (`quizzes.read` / `quizzes.write` on `/api/quizzes` and `/quizzes` routes). Codes for later slices (templates, AI, assignments, attempts, filters) are catalogued but not yet exposed as product screens. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 

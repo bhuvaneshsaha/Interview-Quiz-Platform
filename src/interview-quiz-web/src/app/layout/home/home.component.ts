@@ -23,6 +23,8 @@ export class Home {
       PermissionCodes.OpeningsFieldsManage,
       PermissionCodes.RolesManage,
       PermissionCodes.UsersManage,
+      PermissionCodes.QuizzesRead,
+      PermissionCodes.QuizzesWrite,
     ]),
   );
 }

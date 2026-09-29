@@ -166,7 +166,7 @@ In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other
 | `GET` | `/api/quizzes/{id}` | `quizzes.read` **or** `quizzes.write` |
 | `PUT` | `/api/quizzes/{id}` | `quizzes.write` |
 
-List query: `openingId`, `page`, `pageSize` (capped at 100). JSON is camelCase. Question `type` / `scoringMode` / `creditMode` are strings (`multipleChoiceSingle`, `auto`, `partial`, …). PUT replaces the full question list and requires `rowVersion`. Create may send an empty `questions` array. Unknown `openingId` returns 400 `"Opening does not exist."` (Catalog calls `IOpeningLookup` in-process; it does not read the `openings` schema).
+List query: `openingId`, `page`, `pageSize` (capped at 100). JSON is camelCase. Eight question `type` values: `multipleChoiceSingle`, `multipleChoiceMulti`, `trueFalse`, `shortText`, `longText`, `dragDropSharedBank`, `dragDropPerSlot`, `ordering`. Scoring: `auto` / `aiAssist` / `humanOnly`. `creditMode` (`partial` / `allOrNothing`) is required only for `multipleChoiceMulti` and `ordering`. PUT replaces the full question list and requires `rowVersion`. Create may send an empty `questions` array. Unknown `openingId` returns 400 `"Opening does not exist."` (Catalog calls `IOpeningLookup` in-process; it does not read the `openings` schema).
 
 A quiz belongs to **exactly one** opening. Template reuse across openings is slice 3. Code question types are rejected.
 
@@ -178,7 +178,7 @@ Not in this slice: publish-template, AI drafts, assignments, magic-link.
 
 ## Web client (Angular SPA / PWA)
 
-Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`).
+Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`). Slice 1: sign-in, openings, permission-aware admin. Slice 2: quiz list and authoring editor.
 
 ```bash
 export PATH=$HOME/.npm-global/bin:$PATH
@@ -189,14 +189,46 @@ ng serve
 
 `ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`.
 
+Quiz routes (permission on the route, same codes as the Catalog API):
+
+| Path | Permission | Screen |
+|------|------------|--------|
+| `/quizzes` | `quizzes.read` | Quiz list (filter by opening, paginate) |
+| `/quizzes/new` | `quizzes.write` | Create quiz |
+| `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz |
+
+Shell nav and home link to Quizzes when the user has `quizzes.read`. Create is hidden without `quizzes.write`. Full employee route table: `docs/architecture.md` §6. Quiz editor details: `src/interview-quiz-web/README.md`.
+
+### Exercise slice 2 locally (Development-only)
+
+Dummy users and passwords are in the table under **Sign in locally** above — do not copy them elsewhere. Use:
+
+- `author.dev@example.com` (Dev Template author) for **write**: list, create, and edit (`quizzes.write`).
+- `recruiter.dev@example.com` (Dev Recruiter) for **read-only**: list and open a quiz; the form is disabled (`quizzes.read` without `quizzes.write`).
+
+Development seed includes one sample quiz with every v1 question type under the backend opening. **Never seeded in Production.**
+
 ```bash
 ng build
 ng test --watch=false
 ```
 
+`ng test` runs **Vitest** (Angular unit/component tests, including quiz list/editor).
+
+### Storybook
+
+OSS Storybook 10 (`@storybook/angular-vite`, Angular 21 zoneless application builder) galleries shared primitives only (PageStatus, OfflineBanner, HasPermission). No Chromatic. Playbook markdown remains the source of API tables: `docs/components/README.md`.
+
+```bash
+cd src/interview-quiz-web
+npm run storybook
+```
+
+Opens **http://localhost:6006**. Static build: `npm run build-storybook`.
+
 PWA: installable manifest + service worker that caches the **hashed app shell only**. No `/api` data groups, no IndexedDB outbox. Offline UI is a banner. Token storage, dummy users, and correlation id are documented in `src/interview-quiz-web/README.md`.
 
-Shared UI primitives: `docs/components/README.md`.
+Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
 
 ## Tests
 
@@ -204,7 +236,14 @@ Shared UI primitives: `docs/components/README.md`.
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`).
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz rules). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz API coverage (`CatalogApiTests`).
+
+Angular (Vitest):
+
+```bash
+cd src/interview-quiz-web
+ng test --watch=false
+```
 
 ## Solution layout
 
@@ -214,5 +253,5 @@ Unit tests always run (JWT validation, `HasPermission`, login success/failure wi
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
 - `src/Modules/Catalog` — Domain / Application / Infrastructure (`catalog` schema; quiz authoring)
 - `src/Modules/Delivery|Evaluation|Search` — empty composition stubs
-- `src/interview-quiz-web` — Angular SPA + installable PWA (slice 1)
+- `src/interview-quiz-web` — Angular SPA + installable PWA (slices 1–2: openings, quiz list/editor)
 - `deploy/local/compose.yaml` — local PostgreSQL 16

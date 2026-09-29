@@ -1,0 +1,681 @@
+<div class="page-heading">
+  <h1>{{ isNew() ? 'Create quiz' : 'Quiz' }}</h1>
+  <a routerLink="/quizzes">Back to quizzes</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading quiz."
+>
+  <form id="quiz-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      @if (canReadOpenings) {
+        <label for="openingId">Opening</label>
+        <select
+          id="openingId"
+          formControlName="openingId"
+          data-field="openingId"
+          [attr.aria-invalid]="errorFor('openingId') ? true : null"
+          [attr.aria-describedby]="errorFor('openingId') ? 'err-openingId' : null"
+        >
+          <option value="">Select an opening</option>
+          @for (opening of openings(); track opening.id) {
+            <option [value]="opening.id">{{ opening.title }}</option>
+          }
+        </select>
+      } @else {
+        <label for="openingId">Opening id</label>
+        <input
+          id="openingId"
+          type="text"
+          formControlName="openingId"
+          data-field="openingId"
+          autocomplete="off"
+          [attr.aria-invalid]="errorFor('openingId') ? true : null"
+          [attr.aria-describedby]="errorFor('openingId') ? 'err-openingId' : null"
+        />
+      }
+      @if (errorFor('openingId'); as message) {
+        <p id="err-openingId" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="title">Title</label>
+      <input
+        id="title"
+        type="text"
+        formControlName="title"
+        [attr.maxlength]="titleMax"
+        data-field="title"
+        [attr.aria-invalid]="errorFor('title') ? true : null"
+        [attr.aria-describedby]="errorFor('title') ? 'err-title' : null"
+      />
+      @if (errorFor('title'); as message) {
+        <p id="err-title" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="description">Description</label>
+      <textarea
+        id="description"
+        rows="5"
+        formControlName="description"
+        [attr.maxlength]="descriptionMax"
+        data-field="description"
+        [attr.aria-invalid]="errorFor('description') ? true : null"
+        [attr.aria-describedby]="errorFor('description') ? 'err-description' : null"
+      ></textarea>
+      @if (errorFor('description'); as message) {
+        <p id="err-description" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="expectedExperienceYears">Expected experience (years)</label>
+      <input
+        id="expectedExperienceYears"
+        type="number"
+        [attr.min]="experienceMin"
+        [attr.max]="experienceMax"
+        formControlName="expectedExperienceYears"
+        data-field="expectedExperienceYears"
+        [attr.aria-invalid]="errorFor('expectedExperienceYears') ? true : null"
+        [attr.aria-describedby]="errorFor('expectedExperienceYears') ? 'err-expectedExperienceYears' : null"
+      />
+      @if (errorFor('expectedExperienceYears'); as message) {
+        <p id="err-expectedExperienceYears" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <fieldset class="tag-fieldset">
+      <legend>Tags</legend>
+      <p class="hint">Key/value tags. Keys may contain letters, digits, '.', '_' and '-'.</p>
+      @for (tag of tags.controls; track $index; let i = $index) {
+        <div class="tag-row" [formGroup]="tagGroup(i)">
+          <div class="field">
+            <label [attr.for]="'tag-key-' + i">Key</label>
+            <input
+              [id]="'tag-key-' + i"
+              type="text"
+              formControlName="key"
+              [attr.data-field]="'tags.' + i + '.key'"
+              [attr.aria-invalid]="errorFor('tags.' + i + '.key') ? true : null"
+              [attr.aria-describedby]="errorFor('tags.' + i + '.key') ? 'err-tag-key-' + i : null"
+            />
+            @if (errorFor('tags.' + i + '.key'); as message) {
+              <p [id]="'err-tag-key-' + i" class="field-error">{{ message }}</p>
+            }
+          </div>
+          <div class="field">
+            <label [attr.for]="'tag-value-' + i">Value</label>
+            <input
+              [id]="'tag-value-' + i"
+              type="text"
+              formControlName="value"
+              [attr.data-field]="'tags.' + i + '.value'"
+              [attr.aria-invalid]="errorFor('tags.' + i + '.value') ? true : null"
+              [attr.aria-describedby]="errorFor('tags.' + i + '.value') ? 'err-tag-value-' + i : null"
+            />
+            @if (errorFor('tags.' + i + '.value'); as message) {
+              <p [id]="'err-tag-value-' + i" class="field-error">{{ message }}</p>
+            }
+          </div>
+          <button
+            *hasPermission="codes.QuizzesWrite"
+            type="button"
+            class="button button-quiet"
+            (click)="removeTag(i)"
+          >
+            Remove tag
+          </button>
+        </div>
+      }
+      <button *hasPermission="codes.QuizzesWrite" type="button" class="button button-quiet" (click)="addTag()">
+        Add tag
+      </button>
+    </fieldset>
+
+    <fieldset class="questions-fieldset">
+      <legend>Questions</legend>
+      <p class="hint">Question order is the order saved. Sort order is the list order.</p>
+
+      @if (canWrite) {
+        <div class="add-question">
+          <div class="field">
+            <label for="add-question-type">Question type to add</label>
+            <select id="add-question-type" [formControl]="addType">
+              @for (type of types; track type) {
+                <option [value]="type">{{ typeLabels[type] }}</option>
+              }
+            </select>
+          </div>
+          <button type="button" class="button" (click)="addQuestion()">Add question</button>
+        </div>
+      }
+
+      @for (question of questions.controls; track $index; let i = $index) {
+        <fieldset class="question-card" [formGroup]="questionGroup(i)">
+          <legend>Question {{ i + 1 }}</legend>
+          <div class="question-toolbar">
+            <button
+              *hasPermission="codes.QuizzesWrite"
+              type="button"
+              class="button button-quiet"
+              [disabled]="i === 0"
+              (click)="moveQuestion(i, -1)"
+            >
+              Move up
+            </button>
+            <button
+              *hasPermission="codes.QuizzesWrite"
+              type="button"
+              class="button button-quiet"
+              [disabled]="i === questions.length - 1"
+              (click)="moveQuestion(i, 1)"
+            >
+              Move down
+            </button>
+            <button
+              *hasPermission="codes.QuizzesWrite"
+              type="button"
+              class="button button-quiet"
+              (click)="removeQuestion(i)"
+            >
+              Remove question
+            </button>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label [attr.for]="'q-' + i + '-type'">Type</label>
+              <select
+                [id]="'q-' + i + '-type'"
+                formControlName="type"
+                [attr.data-field]="'questions.' + i + '.type'"
+                (change)="onTypeChange(i)"
+              >
+                @for (type of types; track type) {
+                  <option [value]="type">{{ typeLabels[type] }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label [attr.for]="'q-' + i + '-points'">Points</label>
+              <input
+                [id]="'q-' + i + '-points'"
+                type="number"
+                [attr.min]="pointsMin"
+                [attr.max]="pointsMax"
+                formControlName="points"
+                [attr.data-field]="'questions.' + i + '.points'"
+                [attr.aria-invalid]="errorFor('questions.' + i + '.points') ? true : null"
+                [attr.aria-describedby]="errorFor('questions.' + i + '.points') ? 'err-q-' + i + '-points' : null"
+              />
+              @if (errorFor('questions.' + i + '.points'); as message) {
+                <p [id]="'err-q-' + i + '-points'" class="field-error">{{ message }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [attr.for]="'q-' + i + '-scoring'">Scoring</label>
+              <select
+                [id]="'q-' + i + '-scoring'"
+                formControlName="scoringMode"
+                [attr.data-field]="'questions.' + i + '.scoringMode'"
+                [attr.aria-invalid]="errorFor('questions.' + i + '.scoringMode') ? true : null"
+                [attr.aria-describedby]="errorFor('questions.' + i + '.scoringMode') ? 'err-q-' + i + '-scoring' : null"
+              >
+                @for (mode of scoringModes; track mode) {
+                  <option [value]="mode" [disabled]="scoringDisabled(mode, i)">{{ scoringLabels[mode] }}</option>
+                }
+              </select>
+              @if (errorFor('questions.' + i + '.scoringMode'); as message) {
+                <p [id]="'err-q-' + i + '-scoring'" class="field-error">{{ message }}</p>
+              }
+            </div>
+            @if (needsCreditMode(i)) {
+              <div class="field">
+                <label [attr.for]="'q-' + i + '-credit'">Credit mode</label>
+                <select
+                  [id]="'q-' + i + '-credit'"
+                  formControlName="creditMode"
+                  [attr.data-field]="'questions.' + i + '.creditMode'"
+                  [attr.aria-invalid]="errorFor('questions.' + i + '.creditMode') ? true : null"
+                  [attr.aria-describedby]="errorFor('questions.' + i + '.creditMode') ? 'err-q-' + i + '-credit' : null"
+                >
+                  @for (mode of creditModes; track mode) {
+                    <option [value]="mode">{{ creditLabels[mode] }}</option>
+                  }
+                </select>
+                @if (errorFor('questions.' + i + '.creditMode'); as message) {
+                  <p [id]="'err-q-' + i + '-credit'" class="field-error">{{ message }}</p>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="field">
+            <label [attr.for]="'q-' + i + '-stem'">Stem</label>
+            <textarea
+              [id]="'q-' + i + '-stem'"
+              rows="3"
+              formControlName="stem"
+              [attr.maxlength]="stemMax"
+              [attr.data-field]="'questions.' + i + '.stem'"
+              [attr.aria-invalid]="errorFor('questions.' + i + '.stem') ? true : null"
+              [attr.aria-describedby]="errorFor('questions.' + i + '.stem') ? 'err-q-' + i + '-stem' : null"
+            ></textarea>
+            @if (errorFor('questions.' + i + '.stem'); as message) {
+              <p [id]="'err-q-' + i + '-stem'" class="field-error">{{ message }}</p>
+            }
+          </div>
+
+          <div [formGroup]="bodyGroup(i)">
+            @switch (questionType(i)) {
+              @case ('multipleChoiceSingle') {
+                <ng-container [ngTemplateOutlet]="mcBody" [ngTemplateOutletContext]="{ i: i }" />
+              }
+              @case ('multipleChoiceMulti') {
+                <ng-container [ngTemplateOutlet]="mcBody" [ngTemplateOutletContext]="{ i: i }" />
+              }
+              @case ('trueFalse') {
+                <div class="field">
+                  <label [attr.for]="'q-' + i + '-correct'">Correct answer</label>
+                  <select
+                    [id]="'q-' + i + '-correct'"
+                    formControlName="correct"
+                    [attr.data-field]="'questions.' + i + '.body.correct'"
+                  >
+                    <option [ngValue]="true">True</option>
+                    <option [ngValue]="false">False</option>
+                  </select>
+                </div>
+              }
+              @case ('shortText') {
+                <fieldset class="inner-fieldset">
+                  <legend>Acceptable answers</legend>
+                  @if (errorFor('questions.' + i + '.body.acceptableAnswers'); as message) {
+                    <p class="field-error" [attr.data-field]="'questions.' + i + '.body.acceptableAnswers'" tabindex="-1">
+                      {{ message }}
+                    </p>
+                  }
+                  <div class="field">
+                    <label [attr.for]="'q-' + i + '-case'">
+                      <input [id]="'q-' + i + '-case'" type="checkbox" formControlName="caseSensitive" />
+                      Case sensitive
+                    </label>
+                  </div>
+                  @for (answer of answersArray(i).controls; track $index; let j = $index) {
+                    <div class="item-row" [formGroup]="answerGroup(i, j)">
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + i + '-ans-' + j">Answer {{ j + 1 }}</label>
+                        <input
+                          [id]="'q-' + i + '-ans-' + j"
+                          type="text"
+                          formControlName="value"
+                          [attr.data-field]="'questions.' + i + '.body.acceptableAnswers.' + j + '.value'"
+                        />
+                        @if (errorFor('questions.' + i + '.body.acceptableAnswers.' + j + '.value'); as message) {
+                          <p class="field-error">{{ message }}</p>
+                        }
+                      </div>
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removeAnswer(i, j)"
+                      >
+                        Remove answer
+                      </button>
+                    </div>
+                  }
+                  <button
+                    *hasPermission="codes.QuizzesWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="addAnswer(i)"
+                  >
+                    Add answer
+                  </button>
+                </fieldset>
+              }
+              @case ('longText') {
+                <div class="field">
+                  <label [attr.for]="'q-' + i + '-max'">Max length (optional)</label>
+                  <input
+                    [id]="'q-' + i + '-max'"
+                    type="number"
+                    min="1"
+                    formControlName="maxLength"
+                    [attr.data-field]="'questions.' + i + '.body.maxLength'"
+                  />
+                  @if (errorFor('questions.' + i + '.body.maxLength'); as message) {
+                    <p class="field-error">{{ message }}</p>
+                  }
+                </div>
+                <div class="field">
+                  <label [attr.for]="'q-' + i + '-guidance'">Guidance</label>
+                  <textarea
+                    [id]="'q-' + i + '-guidance'"
+                    rows="3"
+                    formControlName="guidance"
+                    [attr.maxlength]="stemMax"
+                    [attr.data-field]="'questions.' + i + '.body.guidance'"
+                  ></textarea>
+                  @if (errorFor('questions.' + i + '.body.guidance'); as message) {
+                    <p class="field-error">{{ message }}</p>
+                  }
+                </div>
+              }
+              @case ('dragDropSharedBank') {
+                <fieldset class="inner-fieldset">
+                  <legend>Bank</legend>
+                  @if (errorFor('questions.' + i + '.body.bank'); as message) {
+                    <p class="field-error" [attr.data-field]="'questions.' + i + '.body.bank'" tabindex="-1">
+                      {{ message }}
+                    </p>
+                  }
+                  @for (item of bankArray(i).controls; track $index; let j = $index) {
+                    <div class="item-row" [formGroup]="bankGroup(i, j)">
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + i + '-bank-' + j">Bank item {{ j + 1 }}</label>
+                        <input
+                          [id]="'q-' + i + '-bank-' + j"
+                          type="text"
+                          formControlName="text"
+                          [attr.data-field]="'questions.' + i + '.body.bank.' + j + '.text'"
+                        />
+                        @if (errorFor('questions.' + i + '.body.bank.' + j + '.text'); as message) {
+                          <p class="field-error">{{ message }}</p>
+                        }
+                      </div>
+                      <div class="field">
+                        <label [attr.for]="'q-' + i + '-dist-' + j">
+                          <input [id]="'q-' + i + '-dist-' + j" type="checkbox" formControlName="isDistractor" />
+                          Distractor
+                        </label>
+                      </div>
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removeBankItem(i, j)"
+                      >
+                        Remove bank item
+                      </button>
+                    </div>
+                  }
+                  <button
+                    *hasPermission="codes.QuizzesWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="addBankItem(i)"
+                  >
+                    Add bank item
+                  </button>
+                </fieldset>
+                <fieldset class="inner-fieldset">
+                  <legend>Slots</legend>
+                  @if (errorFor('questions.' + i + '.body.slots'); as message) {
+                    <p class="field-error" [attr.data-field]="'questions.' + i + '.body.slots'" tabindex="-1">
+                      {{ message }}
+                    </p>
+                  }
+                  @for (slot of slotsArray(i).controls; track $index; let j = $index) {
+                    <div class="item-row" [formGroup]="slotGroup(i, j)">
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + i + '-slot-' + j">Slot label {{ j + 1 }}</label>
+                        <input
+                          [id]="'q-' + i + '-slot-' + j"
+                          type="text"
+                          formControlName="label"
+                          [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.label'"
+                        />
+                        @if (errorFor('questions.' + i + '.body.slots.' + j + '.label'); as message) {
+                          <p class="field-error">{{ message }}</p>
+                        }
+                      </div>
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + i + '-slot-correct-' + j">Correct bank item</label>
+                        <select
+                          [id]="'q-' + i + '-slot-correct-' + j"
+                          formControlName="correctItemId"
+                          [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.correctItemId'"
+                        >
+                          @for (item of bankItems(i); track item.id) {
+                            <option [value]="item.id">{{ item.text || item.id }}</option>
+                          }
+                        </select>
+                        @if (errorFor('questions.' + i + '.body.slots.' + j + '.correctItemId'); as message) {
+                          <p class="field-error">{{ message }}</p>
+                        }
+                      </div>
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removeSharedSlot(i, j)"
+                      >
+                        Remove slot
+                      </button>
+                    </div>
+                  }
+                  <button
+                    *hasPermission="codes.QuizzesWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="addSharedSlot(i)"
+                  >
+                    Add slot
+                  </button>
+                </fieldset>
+              }
+              @case ('dragDropPerSlot') {
+                @if (errorFor('questions.' + i + '.body.slots'); as message) {
+                  <p class="field-error" [attr.data-field]="'questions.' + i + '.body.slots'" tabindex="-1">
+                    {{ message }}
+                  </p>
+                }
+                @for (slot of slotsArray(i).controls; track $index; let j = $index) {
+                  <fieldset class="inner-fieldset" [formGroup]="slotGroup(i, j)">
+                    <legend>Slot {{ j + 1 }}</legend>
+                    <div class="field">
+                      <label [attr.for]="'q-' + i + '-pslot-' + j">Label</label>
+                      <input
+                        [id]="'q-' + i + '-pslot-' + j"
+                        type="text"
+                        formControlName="label"
+                        [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.label'"
+                      />
+                      @if (errorFor('questions.' + i + '.body.slots.' + j + '.label'); as message) {
+                        <p class="field-error">{{ message }}</p>
+                      }
+                    </div>
+                    @if (errorFor('questions.' + i + '.body.slots.' + j + '.options'); as message) {
+                      <p
+                        class="field-error"
+                        [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.options'"
+                        tabindex="-1"
+                      >
+                        {{ message }}
+                      </p>
+                    }
+                    @for (option of slotOptions(i, j).controls; track $index; let k = $index) {
+                      <div class="item-row" [formGroup]="slotOptionGroup(i, j, k)">
+                        <div class="field grow">
+                          <label [attr.for]="'q-' + i + '-pslot-' + j + '-opt-' + k">Option {{ k + 1 }}</label>
+                          <input
+                            [id]="'q-' + i + '-pslot-' + j + '-opt-' + k"
+                            type="text"
+                            formControlName="text"
+                            [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.options.' + k + '.text'"
+                          />
+                        </div>
+                        <div class="field">
+                          <label [attr.for]="'q-' + i + '-pslot-' + j + '-correct-' + k">
+                            <input
+                              [id]="'q-' + i + '-pslot-' + j + '-correct-' + k"
+                              type="checkbox"
+                              formControlName="isCorrect"
+                              (change)="markSlotCorrect(i, j, k, $event)"
+                            />
+                            Correct
+                          </label>
+                        </div>
+                        <button
+                          *hasPermission="codes.QuizzesWrite"
+                          type="button"
+                          class="button button-quiet"
+                          (click)="removePerSlotOption(i, j, k)"
+                        >
+                          Remove option
+                        </button>
+                      </div>
+                    }
+                    <div class="question-toolbar">
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="addPerSlotOption(i, j)"
+                      >
+                        Add option
+                      </button>
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removePerSlot(i, j)"
+                      >
+                        Remove slot
+                      </button>
+                    </div>
+                  </fieldset>
+                }
+                <button
+                  *hasPermission="codes.QuizzesWrite"
+                  type="button"
+                  class="button button-quiet"
+                  (click)="addPerSlot(i)"
+                >
+                  Add slot
+                </button>
+              }
+              @case ('ordering') {
+                <fieldset class="inner-fieldset">
+                  <legend>Items</legend>
+                  @if (errorFor('questions.' + i + '.body.items'); as message) {
+                    <p class="field-error" [attr.data-field]="'questions.' + i + '.body.items'" tabindex="-1">
+                      {{ message }}
+                    </p>
+                  }
+                  @for (item of itemsArray(i).controls; track $index; let j = $index) {
+                    <div class="item-row" [formGroup]="itemGroup(i, j)">
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + i + '-ord-' + j">Item {{ j + 1 }}</label>
+                        <input
+                          [id]="'q-' + i + '-ord-' + j"
+                          type="text"
+                          formControlName="text"
+                          [attr.data-field]="'questions.' + i + '.body.items.' + j + '.text'"
+                        />
+                      </div>
+                      <div class="field">
+                        <label [attr.for]="'q-' + i + '-ord-idx-' + j">Correct index (0 is first)</label>
+                        <input
+                          [id]="'q-' + i + '-ord-idx-' + j"
+                          type="number"
+                          min="0"
+                          formControlName="correctIndex"
+                          [attr.data-field]="'questions.' + i + '.body.items.' + j + '.correctIndex'"
+                        />
+                      </div>
+                      <button
+                        *hasPermission="codes.QuizzesWrite"
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removeOrderingItem(i, j)"
+                      >
+                        Remove item
+                      </button>
+                    </div>
+                  }
+                  <button
+                    *hasPermission="codes.QuizzesWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="addOrderingItem(i)"
+                  >
+                    Add item
+                  </button>
+                </fieldset>
+              }
+            }
+          </div>
+        </fieldset>
+      }
+    </fieldset>
+
+    <ng-template #mcBody let-i="i" let-multi="multi">
+      <fieldset class="inner-fieldset">
+        <legend>Options</legend>
+        @if (errorFor('questions.' + i + '.body.options'); as message) {
+          <p class="field-error" [attr.data-field]="'questions.' + i + '.body.options'" tabindex="-1">
+            {{ message }}
+          </p>
+        }
+        @for (option of optionsArray(i).controls; track $index; let j = $index) {
+          <div class="item-row" [formGroup]="optionGroup(i, j)">
+            <div class="field grow">
+              <label [attr.for]="'q-' + i + '-opt-' + j">Option {{ j + 1 }}</label>
+              <input
+                [id]="'q-' + i + '-opt-' + j"
+                type="text"
+                formControlName="text"
+                [attr.data-field]="'questions.' + i + '.body.options.' + j + '.text'"
+                [attr.aria-invalid]="errorFor('questions.' + i + '.body.options.' + j + '.text') ? true : null"
+              />
+              @if (errorFor('questions.' + i + '.body.options.' + j + '.text'); as message) {
+                <p class="field-error">{{ message }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [attr.for]="'q-' + i + '-opt-correct-' + j">
+                <input
+                  [id]="'q-' + i + '-opt-correct-' + j"
+                  type="checkbox"
+                  formControlName="isCorrect"
+                  (change)="markCorrect(i, j, $event)"
+                />
+                Correct
+              </label>
+            </div>
+            <button
+              *hasPermission="codes.QuizzesWrite"
+              type="button"
+              class="button button-quiet"
+              (click)="removeOption(i, j)"
+            >
+              Remove option
+            </button>
+          </div>
+        }
+        <button
+          *hasPermission="codes.QuizzesWrite"
+          type="button"
+          class="button button-quiet"
+          (click)="addOption(i)"
+        >
+          Add option
+        </button>
+      </fieldset>
+    </ng-template>
+
+    <button *hasPermission="codes.QuizzesWrite" type="submit" class="button" [disabled]="saving()" data-testid="save-quiz">
+      {{ saving() ? 'Saving…' : 'Save quiz' }}
+    </button>
+  </form>
+</app-page-status>

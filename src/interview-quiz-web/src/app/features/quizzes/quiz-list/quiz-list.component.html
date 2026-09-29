@@ -1,0 +1,72 @@
+<div class="page-heading">
+  <h1>Quizzes</h1>
+  <a *hasPermission="codes.QuizzesWrite" routerLink="/quizzes/new" class="button">Create quiz</a>
+</div>
+
+<form class="filter-row" (submit)="$event.preventDefault(); load(1)">
+  <div class="field">
+    @if (canReadOpenings) {
+      <label for="opening-filter">Opening</label>
+      <select id="opening-filter" [formControl]="openingFilter">
+        <option value="">All openings</option>
+        @for (opening of openings(); track opening.id) {
+          <option [value]="opening.id">{{ opening.title }}</option>
+        }
+      </select>
+    } @else {
+      <label for="opening-filter">Opening id</label>
+      <input id="opening-filter" type="text" [formControl]="openingFilter" autocomplete="off" />
+    }
+  </div>
+  <button type="submit" class="button">Filter</button>
+</form>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="!loading() && !error() && quizzes().length === 0"
+  emptyMessage="No quizzes match this filter."
+  loadingMessage="Loading quizzes."
+>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th scope="col">Title</th>
+        <th scope="col">Opening</th>
+        <th scope="col">Experience</th>
+        <th scope="col">Questions</th>
+        <th scope="col">Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (quiz of quizzes(); track quiz.id) {
+        <tr>
+          <th scope="row">
+            <a [routerLink]="['/quizzes', quiz.id]">{{ quiz.title }}</a>
+          </th>
+          <td>{{ openingTitle(quiz.openingId) }}</td>
+          <td>{{ quiz.expectedExperienceYears }}</td>
+          <td>{{ quiz.questions.length }}</td>
+          <td>{{ formatUpdated(quiz.updatedAtUtc) }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  @if (totalCount() > pageSize) {
+    <nav class="pager" aria-label="Quizzes pages">
+      <button type="button" class="button button-quiet" [disabled]="page() <= 1" (click)="load(page() - 1)">
+        Previous
+      </button>
+      <span>Page {{ page() }} of {{ lastPage }}</span>
+      <button
+        type="button"
+        class="button button-quiet"
+        [disabled]="page() >= lastPage"
+        (click)="load(page() + 1)"
+      >
+        Next
+      </button>
+    </nav>
+  }
+</app-page-status>

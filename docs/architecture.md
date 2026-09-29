@@ -185,13 +185,16 @@ flowchart TB
 
 **Public contracts:**
 
-- `GET|POST|PUT /api/quizzes`, `GET /api/quizzes/{id}`
-- `POST /api/quizzes/{id}/publish-template` (or equivalent)
-- `GET /api/templates`, `GET /api/templates/{id}/versions`
+Slice 2 **implemented** (REST, camelCase JSON): `GET|POST /api/quizzes`, `GET|PUT /api/quizzes/{id}`. List query: `openingId`, `page`, `pageSize`. Permissions: list `quizzes.read`; create/update `quizzes.write`; get by id `quizzes.read` **or** `quizzes.write`. Question `type` / `scoringMode` / `creditMode` are strings (`multipleChoiceSingle`, `auto`, `partial`, …). `creditMode` is required only for `multipleChoiceMulti` and `ordering`. A quiz belongs to **exactly one** opening. Code question types are rejected. No templates, AI drafts, or assignments in this slice.
+
+Later (not implemented):
+
+- `POST /api/quizzes/{id}/publish-template` (or equivalent) — slice 3
+- `GET /api/templates`, `GET /api/templates/{id}/versions` — slice 3
 - `GET|POST|PUT /api/ai-rule-sets` (`ai.rules.manage`) — schema in AI slice
 - Slice 7: `POST /api/ai-drafts` (`ai.draft.use`); draft is never auto-assigned
 
-**In-process (critical):** `GetQuizSnapshot(quizId)` → immutable DTO of questions, keys, scoring rules for Delivery to persist on assign. `GetTemplateVersion(id)` for clone-into-quiz.
+**In-process (critical):** `IQuizSnapshotReader.GetSnapshotAsync(quizId)` → immutable DTO of questions, keys, scoring rules for Delivery to persist on assign (wired; Delivery does not call it yet). `GetTemplateVersion(id)` for clone-into-quiz — slice 3.
 
 **Permissions:** `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `ai.rules.manage`, `ai.draft.use`.
 
@@ -279,6 +282,26 @@ Details: `docs/adr/0004-pwa-online-first.md`. Angular implements; this ADR is th
 
 Candidate and employee UIs may share the SPA with different routes; Auth owns branded entry routing.
 
+**Implemented employee routes** (Angular `app.routes.ts`; permission on the route, same codes as the API):
+
+| Path | Permission | Screen |
+|------|------------|--------|
+| `/login` | guest (unauthenticated) | Sign in |
+| `/` | authenticated | Home |
+| `/openings` | `openings.read` | Opening list |
+| `/openings/new` | `openings.write` | Create opening |
+| `/openings/:id` | `openings.read` | View / edit opening |
+| `/quizzes` | `quizzes.read` | Quiz list |
+| `/quizzes/new` | `quizzes.write` | Create quiz |
+| `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz |
+| `/opening-fields` | `openings.fields.manage` | Opening field defaults |
+| `/roles`, `/roles/new`, `/roles/:id` | `roles.manage` | Role list / editor |
+| `/users`, `/users/new`, `/users/:id` | `users.manage` | User list / form |
+
+Nav and home link to Quizzes when the user has `quizzes.read`. Create is hidden without `quizzes.write`. Recruiter (read only) sees a disabled form; author (write) gets the full editor.
+
+Shared UI primitives: [`docs/components/README.md`](components/README.md). Playbook markdown pages are the source of API tables. OSS Storybook 10 (`@storybook/angular-vite`, Angular 21 zoneless application builder) is the isolated gallery for those primitives (`npm run storybook` in `src/interview-quiz-web` → http://localhost:6006). No Chromatic.
+
 ---
 
 ## 7. Hosting (on-premises)
@@ -361,15 +384,15 @@ No numeric SLAs or KPIs are claimed; Brief §13 is qualitative until a Forms bas
 
 Vertical slices. Each slice is not done until the collaboration skill DoD holds (permission on API + UI, migrations, tests, correlation id, no secrets, contract updated).
 
-| Slice | What | Modules |
-|-------|------|---------|
-| **1 Foundations** | Users, permission catalog + role editor, openings + dynamic fields/tags | Access, Openings |
-| **2 Authoring** | Quiz editor, question types, scoring modes, credit modes | Catalog |
-| **3 Templates and search** | Publish template, versions, list/search, saved/shared filters | Catalog, Search |
-| **4 Assignments** | Candidate assignment, snapshot, async timed link, basic results | Delivery, Evaluation (submit + auto-score), Access (magic-link) |
-| **5 Live mode** | Start/pause/monitor on the **same** assignment model | Delivery |
-| **6 Review** | Human + AI-assist marking, auditable drafts, finalise | Evaluation |
-| **7 AI draft** | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
+| Slice | Status | What | Modules |
+|-------|--------|------|---------|
+| **1 Foundations** | Implemented | Users, permission catalog + role editor, openings + dynamic fields/tags, Angular shell / PWA | Access, Openings, Angular |
+| **2 Authoring** | Implemented | Quiz authoring API + Angular list/editor; eight v1 question types; scoring and credit modes | Catalog, Angular |
+| **3 Templates and search** | Next | Publish template, versions, list/search, saved/shared filters | Catalog, Search |
+| **4 Assignments** | Later | Candidate assignment, snapshot, async timed link, basic results | Delivery, Evaluation (submit + auto-score), Access (magic-link) |
+| **5 Live mode** | Later | Start/pause/monitor on the **same** assignment model | Delivery |
+| **6 Review** | Later | Human + AI-assist marking, auditable drafts, finalise | Evaluation |
+| **7 AI draft** | Later | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
 
 No LLM in slices 1–5. Slice 6 AI-assist may call the same operator endpoint when configured; if unset, human-only review still works.
 
@@ -390,13 +413,11 @@ Permission catalog: [`docs/permissions.md`](permissions.md).
 
 ---
 
-## 14. Next specialists
+## 14. Delivery status
 
-1. **Auth** — JWT implementation skill + permission-based access (catalog wiring). Do not redesign Cookie vs JWT.
-2. **.NET API** — host, modules, EF Core, OpenAPI, health, OTel emit. Permission placeholders until Auth wires checks.
-3. **Angular** — SPA scaffold, then PWA per ADR 0004. No Ionic.
-4. **DevOps** — Compose PostgreSQL, reverse proxy cache headers, OTel Collector, self-hosted CI, Dev/Test/Prod.
-5. Documentation / Testing / Security in parallel as the collaboration skill allows.
+Slices **1** (foundations) and **2** (Catalog quiz authoring: API + Angular editor) are implemented. **Slice 3** is templates and search. Hosting and auth ADRs (0001, 0006) are unchanged.
+
+Still later: production runbook, self-hosted CI (DevOps), candidate magic-link, assignments, live mode, review, AI draft. No LLM in slices 1–5.
 
 ---
 

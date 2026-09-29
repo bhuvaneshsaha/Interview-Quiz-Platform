@@ -33,7 +33,7 @@ None
 Structural: the host template is created when allowed and destroyed when not.
 
 ### Configuration
-Standalone directive. Reads `PermissionService`.
+Standalone directive. Reads `PermissionService`. Storybook stories provide a mock `PermissionService` with `set(codes)` so granted vs denied do not depend on login.
 
 ## Variants and states
 Shown when `PermissionService.hasPermission` / `hasAny` is true for the bound code(s).
@@ -72,6 +72,7 @@ Hidden actions are not in the accessibility tree. Do not leave a disabled contro
 ## Related
 - [PageStatus](PageStatus.md)
 - `docs/permissions.md`
+- Storybook: `Shared/HasPermission` (`npm run storybook` in `src/interview-quiz-web`, port 6006)
 
 ## Source of truth
 `HasPermission.hasPermission` input in `has-permission.directive.ts`.

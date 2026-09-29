@@ -80,6 +80,7 @@ None beyond Angular.
 ## Related
 - [HasPermission](HasPermission.md)
 - [OfflineBanner](OfflineBanner.md)
+- Storybook: `Shared/PageStatus` (`npm run storybook` in `src/interview-quiz-web`, port 6006)
 
 ## Source of truth
 `PageStatus` in `page-status.component.ts` (`loading`, `empty`, `error`, `correlationId`, `loadingMessage`, `emptyMessage` inputs).
