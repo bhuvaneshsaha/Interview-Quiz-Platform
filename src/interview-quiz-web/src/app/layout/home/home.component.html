@@ -1,0 +1,24 @@
+<h1>Home</h1>
+@if (user(); as me) {
+  <p>Signed in as {{ me.email }}.</p>
+}
+@if (!hasSliceOneScreen()) {
+  <p>
+    You are signed in, but none of the slice 1 screens (openings, field defaults, roles, users) are
+    available for your permissions.
+  </p>
+}
+<ul class="home-links">
+  <li *hasPermission="codes.OpeningsRead">
+    <a routerLink="/openings">Openings</a>
+  </li>
+  <li *hasPermission="codes.OpeningsFieldsManage">
+    <a routerLink="/opening-fields">Opening field defaults</a>
+  </li>
+  <li *hasPermission="codes.RolesManage">
+    <a routerLink="/roles">Roles (permission groups)</a>
+  </li>
+  <li *hasPermission="codes.UsersManage">
+    <a routerLink="/users">Users</a>
+  </li>
+</ul>

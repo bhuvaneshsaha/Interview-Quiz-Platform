@@ -1,0 +1,37 @@
+<div class="page-heading">
+  <h1>Roles</h1>
+  <a routerLink="/roles/new" class="button">Create role</a>
+</div>
+<p>A role is a named set of permissions. The API and UI check permission codes, not role names.</p>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="!loading() && !error() && roles().length === 0"
+  emptyMessage="No roles yet."
+  loadingMessage="Loading roles."
+>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Description</th>
+        <th scope="col">Permissions</th>
+        <th scope="col">Assigned users</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (role of roles(); track role.id) {
+        <tr>
+          <th scope="row">
+            <a [routerLink]="['/roles', role.id]">{{ role.name }}</a>
+          </th>
+          <td>{{ role.description ?? '—' }}</td>
+          <td>{{ role.permissionCodes.length }}</td>
+          <td>{{ role.userIds.length }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</app-page-status>

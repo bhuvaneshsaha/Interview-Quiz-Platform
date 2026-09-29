@@ -1,0 +1,59 @@
+.shell-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--color-header);
+  color: #fff;
+}
+
+.shell-brand {
+  min-width: 12rem;
+}
+
+.shell-title {
+  margin: 0;
+  font-weight: 650;
+}
+
+.shell-user {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.shell-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  flex: 1;
+}
+
+.shell-nav a {
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  padding-bottom: 0.1rem;
+}
+
+.shell-nav a:hover,
+.shell-nav a:focus-visible {
+  border-bottom-color: #fff;
+}
+
+.shell-nav a.is-active {
+  border-bottom-color: #fff;
+  font-weight: 650;
+}
+
+.shell-header .button-quiet {
+  color: #fff;
+  border-color: rgb(255 255 255 / 45%);
+}
+
+.shell-main {
+  padding: 1.25rem 1.25rem 2.5rem;
+  max-width: 64rem;
+  margin: 0 auto;
+}

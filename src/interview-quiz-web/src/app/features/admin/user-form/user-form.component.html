@@ -1,0 +1,66 @@
+<div class="page-heading">
+  <h1>{{ isNew() ? 'Create user' : 'User' }}</h1>
+  <a routerLink="/users">Back to users</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading user."
+>
+  @if (isNew()) {
+    <form id="user-create-form" [formGroup]="createForm" (ngSubmit)="create()" novalidate>
+      <div class="field">
+        <label for="user-email">Email</label>
+        <input id="user-email" type="email" formControlName="email" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="user-password">Temporary password</label>
+        <input id="user-password" type="password" formControlName="password" autocomplete="new-password" />
+      </div>
+      @if (canManageRoles) {
+        <fieldset>
+          <legend>Roles</legend>
+          @for (role of roles(); track role.id) {
+            <label class="check-row">
+              <input
+                type="checkbox"
+                [checked]="isRoleSelected(role.id)"
+                (change)="toggleRole(role.id, $event)"
+              />
+              {{ role.name }}
+            </label>
+          }
+        </fieldset>
+      }
+      <button type="submit" class="button" [disabled]="saving()">
+        {{ saving() ? 'Creating…' : 'Create user' }}
+      </button>
+    </form>
+  } @else if (user(); as current) {
+    <p><strong>Email:</strong> {{ current.email }}</p>
+    <p><strong>Status:</strong> {{ current.isDisabled ? 'Disabled' : 'Active' }}</p>
+    <div class="actions">
+      @if (current.isDisabled) {
+        <button type="button" class="button" [disabled]="saving()" (click)="setDisabled(false)">Enable user</button>
+      } @else {
+        <button type="button" class="button" [disabled]="saving()" (click)="setDisabled(true)">Disable user</button>
+      }
+    </div>
+    <section *hasPermission="codes.RolesManage">
+      <h2>Roles</h2>
+      @for (role of roles(); track role.id) {
+        <label class="check-row">
+          <input
+            type="checkbox"
+            [checked]="isRoleSelected(role.id)"
+            (change)="toggleRole(role.id, $event)"
+          />
+          {{ role.name }}
+        </label>
+      }
+      <button type="button" class="button" [disabled]="saving()" (click)="saveRoles()">Save roles</button>
+    </section>
+  }
+</app-page-status>

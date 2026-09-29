@@ -1,0 +1,56 @@
+<div class="page-heading">
+  <h1>{{ isNew() ? 'Create role' : 'Edit role' }}</h1>
+  <a routerLink="/roles">Back to roles</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading role editor."
+>
+  <form id="role-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      <label for="role-name">Name</label>
+      <input id="role-name" type="text" formControlName="name" />
+    </div>
+    <div class="field">
+      <label for="role-description">Description</label>
+      <input id="role-description" type="text" formControlName="description" />
+    </div>
+
+    <fieldset>
+      <legend>Permissions</legend>
+      <p class="hint">Candidate attempt access is not shown here and cannot be granted as an employee role.</p>
+      @for (group of modules(); track group.module) {
+        <section class="permission-module">
+          <h2>{{ group.module }}</h2>
+          @for (permission of group.permissions; track permission.code) {
+            <label class="check-row">
+              <input
+                type="checkbox"
+                [checked]="isSelected(permission.code)"
+                (change)="toggle(permission.code, $event)"
+              />
+              <span>
+                <strong>{{ permission.displayName }}</strong>
+                <span class="code">{{ permission.code }}</span>
+              </span>
+            </label>
+          }
+        </section>
+      }
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" class="button" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : 'Save role' }}
+      </button>
+      @if (!isNew()) {
+        <button type="button" class="button button-quiet" [disabled]="saving()" (click)="deleteRole()">
+          Delete role
+        </button>
+      }
+    </div>
+  </form>
+</app-page-status>

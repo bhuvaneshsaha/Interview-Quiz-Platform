@@ -1,0 +1,81 @@
+<div class="page-heading">
+  <h1>{{ isNew() ? 'Create opening' : 'Opening' }}</h1>
+  <a routerLink="/openings">Back to openings</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading opening."
+>
+  <form id="opening-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      <label for="title">Title</label>
+      <input id="title" type="text" formControlName="title" />
+    </div>
+    <div class="field">
+      <label for="jobDescription">Job description</label>
+      <textarea id="jobDescription" rows="8" formControlName="jobDescription"></textarea>
+    </div>
+    <div class="field">
+      <label for="owner">Owner</label>
+      <input id="owner" type="text" formControlName="owner" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="startDate">Start date</label>
+        <input id="startDate" type="date" formControlName="startDate" />
+      </div>
+      <div class="field">
+        <label for="expectedCloseDate">Expected close date</label>
+        <input id="expectedCloseDate" type="date" formControlName="expectedCloseDate" />
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="headcount">Headcount</label>
+        <input id="headcount" type="number" min="1" max="10000" formControlName="headcount" />
+      </div>
+      <div class="field">
+        <label for="expectedExperienceYears">Expected experience (years)</label>
+        <input
+          id="expectedExperienceYears"
+          type="number"
+          min="0"
+          max="80"
+          formControlName="expectedExperienceYears"
+        />
+      </div>
+    </div>
+    <div class="field">
+      <label for="handlersText">Handlers (one per line)</label>
+      <textarea id="handlersText" rows="3" formControlName="handlersText"></textarea>
+    </div>
+
+    <fieldset class="tag-fieldset">
+      <legend>Tags</legend>
+      <p class="hint">Key/value tags. Extra keys are allowed even when they are not in the field catalog.</p>
+      @for (tag of tags.controls; track $index; let i = $index) {
+        <div class="tag-row" [formGroup]="tagGroup(i)">
+          <div class="field">
+            <label [attr.for]="'tag-key-' + i">Key</label>
+            <input [id]="'tag-key-' + i" type="text" formControlName="key" />
+          </div>
+          <div class="field">
+            <label [attr.for]="'tag-value-' + i">Value</label>
+            <input [id]="'tag-value-' + i" type="text" formControlName="value" />
+          </div>
+          <button type="button" class="button button-quiet" (click)="removeTag(i)">Remove tag</button>
+        </div>
+      }
+      <button *hasPermission="codes.OpeningsWrite" type="button" class="button button-quiet" (click)="addTag()">
+        Add tag
+      </button>
+    </fieldset>
+
+    <button *hasPermission="codes.OpeningsWrite" type="submit" class="button" [disabled]="saving()">
+      {{ saving() ? 'Saving…' : 'Save opening' }}
+    </button>
+  </form>
+</app-page-status>

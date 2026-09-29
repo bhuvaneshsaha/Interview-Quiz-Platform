@@ -1,0 +1,9 @@
+.login-page {
+  max-width: 24rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+.login-page h1 {
+  margin-bottom: 0.35rem;
+}

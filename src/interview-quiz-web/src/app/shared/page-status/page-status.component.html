@@ -1,0 +1,14 @@
+@if (loading()) {
+  <p class="status status-loading" role="status">{{ loadingMessage() }}</p>
+} @else if (error()) {
+  <p class="status status-error" role="alert">
+    {{ error() }}
+    @if (showDevCorrelation && correlationId()) {
+      <span class="status-correlation"> Correlation id: {{ correlationId() }}</span>
+    }
+  </p>
+} @else if (empty()) {
+  <p class="status status-empty">{{ emptyMessage() }}</p>
+} @else {
+  <ng-content />
+}

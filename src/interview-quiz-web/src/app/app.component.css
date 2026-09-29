@@ -1,0 +1,4 @@
+/* Root host; layout lives in the shell. */
+:host {
+  display: block;
+}

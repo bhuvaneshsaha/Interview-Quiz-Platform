@@ -1,0 +1,26 @@
+<a class="skip-link" href="#main">Skip to content</a>
+<app-offline-banner />
+<header class="shell-header">
+  <div class="shell-brand">
+    <p class="shell-title">Interview Quiz Platform</p>
+    @if (user(); as me) {
+      <p class="shell-user">{{ me.email }}</p>
+    }
+  </div>
+  <nav class="shell-nav" aria-label="Primary">
+    <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    <a routerLink="/openings" routerLinkActive="is-active" *hasPermission="codes.OpeningsRead">Openings</a>
+    <a
+      routerLink="/opening-fields"
+      routerLinkActive="is-active"
+      *hasPermission="codes.OpeningsFieldsManage"
+      >Field defaults</a
+    >
+    <a routerLink="/roles" routerLinkActive="is-active" *hasPermission="codes.RolesManage">Roles</a>
+    <a routerLink="/users" routerLinkActive="is-active" *hasPermission="codes.UsersManage">Users</a>
+  </nav>
+  <button type="button" class="button button-quiet" (click)="logout()">Sign out</button>
+</header>
+<main id="main" class="shell-main">
+  <router-outlet />
+</main>

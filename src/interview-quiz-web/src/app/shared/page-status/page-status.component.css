@@ -1,0 +1,14 @@
+.status {
+  margin: 0 0 1rem;
+}
+
+.status-error {
+  color: var(--color-danger);
+}
+
+.status-correlation {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}

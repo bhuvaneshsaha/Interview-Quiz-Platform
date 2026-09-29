@@ -1,0 +1,9 @@
+.check-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.actions {
+  margin: 1rem 0;
+}

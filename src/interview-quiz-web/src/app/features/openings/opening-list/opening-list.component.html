@@ -1,0 +1,62 @@
+<div class="page-heading">
+  <h1>Openings</h1>
+  <a *hasPermission="codes.OpeningsWrite" routerLink="/openings/new" class="button">Create opening</a>
+</div>
+
+<form class="filter-row" (submit)="$event.preventDefault(); load(1)">
+  <div class="field">
+    <label for="owner-filter">Owner</label>
+    <input id="owner-filter" type="text" [formControl]="ownerFilter" />
+  </div>
+  <button type="submit" class="button">Filter</button>
+</form>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="!loading() && !error() && openings().length === 0"
+  emptyMessage="No openings match this filter."
+  loadingMessage="Loading openings."
+>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th scope="col">Title</th>
+        <th scope="col">Owner</th>
+        <th scope="col">Start</th>
+        <th scope="col">Headcount</th>
+        <th scope="col">Experience (years)</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (opening of openings(); track opening.id) {
+        <tr>
+          <th scope="row">
+            <a [routerLink]="['/openings', opening.id]">{{ opening.title }}</a>
+          </th>
+          <td>{{ opening.owner }}</td>
+          <td>{{ opening.startDate }}</td>
+          <td>{{ opening.headcount }}</td>
+          <td>{{ opening.expectedExperienceYears }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  @if (totalCount() > pageSize) {
+    <nav class="pager" aria-label="Openings pages">
+      <button type="button" class="button button-quiet" [disabled]="page() <= 1" (click)="load(page() - 1)">
+        Previous
+      </button>
+      <span>Page {{ page() }} of {{ lastPage }}</span>
+      <button
+        type="button"
+        class="button button-quiet"
+        [disabled]="page() >= lastPage"
+        (click)="load(page() + 1)"
+      >
+        Next
+      </button>
+    </nav>
+  }
+</app-page-status>

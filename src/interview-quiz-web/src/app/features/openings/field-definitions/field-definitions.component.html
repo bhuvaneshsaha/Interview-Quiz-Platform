@@ -1,0 +1,55 @@
+<h1>Opening field defaults</h1>
+<p>Default tag keys shown when creating openings. Extra keys can still be added on an opening.</p>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading field defaults."
+>
+  @if (saved()) {
+    <p class="status" role="status">Field defaults saved.</p>
+  }
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Key</th>
+          <th scope="col">Display name</th>
+          <th scope="col">Sort order</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody formArrayName="items">
+        @for (item of items.controls; track $index; let i = $index) {
+          <tr [formGroupName]="i">
+            <td>
+              <label class="visually-hidden" [attr.for]="'field-key-' + i">Key</label>
+              <input [id]="'field-key-' + i" type="text" formControlName="key" />
+            </td>
+            <td>
+              <label class="visually-hidden" [attr.for]="'field-name-' + i">Display name</label>
+              <input [id]="'field-name-' + i" type="text" formControlName="displayName" />
+            </td>
+            <td>
+              <label class="visually-hidden" [attr.for]="'field-sort-' + i">Sort order</label>
+              <input [id]="'field-sort-' + i" type="number" min="0" formControlName="sortOrder" />
+            </td>
+            <td>
+              <button type="button" class="button button-quiet" (click)="remove(i)">Remove</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (items.length === 0) {
+      <p>No field defaults yet.</p>
+    }
+    <div class="actions">
+      <button type="button" class="button button-quiet" (click)="add()">Add field</button>
+      <button type="submit" class="button" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : 'Save field defaults' }}
+      </button>
+    </div>
+  </form>
+</app-page-status>

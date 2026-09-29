@@ -1,12 +1,13 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular (SPA/PWA later). Slice 1 delivers the **host**, **Access** (JWT + Identity + permissions), and **Openings**. Candidate magic-link and Entra ID are **not** in this slice.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slice 1 delivers the **host**, **Access** (JWT + Identity + permissions), **Openings**, and the **web client** (sign-in, openings, permission-aware admin). Candidate magic-link and Entra ID are **not** in this slice.
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (this repo targets `net10.0`)
 - Docker Compose **or** a local PostgreSQL 16 instance
 - `dotnet-ef` for migrations (`dotnet tool install --global dotnet-ef`)
+- Node.js LTS + Angular CLI 21 (for the web client)
 
 Docker is used only to run PostgreSQL locally. The app itself runs with `dotnet run`.
 
@@ -114,7 +115,7 @@ curl -s http://localhost:5147/api/auth/login \
 
 Use `Authorization: Bearer {accessToken}` on subsequent requests. Call `POST /api/auth/refresh` with the refresh token to rotate; the new access token re-reads permissions from the database (role changes take effect on the next tokens). Call `POST /api/auth/logout` with the refresh token to revoke it.
 
-Angular should keep tokens out of `localStorage` if a safer option exists (memory + refresh). Service workers must not cache tokens, `/me`, login, or refresh.
+Angular should keep the access token **in memory** and the refresh token in **sessionStorage** (not `localStorage`, Cache Storage, IndexedDB, or the service worker). See `src/interview-quiz-web/README.md`. Service workers must not cache tokens, `/me`, login, or refresh.
 
 Do **not** use `[Authorize(Roles = ...)]`. Roles are operator-composed permission sets; API and UI check permission codes only.
 
@@ -150,6 +151,28 @@ Concurrency: `row_version` integer token on Opening (incremented on update). PUT
 
 In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other modules must not read the `openings` schema.
 
+## Web client (Angular SPA / PWA)
+
+Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`).
+
+```bash
+export PATH=$HOME/.npm-global/bin:$PATH
+cd src/interview-quiz-web
+npm install
+ng serve
+```
+
+`ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`.
+
+```bash
+ng build
+ng test --watch=false
+```
+
+PWA: installable manifest + service worker that caches the **hashed app shell only**. No `/api` data groups, no IndexedDB outbox. Offline UI is a banner. Token storage, dummy users, and correlation id are documented in `src/interview-quiz-web/README.md`.
+
+Shared UI primitives: `docs/components/README.md`.
+
 ## Tests
 
 ```bash
@@ -165,4 +188,5 @@ Unit tests always run (JWT validation, `HasPermission`, login success/failure wi
 - `src/Modules/Access` — Identity user store, JWT issue/refresh/revoke, permission catalog, roles as permission sets (`access` schema)
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
 - `src/Modules/Catalog|Delivery|Evaluation|Search` — empty composition stubs
+- `src/interview-quiz-web` — Angular SPA + installable PWA (slice 1)
 - `deploy/local/compose.yaml` — local PostgreSQL 16
