@@ -10,6 +10,7 @@ using InterviewQuiz.Openings.Infrastructure;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -24,15 +25,17 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, loggerConfiguration) =>
-    {
-        loggerConfiguration
-            .ReadFrom.Configuration(context.Configuration)
-            .ReadFrom.Services(services)
-            .Enrich.FromLogContext()
-            .Enrich.WithProperty("Application", "InterviewQuiz.Host")
-            .WriteTo.Console();
-    });
+    builder.Host.UseSerilog(
+        (context, services, loggerConfiguration) =>
+        {
+            loggerConfiguration
+                .ReadFrom.Configuration(context.Configuration)
+                .ReadFrom.Services(services)
+                .Enrich.FromLogContext()
+                .Enrich.WithProperty("Application", "InterviewQuiz.Host")
+                .WriteTo.Console();
+        },
+        preserveStaticLogger: true);
 
     builder.Services.AddSingleton<IClock, UtcClock>();
     builder.Services.AddInterviewQuizObservability(builder.Configuration);
@@ -53,7 +56,12 @@ try
         };
     });
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+    });
 
     builder.Services
         .AddHealthChecks()
@@ -111,13 +119,15 @@ try
 
     app.MapControllers();
     app.MapHealthChecks("/health/live", new HealthCheckOptions
-    {
-        Predicate = _ => false
-    });
+        {
+            Predicate = _ => false
+        })
+        .AllowAnonymous();
     app.MapHealthChecks("/health/ready", new HealthCheckOptions
-    {
-        Predicate = check => check.Tags.Contains("ready")
-    });
+        {
+            Predicate = check => check.Tags.Contains("ready")
+        })
+        .AllowAnonymous();
 
     if (app.Environment.IsDevelopment())
     {
@@ -148,7 +158,15 @@ catch (Exception ex) when (ex is not HostAbortedException)
 }
 finally
 {
-    await Log.CloseAndFlushAsync();
+    // WebApplicationFactory builds Program more than once; disposing the static logger
+    // between tests freezes Serilog for the next host.
+    if (!string.Equals(
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+            "Testing",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        await Log.CloseAndFlushAsync();
+    }
 }
 
 public partial class Program;

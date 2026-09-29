@@ -35,12 +35,26 @@ public sealed class AuthService : IAuthService
         }
 
         var user = await _users.FindByEmailAsync(request.Email.Trim(), cancellationToken);
-        if (user is null || user.IsDisabled || !await _users.CheckPasswordAsync(user, request.Password))
+        if (user is null || user.IsDisabled)
         {
             _logger.LogInformation("Login failed");
             return null;
         }
 
+        if (await _users.IsLockedOutAsync(user))
+        {
+            _logger.LogInformation("Login rejected for locked-out user {UserId}", user.Id);
+            return null;
+        }
+
+        if (!await _users.CheckPasswordAsync(user, request.Password))
+        {
+            await _users.AccessFailedAsync(user);
+            _logger.LogInformation("Login failed");
+            return null;
+        }
+
+        await _users.ResetAccessFailedCountAsync(user);
         _logger.LogInformation("Login succeeded for user {UserId}", user.Id);
         return await IssueSessionAsync(user.Id, user.Email!, cancellationToken);
     }

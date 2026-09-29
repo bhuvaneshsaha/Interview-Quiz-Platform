@@ -22,6 +22,7 @@ public static class OpeningsModule
             {
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "openings");
                 npgsql.EnableRetryOnFailure();
+                npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
             });
         });
 

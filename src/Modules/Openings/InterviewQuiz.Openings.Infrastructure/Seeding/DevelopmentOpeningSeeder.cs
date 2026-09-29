@@ -2,6 +2,8 @@ using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Domain;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace InterviewQuiz.Openings.Infrastructure.Seeding;
 
@@ -12,15 +14,29 @@ public sealed class DevelopmentOpeningSeeder
 
     private readonly OpeningsDbContext _db;
     private readonly IClock _clock;
+    private readonly IHostEnvironment _environment;
+    private readonly ILogger<DevelopmentOpeningSeeder> _logger;
 
-    public DevelopmentOpeningSeeder(OpeningsDbContext db, IClock clock)
+    public DevelopmentOpeningSeeder(
+        OpeningsDbContext db,
+        IClock clock,
+        IHostEnvironment environment,
+        ILogger<DevelopmentOpeningSeeder> logger)
     {
         _db = db;
         _clock = clock;
+        _environment = environment;
+        _logger = logger;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
+        if (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
+        {
+            _logger.LogWarning("Skipped Openings development seed in {Environment}", _environment.EnvironmentName);
+            return;
+        }
+
         if (!await _db.OpeningFieldDefinitions.AnyAsync(cancellationToken))
         {
             _db.OpeningFieldDefinitions.AddRange(

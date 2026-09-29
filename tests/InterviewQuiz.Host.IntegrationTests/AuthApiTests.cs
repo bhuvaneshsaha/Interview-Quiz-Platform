@@ -3,16 +3,20 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using InterviewQuiz.Access.Application.Contracts;
-using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Seeding;
-using InterviewQuiz.Openings.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace InterviewQuiz.Host.IntegrationTests;
 
+[Collection("Database")]
 public sealed class AuthApiTests
 {
+    private readonly InterviewQuizWebApplicationFactory _factory;
+
+    public AuthApiTests(InterviewQuizWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -22,8 +26,7 @@ public sealed class AuthApiTests
     [RequiresDatabaseFact]
     public async Task Login_success_then_me()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
 
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest
         {
@@ -52,8 +55,7 @@ public sealed class AuthApiTests
     [RequiresDatabaseFact]
     public async Task Login_failure_is_unauthorized()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
 
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest
         {
@@ -67,8 +69,7 @@ public sealed class AuthApiTests
     [RequiresDatabaseFact]
     public async Task Refresh_rotates_token()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
 
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest
         {
@@ -92,18 +93,5 @@ public sealed class AuthApiTests
             RefreshToken = original.RefreshToken
         });
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
-    }
-
-    private static async Task<InterviewQuizWebApplicationFactory> CreateMigratedFactory()
-    {
-        var factory = new InterviewQuizWebApplicationFactory();
-        using var scope = factory.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<AccessDbContext>()
-            .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<OpeningsDbContext>()
-            .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
-            .SeedAsync();
-        return factory;
     }
 }

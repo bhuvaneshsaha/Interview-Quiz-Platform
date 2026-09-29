@@ -15,6 +15,7 @@ public sealed class AccessDbContextFactory : IDesignTimeDbContextFactory<AccessD
             .UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "access");
+                npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
             })
             .Options;
 

@@ -10,6 +10,12 @@ public interface IIdentityUserDirectory
 
     Task<bool> CheckPasswordAsync(ApplicationUser user, string password);
 
+    Task<bool> IsLockedOutAsync(ApplicationUser user);
+
+    Task AccessFailedAsync(ApplicationUser user);
+
+    Task ResetAccessFailedCountAsync(ApplicationUser user);
+
     Task<IdentityCreateResult> CreateAsync(ApplicationUser user, string password);
 
     Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken);

@@ -22,6 +22,29 @@ public sealed class IdentityUserDirectory : IIdentityUserDirectory
     public Task<bool> CheckPasswordAsync(ApplicationUser user, string password)
         => _users.CheckPasswordAsync(user, password);
 
+    public Task<bool> IsLockedOutAsync(ApplicationUser user)
+        => _users.IsLockedOutAsync(user);
+
+    public async Task AccessFailedAsync(ApplicationUser user)
+    {
+        var result = await _users.AccessFailedAsync(user);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join(" ", result.Errors.Select(error => error.Description)));
+        }
+    }
+
+    public async Task ResetAccessFailedCountAsync(ApplicationUser user)
+    {
+        var result = await _users.ResetAccessFailedCountAsync(user);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join(" ", result.Errors.Select(error => error.Description)));
+        }
+    }
+
     public async Task<IdentityCreateResult> CreateAsync(ApplicationUser user, string password)
     {
         var result = await _users.CreateAsync(user, password);

@@ -36,6 +36,7 @@ public static class AccessModule
             {
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "access");
                 npgsql.EnableRetryOnFailure();
+                npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
             });
         });
 
@@ -44,6 +45,8 @@ public static class AccessModule
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 8;
                 options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<AccessDbContext>()
             .AddDefaultTokenProviders();

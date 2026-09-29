@@ -2,19 +2,22 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using InterviewQuiz.Access.Infrastructure;
-using InterviewQuiz.Access.Infrastructure.Seeding;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Application.Contracts;
-using InterviewQuiz.Openings.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace InterviewQuiz.Host.IntegrationTests;
 
+[Collection("Database")]
 public sealed class OpeningsApiTests
 {
+    private readonly InterviewQuizWebApplicationFactory _factory;
+
+    public OpeningsApiTests(InterviewQuizWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -24,8 +27,7 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Anonymous_request_is_unauthorized()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/openings");
 
@@ -35,8 +37,7 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Post_without_openings_write_is_forbidden()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = CreateAuthenticatedClient(factory, JwtTestTokens.ReaderOnly());
+        var client = CreateAuthenticatedClient(JwtTestTokens.ReaderOnly());
 
         var response = await client.PostAsJsonAsync("/api/openings", new CreateOpeningRequest
         {
@@ -57,8 +58,7 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Expired_token_is_unauthorized()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = CreateAuthenticatedClient(factory, JwtTestTokens.CreateExpired(PermissionCodes.Openings.Read));
+        var client = CreateAuthenticatedClient(JwtTestTokens.CreateExpired(PermissionCodes.Openings.Read));
 
         var response = await client.GetAsync("/api/openings");
 
@@ -68,10 +68,7 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Wrong_audience_is_unauthorized()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = CreateAuthenticatedClient(
-            factory,
-            JwtTestTokens.CreateWrongAudience(PermissionCodes.Openings.Read));
+        var client = CreateAuthenticatedClient(JwtTestTokens.CreateWrongAudience(PermissionCodes.Openings.Read));
 
         var response = await client.GetAsync("/api/openings");
 
@@ -81,8 +78,7 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Post_then_get_opening()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = CreateAuthenticatedClient(factory);
+        var client = CreateAuthenticatedClient();
 
         var create = new CreateOpeningRequest
         {
@@ -127,35 +123,19 @@ public sealed class OpeningsApiTests
     [RequiresDatabaseFact]
     public async Task Live_health_is_anonymous()
     {
-        await using var factory = await CreateMigratedFactory();
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/health/live");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static HttpClient CreateAuthenticatedClient(
-        InterviewQuizWebApplicationFactory factory,
-        string? accessToken = null)
+    private HttpClient CreateAuthenticatedClient(string? accessToken = null)
     {
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", accessToken ?? JwtTestTokens.Recruiter());
         client.DefaultRequestHeaders.Add("X-Correlation-ID", "integration-test");
         return client;
-    }
-
-    private static async Task<InterviewQuizWebApplicationFactory> CreateMigratedFactory()
-    {
-        var factory = new InterviewQuizWebApplicationFactory();
-        using var scope = factory.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<AccessDbContext>()
-            .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<OpeningsDbContext>()
-            .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
-            .SeedAsync();
-        return factory;
     }
 }

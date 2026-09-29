@@ -15,6 +15,7 @@ public sealed class OpeningsDbContextFactory : IDesignTimeDbContextFactory<Openi
             .UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "openings");
+                npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
             })
             .Options;
 

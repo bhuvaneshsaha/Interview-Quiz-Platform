@@ -36,6 +36,19 @@ public sealed class AuthServiceTests
             CancellationToken.None);
 
         Assert.Null(tokens);
+        Assert.Equal(1, harness.Users.AccessFailedCount);
+    }
+
+    [Fact]
+    public async Task Login_fails_when_user_is_locked_out()
+    {
+        var harness = Harness.Create([PermissionCodes.Openings.Read], lockedOut: true);
+        var tokens = await harness.Auth.LoginAsync(
+            new LoginRequest { Email = "recruiter.dev@example.com", Password = "secret" },
+            CancellationToken.None);
+
+        Assert.Null(tokens);
+        Assert.Equal(0, harness.Users.AccessFailedCount);
     }
 
     [Fact]
@@ -108,8 +121,9 @@ public sealed class AuthServiceTests
     {
         public required AuthService Auth { get; init; }
         public required FakePermissionReader Permissions { get; init; }
+        public required FakeUsers Users { get; init; }
 
-        public static Harness Create(IReadOnlyList<string> permissions, bool disabled = false)
+        public static Harness Create(IReadOnlyList<string> permissions, bool disabled = false, bool lockedOut = false)
         {
             var user = new ApplicationUser
             {
@@ -118,12 +132,12 @@ public sealed class AuthServiceTests
                 UserName = "recruiter.dev@example.com",
                 IsDisabled = disabled
             };
-            var users = new FakeUsers(user, password: "secret");
+            var users = new FakeUsers(user, password: "secret") { LockedOut = lockedOut };
             var permissionReader = new FakePermissionReader(permissions);
             var refresh = new FakeRefreshStore();
             var issuer = new JwtAccessTokenIssuer(Options.Create(CreateJwtOptions()), new FixedClock(Now));
             var auth = new AuthService(users, permissionReader, issuer, refresh, NullLogger<AuthService>.Instance);
-            return new Harness { Auth = auth, Permissions = permissionReader };
+            return new Harness { Auth = auth, Permissions = permissionReader, Users = users };
         }
     }
 
@@ -144,8 +158,27 @@ public sealed class AuthServiceTests
         public Task<ApplicationUser?> FindByIdAsync(string userId, CancellationToken cancellationToken)
             => Task.FromResult(_user.Id == userId ? _user : null);
 
+        public int AccessFailedCount { get; private set; }
+
+        public bool LockedOut { get; set; }
+
         public Task<bool> CheckPasswordAsync(ApplicationUser user, string password)
             => Task.FromResult(password == _password);
+
+        public Task<bool> IsLockedOutAsync(ApplicationUser user)
+            => Task.FromResult(LockedOut);
+
+        public Task AccessFailedAsync(ApplicationUser user)
+        {
+            AccessFailedCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task ResetAccessFailedCountAsync(ApplicationUser user)
+        {
+            AccessFailedCount = 0;
+            return Task.CompletedTask;
+        }
 
         public Task<IdentityCreateResult> CreateAsync(ApplicationUser user, string password)
             => throw new NotSupportedException();

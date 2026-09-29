@@ -59,7 +59,7 @@ public sealed class OpeningRepository : IOpeningRepository
         if (!string.IsNullOrWhiteSpace(criteria.Owner))
         {
             var owner = criteria.Owner.Trim();
-            query = query.Where(o => o.Owner.ToLower() == owner.ToLower());
+            query = query.Where(o => o.Owner == owner);
         }
 
         if (criteria.ExperienceMinYears is { } minYears)
@@ -96,9 +96,9 @@ public sealed class OpeningRepository : IOpeningRepository
         {
             foreach (var (key, value) in criteria.Tags)
             {
-                var tagKey = key;
-                var tagValue = value;
-                query = query.Where(o => o.Tags.ContainsKey(tagKey) && o.Tags[tagKey] == tagValue);
+                var fragment = System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, string> { [key] = value });
+                query = query.Where(o => EF.Functions.JsonContains(o.Tags, fragment));
             }
         }
 
