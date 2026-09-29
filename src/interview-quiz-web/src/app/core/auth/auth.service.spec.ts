@@ -1,3 +1,4 @@
+import { Component } from '@angular/core';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
@@ -6,6 +7,12 @@ import { MeResponse, TokenResponse } from '../api/contracts';
 import { PermissionService } from '../permissions/permission.service';
 import { AuthService } from './auth.service';
 import { TokenStore } from './token-store.service';
+
+@Component({
+  template: '',
+  standalone: true,
+})
+class Blank {}
 
 describe('AuthService', () => {
   let auth: AuthService;
@@ -30,7 +37,11 @@ describe('AuthService', () => {
   beforeEach(() => {
     sessionStorage.clear();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: 'login', component: Blank }]),
+      ],
     });
     auth = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);

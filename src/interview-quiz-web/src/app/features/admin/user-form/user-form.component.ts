@@ -150,7 +150,7 @@ export class UserForm implements OnInit {
       .filter((id) => !next.has(id))
       .map((roleId) => this.api.unassignRole(roleId, current.id));
     const ops = [...assigns, ...unassigns];
-    const done$ = ops.length === 0 ? of(null) : forkJoin(ops);
+    const done$ = ops.length === 0 ? of(true) : forkJoin(ops).pipe(switchMap(() => of(true)));
     done$
       .pipe(switchMap(() => this.api.getUser(current.id)))
       .subscribe({

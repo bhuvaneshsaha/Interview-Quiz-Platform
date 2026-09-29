@@ -34,8 +34,8 @@ export class OpeningForm implements OnInit {
 
   readonly form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
-    jobDescription: ['', [Validators.maxLength(20000)]],
-    owner: ['', [Validators.required, Validators.maxLength(200)]],
+    jobDescription: ['', [Validators.maxLength(32000)]],
+    owner: ['', [Validators.required, Validators.maxLength(256)]],
     startDate: ['', Validators.required],
     expectedCloseDate: [''],
     headcount: [1, [Validators.required, Validators.min(1), Validators.max(10000)]],
