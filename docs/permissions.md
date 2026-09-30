@@ -1,6 +1,6 @@
 # Permission catalog
 
-Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`) and Evaluation attempts (`attempts.read`; `candidate.attempt.participate` on candidate attempt routes + magic-link consume). Later: live session REST, review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`). Later: live session REST, review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 
@@ -70,7 +70,7 @@ These codes are **not** the drag-drop question type `dragDropSharedBank` (items 
 
 | Code | Display name | Capability |
 |------|----------------|------------|
-| `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id` (slice 5). |
+| `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id`. **No** SavedFilters on the list. |
 | `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/{id}/invite`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
 | `sessions.live.run` | Run live sessions | Start, pause, and monitor a live attempt (**slice 6** — no slice 5 path) |
 
@@ -84,7 +84,7 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 
 | Code | Display name | Capability |
 |------|----------------|------------|
-| `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Dev Recruiter seed has this. |
+| `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
 | `attempts.review` | Review attempts | Score written items (human or confirm AI-assist); finalise result. **Slice 7** — no slice 5 path. Dev Reviewer seed has this. |
 
 AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
@@ -104,7 +104,7 @@ Applying unsaved criteria on `GET /api/openings`, `GET /api/quizzes`, or `GET /a
 
 ## Candidate session (not a composable employee role)
 
-Auth issues a JWT bound to an assignment (and attempt when created). The API authorizes with **resource scope** (`assignment_id` claim) plus this catalog code. Paths: `POST /api/auth/magic-link/consume`; candidate `POST /api/assignments/{id}/attempts`, `GET /api/assignments/{id}/attempts/current`, `PUT .../current/answers`, `POST .../current/submit` (architecture §16.3–16.4, ADR 0008).
+Auth issues a JWT bound to an assignment (and attempt when created). The API authorizes with **resource scope** (`assignment_id` claim) plus this catalog code. Paths: `POST /api/auth/magic-link/consume`; candidate `POST /api/assignments/{id}/attempts`, `GET /api/assignments/{id}/attempts/current`, `PUT .../current/answers`, `POST .../current/submit` (architecture §16.3–16.4, ADR 0008). Angular landing: `/attempt?token=` **outside** the employee shell (`CandidateSession` in-memory; not employee `TokenStore`). No candidate password.
 
 | Code | Display name | Notes |
 |------|----------------|--------|

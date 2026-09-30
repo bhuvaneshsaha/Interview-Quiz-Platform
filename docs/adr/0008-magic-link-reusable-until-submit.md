@@ -1,5 +1,7 @@
 # ADR 0008 — Candidate magic-link: opaque invite, reusable until first submit
 
+Status: **Implemented**. Decision unchanged. Slice 5 is in the code: hashed `access.magic_link_invites`, `POST /api/auth/magic-link/consume`, `IMagicLinkService.IssueAsync` + `BuildInviteUrl`, assignment-scoped candidate JWT (`candidate.attempt.participate` + `assignment_id`), no candidate refresh. Env names: `PublicBaseUrl`, `Jwt__CandidateAccessTokenMinutes`. Angular `/attempt?token=` uses in-memory `CandidateSession` isolated from employee `TokenStore`.
+
 ## Context
 
 Slice 5 delivers async assignments. Candidates enter with a **magic-link**, not employee password login. ADR 0006 already records JWT bearer, Identity as the user store, assignment-scoped candidate sessions, and permission-based authZ. It left protocol details to Auth.
@@ -34,7 +36,7 @@ Landing path (Angular): `{PublicBaseUrl}/attempt?token=...` — see `docs/archit
 
 ## Consequences
 
-- Auth implements hashed invites, consume, and candidate JWT claims. Delivery owns whether the assignment is still invitable (async, not submitted). Evaluation owns attempt identity for `attempt_id`.
+- Auth implemented hashed invites, consume, and candidate JWT claims. Delivery owns whether the assignment is still invitable (async, not submitted). Evaluation owns attempt identity for `attempt_id`.
 - Security threat-models invite theft and prefetch; this ADR chooses POST consume + hashed storage + rotate-to-revoke so Architecture does not invent a mail vendor.
 - Angular keeps the **candidate** access token apart from the employee session so a logged-in recruiter opening the invite cannot send `assignments.write` to candidate APIs, and the candidate token cannot call employee assignment write.
 - Service worker: still **no** `/api` data groups (ADR 0004). Invite consume, assignment, and attempt URLs are never cached.

@@ -63,7 +63,7 @@ Candidate `/attempt` is **not** behind `authGuard`. Consume is `POST /api/auth/m
 
 Saved filters live on the openings, quizzes, and templates list screens (`GET /api/filters`). Saving requires `filters.write`; sharing requires `filters.share` and ownership. Recruiter can share but typically lacks `users.manage`, so share-with is a user-id text field. The bank list and assignment list do not use SavedFilters (`FilterTarget` has no `questions` or `assignments`).
 
-Exercise with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` has `templates.write` + `quizzes.write` + `questions.read` + `questions.write` (publish, clone, bank, include) and `filters.write`; `recruiter.dev@example.com` has `templates.read` + `filters.share` and **no** `quizzes.write` / **no** `questions.*`, so no clone, no bank nav, no include. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6. The Development seed template id is `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. Seed bank question ids are in the repository root README. Host Development auto-migrates `SearchDbContext` with Catalog; see the root README for `dotnet ef` commands.
+Exercise with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` has `templates.write` + `quizzes.write` + `questions.read` + `questions.write` (publish, clone, bank, include) and `filters.write`, and **typically no** `assignments.*`; `recruiter.dev@example.com` has **`assignments.write`** + `assignments.read` + `attempts.read` + `templates.read` + `filters.share` and **no** `quizzes.write` / **no** `questions.*`, so can assign and copy invites, but no clone, no bank nav, no include. Candidates use magic-link only (`/attempt?token=`) — **no** candidate password. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6. The Development seed template id is `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. Seed assignment id is `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`). Seed bank question ids are in the repository root README. Host Development auto-migrates `DeliveryDbContext` and `EvaluationDbContext` with Catalog and Search; see the root README for `dotnet ef` commands.
 
 ## Build and tests
 
@@ -74,7 +74,7 @@ ng test --watch=false
 
 Production build registers the Angular service worker. Dev `ng serve` does not (service worker `enabled: !isDevMode()`).
 
-The client has component specs for quiz list/editor, templates, SavedFilters, and question bank list/editor/include.
+The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. Specialists reported `npm test` **74 passed** — not re-counted in this docs pass.
 
 ## Storybook
 

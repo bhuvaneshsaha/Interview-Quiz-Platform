@@ -1,9 +1,9 @@
 # Interview Quiz Platform — Architecture
 
-Status: v1 architecture record — slices **1–4 implemented**; **slice 5** contracts **locked — implement next** (not implemented).  
+Status: v1 architecture record — slices **1–5 implemented**; **slice 6** live start/pause later.  
 Platform skill: `enterprise-architecture-onprem.md`  
 Client shape: **Angular SPA + installable PWA, online-first** (no Ionic / Capacitor)  
-AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link (protocol in ADR 0008 + §16.3); Entra ID later as external login. Auth owns issuance, storage, and protocol **within that lock**.  
+AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link (protocol in ADR 0008 + §16.3, **implemented**); Entra ID later as external login. Auth owns issuance, storage, and protocol **within that lock**.  
 AuthZ: permission-based capability catalog (see `docs/permissions.md`). Never `[Authorize(Roles = ...)]`.
 
 ---
@@ -33,7 +33,7 @@ Master defaults are **accepted**; Architecture does not override them:
 | Quiz reuse | A quiz belongs to **one** opening. Reuse across openings is via **template**. This overrides Brief §6.2 “linked to one or more openings” in favor of Brief §16. |
 | Question bank | Catalog-owned **item** library. Same types/scoring/credit as quiz questions. **Copy-on-include** (new quiz question id; `sourceQuestionId` provenance). Not a new bounded context. Distinct from templates (whole-quiz reuse) and from the drag-drop `dragDropSharedBank` question type. ADR 0007. Bank CRUD + Angular UI is **slice 4** (implemented); groundwork is in slice 3. |
 | Template lineage | First publish of a quiz with no origin creates a template. Later publish from **that quiz** or from a quiz **cloned from that template** creates a **new version** of the same lineage. No always-new-template. No fork-to-new-lineage in slice 3. |
-| Ordering partial credit | Default formula: **adjacent-pair**. Exact implementation is Evaluation when scoring lands (slice 5 auto-score / slice 7 review). |
+| Ordering partial credit | Default formula: **adjacent-pair**. Slice 5 auto-score uses it for ordering `partial`; slice 7 review still later. Ties/duplicates remain Evaluation-owned. |
 | Retention | Configurable archive (default 5 years). **No hard delete.** Separate restore rules for resumes, attempts, quiz content. Restore is an admin permission (split codes below). |
 | Company AI rules | Versioned JSON: global layer + required fields per question type. Concrete schema deferred to the AI slice. |
 | Async attempts | One attempt unless the assignment override allows another. |
@@ -148,7 +148,7 @@ flowchart TB
 **Public contracts (REST):**
 
 - `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout` (revoke) — employees
-- Slice 5 **locked** (§16.3, ADR 0008): `POST /api/auth/magic-link/consume`; recruiter issue is `POST /api/assignments/{id}/invite` (`assignments.write`, Delivery host + Access token store)
+- Slice 5 **implemented** (§16.3, ADR 0008): `POST /api/auth/magic-link/consume`; recruiter issue is `POST /api/assignments/{id}/invite` (`assignments.write`, Delivery host + Access `IMagicLinkService.IssueAsync` / `BuildInviteUrl`)
 - `GET /api/me`, `GET /api/me/permissions`
 - `GET /api/permissions` — catalog for the role editor (`roles.manage`)
 - `GET|POST|PUT|DELETE /api/roles`, assign/unassign users
@@ -200,7 +200,7 @@ Later (not this pass):
 
 **In-process:**
 
-- `IQuizSnapshotReader.GetSnapshotAsync(quizId)` → immutable DTO of questions, keys, scoring rules. **Delivery copies this at assign time** (slice 5). Never live-join quiz or bank tables at attempt time. Snapshot questions include `sourceQuestionId`.
+- `IQuizSnapshotReader.GetSnapshotAsync(quizId)` → immutable DTO of questions, keys, scoring rules. **Delivery copies this at assign time** (slice 5, **implemented**). Never live-join quiz or bank tables at attempt time. Snapshot questions include `sourceQuestionId`.
 - `IOpeningLookup.GetOpeningAsync(id)` — already used; clone and quiz write still require the opening to exist.
 - Slice 3: template version read for clone (Catalog-internal; other modules still must not read `catalog` tables).
 - `IQuestionBankReader.GetByIdAsync(id)` — registered; **include only** (not quiz create/update/publish/clone). GetById may return archived items so include can reject them.
@@ -225,7 +225,7 @@ Later (not this pass):
 
 **Does not own:** scoring, review workflow, template library, question bank, JWT protocol.
 
-**Public contracts (slice 5 locked — §16):**
+**Public contracts (slice 5 implemented — §16):**
 
 - `GET|POST /api/assignments`, `GET /api/assignments/{id}`
 - `POST /api/assignments/{id}/invite` — recruiter copies async URL (no SMTP)
@@ -247,7 +247,7 @@ Later (not this pass):
 
 **Does not own:** assignment creation, quiz authoring, magic-link tokens.
 
-**Public contracts (slice 5 locked — §16):**
+**Public contracts (slice 5 implemented — §16):**
 
 - Candidate (resource-scoped JWT): `POST /api/assignments/{id}/attempts`, `GET /api/assignments/{id}/attempts/current`, `PUT .../current/answers`, `POST .../current/submit`
 - Employee (`attempts.read`): `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — **basic results**, not review
@@ -279,7 +279,7 @@ Persistence is schema `search` (`SearchDbContext`, table `filters`). Search does
 
 | Store | Use |
 |--------|-----|
-| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, **assignment snapshots**, filter criteria, AI rule JSON. Slice 3 **has** `catalog.templates` / `catalog.template_versions` (owned questions with `SourceQuestionId`) and `search.filters`. Slice 4 **has** `catalog.bank_questions` (no FK from `catalog.questions.source_question_id`). Slice 5 **contracts** `delivery.assignments` + `delivery.assignment_snapshots` (JSONB copy of `QuizSnapshotDto`), `evaluation.attempts` + answers, `access.magic_link_invites` (hashed opaque tokens) — implement next, not in code yet. |
+| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, **assignment snapshots**, filter criteria, AI rule JSON. Slice 3 **has** `catalog.templates` / `catalog.template_versions` (owned questions with `SourceQuestionId`) and `search.filters`. Slice 4 **has** `catalog.bank_questions` (no FK from `catalog.questions.source_question_id`). Slice 5 **has** `delivery.assignments` + `delivery.assignment_snapshots` (JSONB copy of `QuizSnapshotDto`), `evaluation.attempts` + `evaluation.attempt_answers`, `access.magic_link_invites` (hashed opaque tokens). |
 | **Local / NAS files** | Resume uploads and future attachments. DB holds path + content type + owning module id. |
 | Not used in v1 | Redis as a default, document DB, cloud blobs, message bus. |
 
@@ -326,13 +326,13 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/opening-fields` | `openings.fields.manage` | Opening field defaults |
 | `/roles`, `/roles/new`, `/roles/:id` | `roles.manage` | Role list / editor |
 | `/users`, `/users/new`, `/users/:id` | `users.manage` | User list / form |
-| `/assignments` | `assignments.read` | Assignment list (**slice 5 — Angular next**) |
-| `/assignments/new` | `assignments.write` | Create assignment (**slice 5**) |
-| `/assignments/:id` | `assignments.read` | Assignment detail, copy invite, basic results if `attempts.read` (**slice 5**) |
+| `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager; **no** SavedFilters) |
+| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
+| `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
 
-**Candidate (not the employee shell; slice 5):** `/attempt?token=` — consume magic-link (ADR 0008). Auth owns branded entry; this is the locked invite landing path.
+**Candidate (not the employee shell; implemented):** `/attempt?token=` — consume magic-link (ADR 0008). Isolated in-memory `CandidateSession` (not employee `TokenStore`). Auth still owns branded employee-vs-candidate entry UX; this is the invite landing path.
 
-Nav and home link to Quizzes when the user has `quizzes.read`. Assignments nav when `assignments.read`. Create assignment hidden without `assignments.write`. Create is hidden without `quizzes.write`. Recruiter (read only) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden unless the user has **both** `quizzes.write` and `templates.read`. Publish-as-template is hidden without `templates.write`. Question bank nav (shell + home **Question bank**) when `questions.read`. Include from question bank on the quiz editor requires `quizzes.write` **and** `questions.read` on an existing saved quiz (hidden on create-new). Recruiter without `questions.*` does not see bank nav or include. Saved filters live on list screens (openings / quizzes / templates), not a separate admin module and **not** on the question bank list (no `FilterTarget = questions`). Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); permissions are `PermissionService`. There is no global entity store.
+Nav and home link to Quizzes when the user has `quizzes.read`. Assignments nav when `assignments.read`. Create assignment hidden without `assignments.write`. Recruiter seed has `assignments.write`; a typical template author does not. Create quiz is hidden without `quizzes.write`. Recruiter (read only on quizzes) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden unless the user has **both** `quizzes.write` and `templates.read`. Publish-as-template is hidden without `templates.write`. Question bank nav (shell + home **Question bank**) when `questions.read`. Include from question bank on the quiz editor requires `quizzes.write` **and** `questions.read` on an existing saved quiz (hidden on create-new). Recruiter without `questions.*` does not see bank nav or include. Saved filters live on list screens (openings / quizzes / templates), not a separate admin module, **not** on the question bank list (no `FilterTarget = questions`), and **not** on the assignment list (no `FilterTarget = assignments`). Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); candidate `/attempt` uses in-memory `CandidateSession` isolated from employee `TokenStore`; permissions are `PermissionService`. There is no global entity store.
 
 Shared UI primitives: [`docs/components/README.md`](components/README.md). Playbook markdown pages are the source of API tables. OSS Storybook 10 (`@storybook/angular-vite`, Angular 21 zoneless application builder) is the isolated gallery for those primitives (`npm run storybook` in `src/interview-quiz-web` → http://localhost:6006). No Chromatic.
 
@@ -404,11 +404,11 @@ No numeric SLAs or KPIs are claimed; Brief §13 is qualitative until a Forms bas
 | Question | Owner |
 |----------|--------|
 | One branded auth entry that routes employee vs candidate (magic-link / password) — exact UX and routes | **Auth** (product still open; working direction in `requirements/Open questions.md`) |
-| Employee JWT storage in the SPA (memory vs session); candidate token isolation vs employee session | **Auth** + Angular |
-| Magic-link issue/consume, claims, hashed invites | **Locked** §16.3 / ADR 0008; Auth implements |
+| Employee JWT storage in the SPA (memory vs session); candidate token isolation vs employee session | **Angular implemented** employee `TokenStore` (access in memory, refresh in `sessionStorage`) and candidate `CandidateSession` (in-memory only, no refresh). Branded employee-vs-candidate entry UX still **Auth** + product |
+| Magic-link issue/consume, claims, hashed invites | **Implemented** §16.3 / ADR 0008 (`IMagicLinkService.IssueAsync` + `BuildInviteUrl`; env names `PublicBaseUrl`, `Jwt__CandidateAccessTokenMinutes`) |
 | Exact restore UX per policy family (already: separate permissions, no hard delete) | **Master / product**; Access + owning modules implement |
 | Concrete company AI JSON schema | **Catalog (.NET)** in slice 8 |
-| Adjacent-pair scoring edge cases (ties, duplicate items) | **Evaluation (.NET)** on slice 5 auto-score |
+| Adjacent-pair scoring edge cases (ties, duplicate items) | **Evaluation (.NET)** — auto-score is in slice 5; edge cases remain Evaluation-owned |
 | Reverse proxy product, DMZ vs internal zones, Vault vs env | **DevOps** + ops |
 | Which self-hosted CI already exists | **DevOps** |
 | Threat model of live “watch the screen” vs app-side controls | **Security** (not Architecture) |
@@ -427,7 +427,7 @@ Vertical slices. Each slice is not done until the collaboration skill DoD holds 
 | **2 Authoring** | Implemented | Quiz authoring API + Angular list/editor; eight v1 question types; scoring and credit modes | Catalog, Angular |
 | **3 Templates and search** | Implemented | Publish template, versions, list/search, clone into opening, saved/shared filters; **question-bank groundwork** (`sourceQuestionId`, reserved `IQuestionBankReader`, `questions.*` seeded) | Catalog, Search, Access, Angular |
 | **4 Question bank** | Implemented | Authoring library + include-into-quiz (copy-on-include); Angular list/editor and quiz include panel; `questions.read` / `questions.write` on Dev Template author seed | Catalog, Angular |
-| **5 Assignments** | **Contracts locked — implement next** | Candidate assignment, snapshot, async timed link, basic results | Delivery, Evaluation (submit + auto-score), Access (magic-link) |
+| **5 Assignments** | **Implemented** | Candidate assignment, snapshot, async timed link, auto-score, basic results, Angular employee + `/attempt` | Delivery, Evaluation (submit + auto-score), Access (magic-link), Angular |
 | **6 Live mode** | Later | Start/pause/monitor on the **same** assignment model | Delivery |
 | **7 Review** | Later | Human + AI-assist marking, auditable drafts, finalise | Evaluation |
 | **8 AI draft** | Later | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
@@ -455,15 +455,15 @@ Permission catalog: [`docs/permissions.md`](permissions.md). Slice 5 REST: §16.
 
 ## 14. Delivery status
 
-Slices **1–4** are implemented. **Slice 5** assignment / async magic-link / auto-score **contracts are locked** (§16, ADR 0008) — **not implemented**. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank.
+Slices **1–5** are implemented. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank. ADR 0008 records the magic-link (implemented).
 
-Still later after slice 5 build: live mode, review, AI draft, production runbook, self-hosted CI (DevOps). No LLM in slices 1–6. Entra is out of slice 5.
+Still later: live mode (slice 6), review (slice 7), AI draft (slice 8), production runbook, self-hosted CI (DevOps). No LLM in slices 1–6. Entra and SMTP are out of slice 5.
 
 ---
 
 ## 15. Slice 3 contracts (implemented)
 
-Locked contract for Catalog/Search. Status: **in code**. Do not treat this section as a backlog. Slice 4 bank APIs are in §15.7. **Slice 5 assignments are in §16** (locked, not implemented).
+Locked contract for Catalog/Search. Status: **in code**. Do not treat this section as a backlog. Slice 4 bank APIs are in §15.7. **Slice 5 assignments are in §16** (implemented).
 
 REST, camelCase JSON, permission-based. Page defaults match `PageRequest` (page 1, pageSize 20, cap 100). No CQRS, no MediatR. Catalog and Search application services; never a mediator.
 
@@ -625,9 +625,9 @@ Activities: `questions.list`, `questions.write`, `questions.archive`, `quizzes.i
 
 ---
 
-## 16. Slice 5 contracts (locked — implement next)
+## 16. Slice 5 contracts (implemented)
 
-Locked contract for Delivery, Evaluation, and Access magic-link. Status: **not in code**. Do not treat this as implemented. Slices 1–4 stay as they are.
+Locked contract for Delivery, Evaluation, and Access magic-link. Status: **in code**. Do not treat this as a backlog. Slices 1–4 stay as they are.
 
 REST, camelCase JSON, permission-based. Page defaults match `PageRequest` (page 1, pageSize 20, cap 100). No CQRS, no MediatR. Application services in Delivery / Evaluation / Access; never a mediator. Unknown opening or quiz on **create** → **400** (`DomainException`), same pattern as clone (`"Opening does not exist."`). Unknown assignment/attempt on employee GET → **404** (`EntityNotFoundException`). Candidate JWT whose `assignment_id` does not match the path → **403** (`ForbiddenException`), not 404 (do not probe ids).
 
@@ -744,7 +744,7 @@ Claim type strings (Auth puts constants next to `PermissionClaims.Permission`): 
 
 `GET /api/me` / `GET /api/me/permissions` work for this principal (permissions = `[candidate.attempt.participate]`).
 
-Employee `POST /api/auth/login` is unchanged. Candidate cannot obtain `assignments.write` through consume. Recruiter JWT calling consume is irrelevant: consume mints a **candidate** token; Angular **must isolate** it from the employee session (separate storage key). Candidate token on `POST /api/assignments` → **403** (missing `assignments.write`). Employee token on candidate attempt routes → **403** (missing `candidate.attempt.participate` and no `assignment_id`).
+Employee `POST /api/auth/login` is unchanged. Candidate cannot obtain `assignments.write` through consume. Recruiter JWT calling consume is irrelevant: consume mints a **candidate** token; Angular isolates it from the employee session (`CandidateSession` in memory, not `TokenStore`). Candidate token on `POST /api/assignments` → **403** (missing `assignments.write`). Employee token on candidate attempt routes → **403** (missing `candidate.attempt.participate` and no `assignment_id`).
 
 No secrets in git. Development signing key stays local-only. No Entra.
 
@@ -786,7 +786,7 @@ Resource: path `{id}` must equal JWT `assignment_id`. Permission: `candidate.att
 - All items `auto` and scored → assignment `completed`, result `complete`
 - Any unsettled → assignment `pendingReview`, result `incomplete` (slice 7)
 
-**Auto-score (slice 5, Evaluation implements):**
+**Auto-score (slice 5, Evaluation):**
 
 | Type / mode | Rule |
 |-------------|------|
@@ -841,7 +841,7 @@ One PostgreSQL, module schemas, EF per module (`enterprise-ef-core-data.md`). JS
 | Module | Tables (slice 5) |
 |--------|------------------|
 | Delivery | `delivery.assignments`, `delivery.assignment_snapshots` |
-| Evaluation | `evaluation.attempts`, `evaluation.attempt_answers` (or JSONB answers on the attempt — .NET picks; answers must round-trip `AnswerDto`) |
+| Evaluation | `evaluation.attempts`, `evaluation.attempt_answers` (answers round-trip `AnswerDto`) |
 | Access | `access.magic_link_invites` (hash, assignment id). Identity users unchanged |
 
 No FK from Delivery to Catalog question rows. Snapshot JSON is the freeze. No FK from Evaluation to Catalog.
@@ -859,13 +859,13 @@ No FK from Delivery to Catalog question rows. Snapshot JSON is the freeze. No FK
 
 `resultStatus` for notify: `complete` \| `incomplete` so Delivery can set `completed` vs `pendingReview`.
 
-Host registers `AddDeliveryModule` / `AddEvaluationModule` for real DbContexts + services (stubs today).
+Host registers `AddDeliveryModule` / `AddEvaluationModule` for `DeliveryDbContext` / `EvaluationDbContext` + services.
 
 ### 16.8 PWA
 
 ADR 0004 unchanged: installable, online-first, `ngsw-config.json` **`dataGroups: []`**. **Never cache** `/api/assignments/**`, `/api/attempts/**`, `/api/auth/magic-link/**`, tokens, or quiz/answer payloads. Candidate taking a quiz while offline shows the existing offline banner — no IndexedDB/outbox.
 
-Interceptor: add `/api/auth/magic-link/consume` to the anonymous allowlist (no employee bearer required). Candidate APIs send the **candidate** access token only.
+Interceptor: `/api/auth/magic-link/consume` is on the anonymous allowlist (no employee bearer required). Candidate APIs send the **candidate** access token only (`CandidateSession`).
 
 ### 16.9 Observability
 
@@ -885,24 +885,24 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 - Caching assignment/attempt APIs in the service worker
 - Opening-handler bypass of `assignments.write`
 
-### 16.11 Angular (contract, not implemented)
+### 16.11 Angular (implemented)
 
-Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control). Invite button calls `POST .../invite`. Results panel if `attempts.read`. Hide create without `assignments.write`. Author without `assignments.*` sees no nav.
+Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control). Invite button calls `POST .../invite`. Results panel if `attempts.read`. Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live mode is stored on create; invite/attempt for live is **not** executed (slice 6).
 
-Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → start/save/submit with isolated candidate token. Online-only.
+Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → start/save/submit with isolated in-memory `CandidateSession` (not `TokenStore`). Online-only.
 
-No Ionic, no Nx. No new commercial UI kit. Reuse playbook primitives (`PageStatus`, `HasPermission`). New playbook page only if a **new shared** primitive appears.
+No Ionic, no Nx. No new commercial UI kit. Reuse playbook primitives (`PageStatus`, `HasPermission`). No new shared playbook primitive in this slice.
 
-### 16.12 Development seed (specify, do not implement here)
+### 16.12 Development seed (Development-only, in code)
 
-Dummy data is Development/Testing only. One sample assignment is **allowed** when .NET implements:
+Dummy data is Development/Testing only. Sample assignment is seeded:
 
-- Opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001` (existing seed)
-- Email `candidate.dev@example.com`
+- Opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001`
+- Email `candidate.dev@example.com` (magic-link only — **no** candidate password)
 - `mode: async`, `timing.overallDurationMinutes: 30`, `attemptLimit: 1`
-- Suggested assignment id `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (stable for tests)
+- Assignment id `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001`
 
-Do not seed Production. Do not put invite secrets in git.
+Invite raw tokens are **not** seeded; issue at runtime. Do not seed Production. Do not put invite secrets in git.
 
 ---
 
