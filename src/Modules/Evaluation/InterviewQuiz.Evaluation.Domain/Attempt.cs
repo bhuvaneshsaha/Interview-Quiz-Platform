@@ -8,6 +8,7 @@ public sealed class Attempt
 {
     public const string LimitReachedMessage = "Attempt limit reached.";
     public const string AlreadySubmittedMessage = "Attempt already submitted.";
+    public const string InProgressConflictMessage = "Attempt already in progress.";
     public const string UnknownQuestionMessage = "Unknown question id.";
 
     private readonly List<AttemptAnswer> _answers = [];

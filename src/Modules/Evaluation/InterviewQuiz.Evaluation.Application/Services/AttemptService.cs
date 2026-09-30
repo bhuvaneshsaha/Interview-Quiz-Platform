@@ -78,7 +78,21 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
             _clock);
 
         await _attempts.AddAsync(attempt, cancellationToken);
-        await _attempts.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _attempts.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyException ex) when (ex.Message == Attempt.InProgressConflictMessage)
+        {
+            var raced = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+            if (raced is not null && !raced.IsSubmitted)
+            {
+                return (MapCandidate(raced, header.Snapshot), false);
+            }
+
+            throw;
+        }
+
         await _lifecycle.NotifyAttemptStarted(assignmentId, attempt.Id, cancellationToken);
 
         activity?.SetTag("attempt.id", attempt.Id);

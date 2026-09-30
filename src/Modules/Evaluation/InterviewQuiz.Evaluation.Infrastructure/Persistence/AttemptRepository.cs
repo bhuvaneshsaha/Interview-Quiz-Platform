@@ -3,6 +3,7 @@ using InterviewQuiz.Evaluation.Domain;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace InterviewQuiz.Evaluation.Infrastructure.Persistence;
 
@@ -65,5 +66,13 @@ public sealed class AttemptRepository : IAttemptRepository
         {
             throw new ConcurrencyException(Attempt.AlreadySubmittedMessage);
         }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new ConcurrencyException(Attempt.InProgressConflictMessage);
+        }
     }
+
+    private static bool IsUniqueViolation(DbUpdateException ex)
+        => ex.InnerException is PostgresException postgres
+           && postgres.SqlState == PostgresErrorCodes.UniqueViolation;
 }
