@@ -5,7 +5,7 @@ Audience: Product, engineering, recruitment, and template-authoring teams
 
 Pitch
 
-An openings-first interview quiz system: templates and tags for reuse, live or async assignment, and AI that drafts—never publishes—while permissions stay fine-grained.
+An openings-first interview quiz system: templates, a question bank of reusable items, and tags for reuse, live or async assignment, and AI that drafts—never publishes—while permissions stay fine-grained.
 
 Problem
 
@@ -27,6 +27,7 @@ Build an internal openings-centric interview quiz platform where anyone with the
 * Create and maintain openings with flexible tracking fields.
 * Build quizzes manually or from an AI draft (resume + company rules), then review before use.
 * Turn strong quizzes into templates owned across teams (Dev, QA, HR, Finance, etc.).
+* Maintain a question bank of reusable items and copy them into quizzes (not a live join; distinct from templates and from the drag-drop shared answer bank question type).
 * Search templates by experience and tags, then assign to a candidate.
 * Run the assignment as live (proctored / screen-share style) or async (timed link).
 * Track attempts, auto-score where possible, and review written answers with per-question scoring modes.
@@ -35,7 +36,7 @@ Goals (v1)
 
 1. Replace ad-hoc Forms packs with searchable, maintainable quizzes tied to openings.
 2. Let Recruitment assign the right quiz without owning deep technical content.
-3. Let specialist teams author and maintain templates with richer question types.
+3. Let specialist teams author and maintain templates **and a question bank of reusable items**, with richer question types.
 4. Support both live and async delivery from day one using one quiz model.
 5. Use AI only as a draft assistant—humans always edit before assign.
 6. Avoid rigid org hierarchy: use tags / key–value fields and saved filters instead.
