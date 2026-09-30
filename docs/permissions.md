@@ -1,6 +1,6 @@
 # Permission catalog
 
-Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring (`quizzes.read` / `quizzes.write` on `/api/quizzes` and `/quizzes`), slice 3 templates (`templates.read` / `templates.write` on `/api/templates`, `/api/quizzes/{id}/publish-template`, `/templates`) and saved filters (`filters.write` / `filters.share` on `/api/filters`; apply-criteria on list screens). **Seeded, not granted on Dev Template author, no bank API/UI:** `questions.read` / `questions.write` (slice 4). Later: AI, assignments, attempts. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring (`quizzes.read` / `quizzes.write` on `/api/quizzes` and `/quizzes`), slice 3 templates (`templates.read` / `templates.write` on `/api/templates`, `/api/quizzes/{id}/publish-template`, `/templates`) and saved filters (`filters.write` / `filters.share` on `/api/filters`; apply-criteria on list screens), slice 4 question bank (`questions.read` / `questions.write` on `/api/questions` and Angular `/questions`; include-into-quiz with `quizzes.write` + `questions.read` on `POST /api/quizzes/{quizId}/include-questions` and the quiz editor include panel). Later: AI, assignments, attempts. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 
@@ -53,14 +53,14 @@ Split from Brief “Manage admin defaults” so field defaults are not bundled w
 | `quizzes.write` | Create and edit quizzes | Manual authoring, structure, scoring/credit modes; **clone** a template version into an opening |
 | `templates.read` | View templates | Search/list template library; required with `quizzes.write` to clone |
 | `templates.write` | Create and edit templates | Publish quiz as template (new version on the quiz’s lineage — see architecture §15.1) |
-| `questions.read` | View question bank | List and open company **bank items** (slice 4). Code is **seeded**; no bank API or UI yet |
-| `questions.write` | Create and edit question bank | Author bank items (slice 4). Code is **seeded**; **not** granted on Dev Template author |
+| `questions.read` | View question bank | List and open company **bank items** (`GET /api/questions`; Angular `/questions`, `/questions/:id`) |
+| `questions.write` | Create and edit question bank | Author bank items; archive/unarchive; list archived (`archived=true`); Angular `/questions/new` and editor write |
 | `ai.rules.manage` | Manage company AI rule sets | Versioned JSON rule sets (global + per-question-type fields) |
 | `ai.draft.use` | Use AI draft | Generate a draft from resume + rules; human must edit before assign |
 
 A Dev author can hold `templates.write` / `quizzes.write` **without** `openings.write` or `ai.rules.manage`. The Development seed bundle also includes `openings.read` so the author can pick an opening in the quiz editor without needing `openings.write`.
 
-`questions.read` / `questions.write` are **stable catalog codes** (module `catalog`), same seeding path as `templates.*`. Access inserts the permission rows so the role editor can assign them (`GET /api/permissions`). Quiz/template endpoints do **not** check `questions.*`. Slice 4 include-into-quiz will require `quizzes.write` plus `questions.read`. Do not authorize by role name when the bank ships — add the codes to the Dev Template author **seed bundle** only. The Angular `permission-codes.ts` helper does not yet list `questions.*` (no bank routes); the role editor still shows them from the API catalog.
+`questions.read` / `questions.write` are **stable catalog codes** (module `catalog`). Access seeds the permission rows so the role editor can assign them (`GET /api/permissions`). Quiz/template endpoints do **not** check `questions.*` except include-into-quiz, which requires `quizzes.write` plus `questions.read` (API and the quiz editor include panel). Unarchive is library undelete, **not** `archive.restore.catalog`. Do not authorize by role name — the Dev Template author Development seed bundle includes `questions.read` and `questions.write`. Recruiter seed has **no** `questions.*`. The Angular `permission-codes.ts` helper lists `QuestionsRead` / `QuestionsWrite`. Shell and Home nav **Question bank** behind `questions.read`. Bank list has no SavedFilters (`FilterTarget` has no `questions`).
 
 These codes are **not** the drag-drop question type `dragDropSharedBank` (items inside one question).
 
@@ -119,7 +119,7 @@ Names below are **sample Identity role rows** for local seed only. Production op
 | Seed name | Permission codes (union) |
 |-----------|---------------------------|
 | Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `filters.write`, `filters.share` |
-| Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `ai.draft.use`, `filters.write` — **add** `questions.read` and `questions.write` when slice 4 (question bank) ships; they are **not** on this seed bundle |
+| Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write`, `ai.draft.use`, `filters.write` |
 | Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review` |
 | Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, plus read of openings/catalog as needed to administer |
 

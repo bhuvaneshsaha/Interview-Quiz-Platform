@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–3** are in this branch: **host**, **Access** (JWT + Identity + permissions), **Openings**, **Catalog** quiz authoring and **templates**, **Search** saved filters, and the **web client**. Question bank is **slice 4** (Catalog, copy-on-include, ADR 0007) — codes are seeded, no bank API or UI. Candidate magic-link, AI drafts, and Entra ID are **not** in this slice.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** are in this branch: **host**, **Access** (JWT + Identity + permissions), **Openings**, **Catalog** quiz authoring, **templates**, **question bank** (copy-on-include, ADR 0007) **API and Angular UI**, **Search** saved filters, and the **web client**. Candidate magic-link, AI drafts, and Entra ID are **not** in this slice.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault)
 
 ## Migrate and run
 
-Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, and publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. **Never seeded in Production.**
+Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, and three live **bank questions** (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text). **Never seeded in Production.**
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
@@ -71,7 +71,7 @@ dotnet ef database update \
   --startup-project src/InterviewQuiz.Host \
   --context OpeningsDbContext
 
-# Catalog schema (quizzes / questions / templates)
+# Catalog schema (quizzes / questions / templates / bank_questions)
 dotnet ef database update \
   --project src/Modules/Catalog/InterviewQuiz.Catalog.Infrastructure \
   --startup-project src/InterviewQuiz.Host \
@@ -112,11 +112,11 @@ Not in this slice: candidate magic-link, Entra ID.
 
 These accounts exist only when the host runs in Development (or tests seed them). Do not use them in Production.
 
-| Email | Password | Sample bundle | Slice 3 notes |
+| Email | Password | Sample bundle | Slice 4 notes |
 |-------|----------|----------------|---------------|
-| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **no** `quizzes.write` (cannot clone) |
-| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` (publish and clone); `filters.write`; **no** `questions.*` |
-| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | No template/filter write |
+| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
+| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write` |
+| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | No template/filter/bank write |
 | `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | Role editor can assign `questions.*`; they are not on this seed bundle |
 
 ```bash
@@ -163,7 +163,7 @@ Concurrency: `row_version` integer token on Opening (incremented on update). PUT
 
 In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other modules must not read the `openings` schema.
 
-## Catalog API (slices 2–3 — quizzes and templates)
+## Catalog API (slices 2–4 — quizzes, templates, question bank)
 
 | Method | Path | Permission |
 |--------|------|------------|
@@ -171,24 +171,35 @@ In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other
 | `POST` | `/api/quizzes` | `quizzes.write` |
 | `GET` | `/api/quizzes/{id}` | `quizzes.read` **or** `quizzes.write` |
 | `PUT` | `/api/quizzes/{id}` | `quizzes.write` |
+| `POST` | `/api/quizzes/{quizId}/include-questions` | `quizzes.write` **and** `questions.read` |
 | `POST` | `/api/quizzes/{id}/publish-template` | `templates.write` |
 | `GET` | `/api/templates` | `templates.read` |
 | `GET` | `/api/templates/{id}` | `templates.read` |
 | `GET` | `/api/templates/{id}/versions` | `templates.read` |
 | `GET` | `/api/templates/{id}/versions/{versionId}` | `templates.read` |
 | `POST` | `/api/templates/{id}/versions/{versionId}/clone` | `quizzes.write` **and** `templates.read` |
+| `GET` | `/api/questions` | `questions.read` |
+| `POST` | `/api/questions` | `questions.write` |
+| `GET` | `/api/questions/{id}` | `questions.read` **or** `questions.write` |
+| `PUT` | `/api/questions/{id}` | `questions.write` |
+| `POST` | `/api/questions/{id}/archive` | `questions.write` |
+| `POST` | `/api/questions/{id}/unarchive` | `questions.write` |
 
 Quiz list query: `openingId`, `keyword`, `experienceMinYears`, `experienceMaxYears`, `tags` (JSON object), `criteria` (full JSON — same shape Search persists for `target: "quizzes"`), `page`, `pageSize` (capped at 100). JSON is camelCase. Eight question `type` values: `multipleChoiceSingle`, `multipleChoiceMulti`, `trueFalse`, `shortText`, `longText`, `dragDropSharedBank`, `dragDropPerSlot`, `ordering`. Scoring: `auto` / `aiAssist` / `humanOnly`. `creditMode` (`partial` / `allOrNothing`) is required only for `multipleChoiceMulti` and `ordering`. PUT replaces the full question list and requires `rowVersion`. Create may send an empty `questions` array. Unknown `openingId` returns 400 `"Opening does not exist."` (Catalog calls `IOpeningLookup` in-process; it does not read the `openings` schema).
 
-A quiz belongs to **exactly one** opening. Reuse across openings is via **template** (publish / clone). Code question types are rejected. `QuizResponse` includes `originTemplateId` and `sourceTemplateVersionId` (not client-writable on create/update). Questions include optional `sourceQuestionId` (persisted as sent; not validated against a bank).
-
 Template list query: `keyword`, `experienceMinYears`, `experienceMaxYears`, `tags`, `criteria` (full JSON for `target: "templates"`), `page`, `pageSize`. List/get template returns latest-version **metadata** (no question bodies). Version list is paged (`page` / `pageSize`). Version get returns full `questions`. Clone body: `openingId` (required), `title` (optional). Clone 201 `Location: /api/quizzes/{newId}`. Publish 201 `Location: /api/templates/{templateId}` with `templateId`, `versionId`, `versionNumber`, `createdNewTemplate`.
 
-Concurrency: integer `row_version` on Quiz (incremented on update), same pattern as Opening. Publish also increments the quiz `rowVersion`.
+A quiz belongs to **exactly one** opening. Reuse across openings is via **template** (publish / clone). Code question types are rejected. `QuizResponse` includes `originTemplateId` and `sourceTemplateVersionId` (not client-writable on create/update). Questions include optional `sourceQuestionId` (bank provenance; include sets it; quiz CRUD still persists it as sent).
 
-In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time. `IQuestionBankReader` is reserved for slice 4 and is **not** registered.
+Question-bank list query: `keyword` (title **or** stem), `type` (camelCase), `experienceMinYears` / `experienceMaxYears`, `tags` (JSON object), `criteria` (`BankQuestionListCriteria` JSON), `archived` (default `false`; `true` returns only archived and requires `questions.write` else 403), `page`, `pageSize`. `BankQuestionResponse` has no `sortOrder`. Create/update body: `title`, `tags`, `expectedExperienceYears` (0–80), `type`, `stem`, `scoringMode`, `creditMode`, `points`, `body`. Update requires `rowVersion`. Client `sourceQuestionId` is ignored. No hard delete — archive / unarchive. Unknown GET is 404. Archive already archived / unarchive when live is 400. The Angular bank list has **no** SavedFilters (`FilterTarget` has no `questions`).
 
-Not in this slice: question-bank REST/UI, AI drafts, assignments, magic-link.
+Include body `IncludeQuestionsRequest`: `questionIds` (required, unique, non-empty), `insertAt` (optional 0-based index into the current quiz list; default append; clamped 0..count), `rowVersion` (quiz concurrency). Missing bank id → 400 `"Question does not exist."` Archived bank item → 400 `"Archived question cannot be included."` Copies type/stem/scoring/credit/points/body, **new quiz question ids**, `sourceQuestionId` = bank item id. Returns the updated `QuizResponse` (200).
+
+Concurrency: integer `row_version` on Quiz and BankQuestion (incremented on update), same pattern as Opening. Publish also increments the quiz `rowVersion`. Include increments the quiz `rowVersion`.
+
+In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time. `IQuestionBankReader.GetByIdAsync(id)` is registered and used **only** by include (not quiz create/update/publish/clone). GetById returns archived rows so include can reject them.
+
+Not in this slice: AI drafts, assignments, magic-link.
 
 ## Search API (slice 3 — saved filters)
 
@@ -206,7 +217,7 @@ List query: optional `target` (`openings` / `quizzes` / `templates`), `page`, `p
 
 ## Web client (Angular SPA / PWA)
 
-Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`). Slice 1: sign-in, openings, permission-aware admin. Slice 2: quiz list and authoring editor. Slice 3: template library, clone/publish, saved list filters.
+Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`). Slice 1: sign-in, openings, permission-aware admin. Slice 2: quiz list and authoring editor. Slice 3: template library, clone/publish, saved list filters. Slice 4: question bank list/editor and include-from-quiz.
 
 ```bash
 export PATH=$HOME/.npm-global/bin:$PATH
@@ -217,33 +228,36 @@ ng serve
 
 `ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`.
 
-Employee routes used in slices 2–3 (permission on the route, same codes as the API):
+Employee routes used in slices 2–4 (permission on the route, same codes as the API):
 
 | Path | Permission | Screen |
 |------|------------|--------|
 | `/quizzes` | `quizzes.read` | Quiz list (opening, keyword, experience, saved filters) |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
-| `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz; `templates.write` can publish as template |
+| `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz; `templates.write` can publish as template; include from bank when `quizzes.write` **and** `questions.read` on an existing saved quiz |
 | `/templates` | `templates.read` | Template list (keyword, experience, tags, saved filters) |
 | `/templates/:id` | `templates.read` | Template detail, versions, read-only questions |
+| `/questions` | `questions.read` | Question bank list (keyword, type, experience, tags; archived-only toggle only with `questions.write`). **No** SavedFilters |
+| `/questions/new` | `questions.write` | Create bank question |
+| `/questions/:id` | `questions.read` **or** `questions.write` | View / edit bank question; archive/unarchive with write |
 
-Shell nav and home link to Quizzes when the user has `quizzes.read`, and to Templates when `templates.read`. Create is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`) can browse templates but not clone. Author (`quizzes.write` + `templates.read` + `templates.write`) can clone a version into a quiz and publish. Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
+Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, and to **Question bank** when `questions.read`. Create is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`, **no** `questions.*`) can browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank. Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
 
-### Exercise slices 2–3 locally (Development-only)
+### Exercise slices 2–4 locally (Development-only)
 
 Dummy users and passwords are in the table under **Sign in locally** above — do not copy them elsewhere. Use:
 
-- `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), save filters (`filters.write`).
-- `recruiter.dev@example.com` (Dev Recruiter) for **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone.
+- `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), question bank (`questions.read` + `questions.write`), include from an existing quiz (`quizzes.write` + `questions.read`), save filters (`filters.write`).
+- `recruiter.dev@example.com` (Dev Recruiter) for **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone. **No** `questions.*` — no bank nav, no include panel.
 
-Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. **Never seeded in Production.** There is no question-bank UI.
+Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, and three live bank questions (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text). **Never seeded in Production.**
 
 ```bash
 ng build
 ng test --watch=false
 ```
 
-`ng test` runs **Vitest** (Angular unit/component tests, including quiz list/editor, templates, and SavedFilters).
+`ng test` runs **Vitest** (Angular unit/component tests, including quiz list/editor, templates, SavedFilters, and question bank list/editor/include). The client has component specs for those screens.
 
 ### Storybook
 
@@ -264,7 +278,7 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`) and saved-filter API coverage (`SearchApiTests`).
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), and saved-filter API coverage (`SearchApiTests`).
 
 Angular (Vitest):
 
@@ -279,8 +293,8 @@ ng test --watch=false
 - `src/InterviewQuiz.Kernel` — clock, pagination, tags, permission code constants
 - `src/Modules/Access` — Identity user store, JWT issue/refresh/revoke, permission catalog, roles as permission sets (`access` schema)
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
-- `src/Modules/Catalog` — Domain / Application / Infrastructure (`catalog` schema; quiz authoring, templates)
+- `src/Modules/Catalog` — Domain / Application / Infrastructure (`catalog` schema; quiz authoring, templates, question bank)
 - `src/Modules/Search` — saved filters (`search` schema)
 - `src/Modules/Delivery|Evaluation` — empty composition stubs (assignments / review later)
-- `src/interview-quiz-web` — Angular SPA + installable PWA (slices 1–3: openings, quizzes, templates, saved filters)
+- `src/interview-quiz-web` — Angular SPA + installable PWA (slices 1–4: openings, quizzes, templates, question bank, saved filters)
 - `deploy/local/compose.yaml` — local PostgreSQL 16

@@ -1,6 +1,6 @@
 # Component catalog
 
-Reusable UI primitives for the Angular SPA. Feature screens (login, openings, quizzes, role editor) are not listed here — those live under `src/interview-quiz-web/src/app/features/`.
+Reusable UI primitives for the Angular SPA. Feature screens (login, openings, quizzes, templates, questions, role editor) are not listed here — those live under `src/interview-quiz-web/src/app/features/`.
 
 **Playbook markdown is the source of API tables** (inputs, outputs, usage). Angular owns those pages; do not invent props here. OSS Storybook is the isolated gallery for the same primitives, not a second API contract.
 

@@ -1,6 +1,6 @@
 # Interview Quiz web client
 
-Angular SPA + installable PWA for the Interview Quiz Platform (slice 1: sign-in, openings, permission-aware admin; slice 2: quiz list and authoring editor; slice 3: templates, clone/publish, saved list filters). Question-bank screens are **slice 4** (not in this client).
+Angular SPA + installable PWA for the Interview Quiz Platform (slice 1: sign-in, openings, permission-aware admin; slice 2: quiz list and authoring editor; slice 3: templates, clone/publish, saved list filters; slice 4: question bank list/editor and include-from-quiz).
 
 ## Prerequisites
 
@@ -36,21 +36,26 @@ Run API and SPA together:
 
 Do not put JWT signing keys, connection strings, or dummy passwords into environment files that ship in the client bundle. Dummy users exist only in API Development seed.
 
-## Routes (slice 2–3)
+## Routes (slices 2–4)
 
 | Path | Permission | Screen |
 |------|------------|--------|
 | `/quizzes` | `quizzes.read` | Quiz list (opening, keyword, experience, saved filters) |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
-| `/quizzes/:id` | `quizzes.read` or `quizzes.write` | View / edit quiz; `templates.write` can publish as template |
+| `/quizzes/:id` | `quizzes.read` or `quizzes.write` | View / edit quiz; `templates.write` can publish as template; include from bank when `quizzes.write` **and** `questions.read` on an existing saved quiz |
 | `/templates` | `templates.read` | Template list (keyword, experience, tags, saved filters) |
 | `/templates/:id` | `templates.read` | Template detail, versions, read-only questions |
+| `/questions` | `questions.read` | Question bank list (keyword, type, experience, tags; archived-only toggle only with `questions.write`). **No** SavedFilters |
+| `/questions/new` | `questions.write` | Create bank question |
+| `/questions/:id` | `questions.read` or `questions.write` | View / edit bank question; archive/unarchive with write; read-only without write |
 
-Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`) can browse templates but not clone. Author (`quizzes.write` + `templates.read`) can clone a version into a quiz (opening picker needs `openings.read`, otherwise an opening id field). After clone the client navigates to `/quizzes/{id}`. Publish as template is hidden without `templates.write` and is not shown on create-new.
+Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`, **no** `questions.*`) can browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read`) can clone a version into a quiz (opening picker needs `openings.read`, otherwise an opening id field). After clone the client navigates to `/quizzes/{id}`. Publish as template is hidden without `templates.write` and is not shown on create-new.
 
-Saved filters live on the openings, quizzes, and templates list screens (`GET /api/filters`). Saving requires `filters.write`; sharing requires `filters.share` and ownership. Recruiter can share but typically lacks `users.manage`, so share-with is a user-id text field.
+Question bank nav (shell + home **Question bank**) requires `questions.read`. Create is hidden without `questions.write`. Include from question bank appears on the quiz editor only when `quizzes.write` **and** `questions.read` **and** the quiz is already saved (hidden on create-new). Copies go through `POST /api/quizzes/{quizId}/include-questions`; quiz questions with `sourceQuestionId` show the hint “From question bank”. Archive/unarchive is hidden on create-new.
 
-Exercise with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` has `templates.write` + `quizzes.write` (publish and clone) and `filters.write`; `recruiter.dev@example.com` has `templates.read` + `filters.share` and **no** `quizzes.write`, so no clone. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6. The Development seed template id is `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. Host Development auto-migrates `SearchDbContext` with Catalog; see the root README for `dotnet ef` commands.
+Saved filters live on the openings, quizzes, and templates list screens (`GET /api/filters`). Saving requires `filters.write`; sharing requires `filters.share` and ownership. Recruiter can share but typically lacks `users.manage`, so share-with is a user-id text field. The bank list does not use SavedFilters (`FilterTarget` has no `questions`).
+
+Exercise with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` has `templates.write` + `quizzes.write` + `questions.read` + `questions.write` (publish, clone, bank, include) and `filters.write`; `recruiter.dev@example.com` has `templates.read` + `filters.share` and **no** `quizzes.write` / **no** `questions.*`, so no clone, no bank nav, no include. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6. The Development seed template id is `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. Seed bank question ids are in the repository root README. Host Development auto-migrates `SearchDbContext` with Catalog; see the root README for `dotnet ef` commands.
 
 ## Build and tests
 
@@ -60,6 +65,8 @@ ng test --watch=false
 ```
 
 Production build registers the Angular service worker. Dev `ng serve` does not (service worker `enabled: !isDevMode()`).
+
+The client has component specs for quiz list/editor, templates, SavedFilters, and question bank list/editor/include.
 
 ## Storybook
 
@@ -112,14 +119,14 @@ Requests send `Authorization: Bearer {accessToken}` and `X-Correlation-ID` (gene
 
 UI hide/show uses `hasPermission(code)` and `*hasPermission="'quizzes.write'"` — never role names. Route `data.permission` is a permission code or an any-of list. Role editor (`roles.manage`) lists catalog checkboxes and excludes `candidate.attempt.participate` / `includeInEmployeeRoleEditor === false`.
 
-Quiz authoring checks `quizzes.read` / `quizzes.write` only. Opening picker uses `GET /api/openings` when the user has `openings.read`; otherwise the editor falls back to a UUID field for `openingId`. Publish as template uses `templates.write`. Clone uses both `quizzes.write` and `templates.read` (any-of `*hasPermission` is not used for clone). Saved filters use `filters.write` / `filters.share`.
+Quiz authoring checks `quizzes.read` / `quizzes.write` only. Opening picker uses `GET /api/openings` when the user has `openings.read`; otherwise the editor falls back to a UUID field for `openingId`. Publish as template uses `templates.write`. Clone uses both `quizzes.write` and `templates.read` (any-of `*hasPermission` is not used for clone). Saved filters use `filters.write` / `filters.share`. Question bank uses `questions.read` / `questions.write` (`PermissionCodes.QuestionsRead` / `QuestionsWrite`). Include from question bank on the quiz editor requires both `quizzes.write` and `questions.read` on an existing saved quiz (hidden on create-new). Recruiter without `questions.*` does not see bank nav or include.
 
-Mapper round-trips optional `sourceQuestionId` on save. `originTemplateId` and `sourceTemplateVersionId` are read-only on `QuizResponse` and are never sent on create/update.
+Mapper round-trips optional `sourceQuestionId` on save. Include sets it via the include API. `originTemplateId` and `sourceTemplateVersionId` are read-only on `QuizResponse` and are never sent on create/update.
 
 ## Layout
 
 - `src/app/core` — auth, interceptors, permission helpers, typed API wrappers
-- `src/app/features` — login, openings, quizzes, templates, roles, users
+- `src/app/features` — login, openings, quizzes, templates, questions, roles, users
 - `src/app/shared` — page status (loading / empty / error), saved filters
 - `src/app/layout` — authenticated shell
 
