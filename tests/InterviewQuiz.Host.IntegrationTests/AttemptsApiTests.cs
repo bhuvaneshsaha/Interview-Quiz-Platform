@@ -6,6 +6,7 @@ using System.Text.Json;
 using InterviewQuiz.Access.Application.Contracts;
 using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Catalog.Application.Contracts;
+using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Contracts;
 using InterviewQuiz.Kernel.Pagination;
@@ -25,11 +26,7 @@ public sealed class AttemptsApiTests
         _factory = factory;
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly JsonSerializerOptions JsonOptions = CatalogJson.SerializerOptions;
 
     [RequiresDatabaseFact]
     public async Task Consume_start_save_submit_auto_quiz_completes_without_keys_on_results()
@@ -175,7 +172,7 @@ public sealed class AttemptsApiTests
             PermissionCodes.Catalog.QuizzesWrite,
             PermissionCodes.Evaluation.AttemptsRead));
         var quizId = await CreateAutoQuizAsync(recruiter);
-        var quiz = await recruiter.GetFromJsonAsync<QuizResponse>($"/api/quizzes/{quizId}", JsonOptions);
+        var quiz = await recruiter.GetFromJsonAsync<QuizResponse>($"/api/quizzes/{quizId}", CatalogJson.SerializerOptions);
         var questionId = quiz!.Questions[0].Id;
 
         var post = await recruiter.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
@@ -214,7 +211,7 @@ public sealed class AttemptsApiTests
             "/api/quizzes",
             new StringContent(json, Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<QuizResponse>(JsonOptions);
+        var created = await response.Content.ReadFromJsonAsync<QuizResponse>(CatalogJson.SerializerOptions);
         return created!.Id;
     }
 

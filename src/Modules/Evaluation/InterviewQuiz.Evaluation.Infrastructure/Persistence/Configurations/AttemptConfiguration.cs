@@ -44,7 +44,7 @@ public sealed class AttemptConfiguration : IEntityTypeConfiguration<Attempt>
         builder.HasIndex(e => e.AssignmentId);
         builder.HasIndex(e => new { e.AssignmentId, e.Status });
         builder.HasIndex(e => e.AssignmentId)
-            .HasFilter("status = 'inProgress'")
+            .HasFilter("\"Status\" = 'inProgress'")
             .IsUnique()
             .HasDatabaseName("ix_attempts_one_in_progress");
 

@@ -99,7 +99,7 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                 table: "attempts",
                 column: "AssignmentId",
                 unique: true,
-                filter: "status = 'inProgress'");
+                filter: "\"Status\" = 'inProgress'");
         }
 
         /// <inheritdoc />

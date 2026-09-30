@@ -89,7 +89,7 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                     b.HasIndex("AssignmentId")
                         .IsUnique()
                         .HasDatabaseName("ix_attempts_one_in_progress")
-                        .HasFilter("status = 'inProgress'");
+                        .HasFilter("\"Status\" = 'inProgress'");
 
                     b.HasIndex("AssignmentId", "Status");
 
