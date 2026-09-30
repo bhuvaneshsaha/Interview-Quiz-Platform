@@ -96,7 +96,8 @@ try
             Version = "v1",
             Description =
                 "Modular Monolith host. Employee login is email/password (JWT bearer). " +
-                "Candidate magic-link and Entra ID are not in this slice."
+                "Candidates exchange a magic-link invite at POST /api/auth/magic-link/consume. " +
+                "Entra ID is not in this slice."
         });
         options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {

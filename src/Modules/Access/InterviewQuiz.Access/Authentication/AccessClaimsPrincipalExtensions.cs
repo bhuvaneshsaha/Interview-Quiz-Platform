@@ -30,4 +30,16 @@ public static class AccessClaimsPrincipalExtensions
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
     }
+
+    public static Guid? FindAssignmentId(this ClaimsPrincipal principal)
+        => ParseGuidClaim(principal, PermissionClaims.AssignmentId);
+
+    public static Guid? FindAttemptId(this ClaimsPrincipal principal)
+        => ParseGuidClaim(principal, PermissionClaims.AttemptId);
+
+    private static Guid? ParseGuidClaim(ClaimsPrincipal principal, string claimType)
+    {
+        var value = principal.FindFirstValue(claimType);
+        return Guid.TryParse(value, out var id) ? id : null;
+    }
 }

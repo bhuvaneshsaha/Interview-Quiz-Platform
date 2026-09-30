@@ -1,3 +1,4 @@
+using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Catalog.Application.Services;
 using InterviewQuiz.Openings.Application.Services;
 using InterviewQuiz.Search.Application.Services;
@@ -28,7 +29,8 @@ public static class ObservabilityExtensions
                     .AddSource(QuizService.ActivitySource.Name)
                     .AddSource(TemplateService.ActivitySource.Name)
                     .AddSource(BankQuestionService.ActivitySource.Name)
-                    .AddSource(FilterService.ActivitySource.Name);
+                    .AddSource(FilterService.ActivitySource.Name)
+                    .AddSource(MagicLinkService.ActivitySource.Name);
 
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))
                 {

@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** are in this branch: **host**, **Access** (JWT + Identity + permissions), **Openings**, **Catalog** quiz authoring, **templates**, **question bank** (copy-on-include, ADR 0007) **API and Angular UI**, **Search** saved filters, and the **web client**. Candidate magic-link, AI drafts, and Entra ID are **not** in this slice.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** plus Access **candidate magic-link consume** (ADR 0008) are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate JWTs), **Openings**, **Catalog** quiz authoring, **templates**, **question bank** (copy-on-include, ADR 0007) **API and Angular UI**, **Search** saved filters, and the **web client**. Delivery assignments, Evaluation attempts, Angular `/attempt`, AI drafts, and Entra ID are **not** in this Auth pass.
 
 ## Prerequisites
 
@@ -48,6 +48,8 @@ export ConnectionStrings__InterviewQuiz="Host=localhost;Port=5432;Database=inter
 | `Jwt__Audience` | JWT audience (defaults to `InterviewQuiz` in appsettings) |
 | `Jwt__AccessTokenMinutes` | Access token lifetime (default `15`) |
 | `Jwt__RefreshTokenDays` | Refresh token lifetime (default `14`) |
+| `Jwt__CandidateAccessTokenMinutes` | Candidate magic-link access token lifetime (default `60`, range 1–180). No candidate refresh token |
+| `PublicBaseUrl` | Public origin for recruiter-copied invite URLs (no trailing slash). Delivery builds `{PublicBaseUrl}/attempt?token=` |
 
 Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
@@ -106,7 +108,9 @@ Employee entry is **email + password → JWT**. The API default scheme is JwtBea
 
 There is **no self-registration**. Admins provision users (`users.manage`).
 
-Not in this slice: candidate magic-link, Entra ID.
+Candidates enter with a **magic-link**: `POST /api/auth/magic-link/consume` with `{ "token": "<opaque>" }` returns a short-lived assignment-scoped JWT (`candidate.attempt.participate` + `assignment_id`). The invite is reusable until the assignment is submitted or the recruiter rotates it. No candidate refresh token. Recruiter invite HTTP (`POST /api/assignments/{id}/invite`) is Delivery; Access exposes `IMagicLinkService.IssueAsync` (raw token, hashed in `access.magic_link_invites`).
+
+Not in this slice: Entra ID, SMTP.
 
 ### Sign in locally (Development dummy users)
 
@@ -138,6 +142,7 @@ Do **not** use `[Authorize(Roles = ...)]`. Roles are operator-composed permissio
 | `POST` | `/api/auth/login` | anonymous |
 | `POST` | `/api/auth/refresh` | anonymous (valid refresh token) |
 | `POST` | `/api/auth/logout` | anonymous (refresh token body) |
+| `POST` | `/api/auth/magic-link/consume` | anonymous (opaque invite) |
 | `GET` | `/api/me` | authenticated |
 | `GET` | `/api/me/permissions` | authenticated |
 | `GET` | `/api/permissions` | `roles.manage` |

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\InterviewQuiz.Host\InterviewQuiz.Host.csproj" />
+    <ProjectReference Include="..\..\src\InterviewQuiz.Kernel\InterviewQuiz.Kernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Access\InterviewQuiz.Access\InterviewQuiz.Access.csproj" />
     <ProjectReference Include="..\..\src\Modules\Openings\InterviewQuiz.Openings.Infrastructure\InterviewQuiz.Openings.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Openings\InterviewQuiz.Openings.Application\InterviewQuiz.Openings.Application.csproj" />

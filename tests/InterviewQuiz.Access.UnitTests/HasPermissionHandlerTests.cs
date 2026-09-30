@@ -34,6 +34,19 @@ public sealed class HasPermissionHandlerTests
     }
 
     [Fact]
+    public async Task Candidate_permission_does_not_satisfy_assignments_write()
+    {
+        var requirement = new HasPermissionRequirement(PermissionCodes.Delivery.AssignmentsWrite);
+        var user = Principal(authenticated: true, PermissionCodes.Candidate.AttemptParticipate);
+        var context = new AuthorizationHandlerContext([requirement], user, resource: null);
+
+        await _handler.HandleAsync(context);
+
+        Assert.False(context.HasSucceeded);
+        Assert.False(context.HasFailed);
+    }
+
+    [Fact]
     public async Task Does_not_succeed_when_anonymous()
     {
         var user = Principal(authenticated: false);

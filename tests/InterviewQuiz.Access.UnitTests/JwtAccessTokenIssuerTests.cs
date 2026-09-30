@@ -34,6 +34,46 @@ public sealed class JwtAccessTokenIssuerTests
     }
 
     [Fact]
+    public async Task Candidate_token_has_assignment_scope_and_only_participate_permission()
+    {
+        var jwt = CreateOptions();
+        var now = DateTimeOffset.UtcNow;
+        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(now));
+        var assignmentId = Guid.Parse("7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001");
+        var issued = issuer.IssueCandidate("user-9", "candidate.dev@example.com", assignmentId, attemptId: null);
+
+        var result = await ValidateAsync(issued.Token, jwt);
+
+        Assert.True(result.IsValid, result.Exception?.ToString());
+        var permissions = result.ClaimsIdentity!.FindAll(PermissionClaims.Permission)
+            .Select(c => c.Value)
+            .ToArray();
+        Assert.Equal([PermissionCodes.Candidate.AttemptParticipate], permissions);
+        Assert.Equal(
+            assignmentId.ToString("D"),
+            result.ClaimsIdentity.FindFirst(PermissionClaims.AssignmentId)?.Value);
+        Assert.Null(result.ClaimsIdentity.FindFirst(PermissionClaims.AttemptId));
+        Assert.Equal(now.AddMinutes(60), issued.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Candidate_token_includes_attempt_id_when_provided()
+    {
+        var jwt = CreateOptions();
+        var issuer = new JwtAccessTokenIssuer(Options.Create(jwt), new FixedClock(DateTimeOffset.UtcNow));
+        var assignmentId = Guid.Parse("7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001");
+        var attemptId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var issued = issuer.IssueCandidate("user-9", "candidate.dev@example.com", assignmentId, attemptId);
+
+        var result = await ValidateAsync(issued.Token, jwt);
+
+        Assert.True(result.IsValid, result.Exception?.ToString());
+        Assert.Equal(
+            attemptId.ToString("D"),
+            result.ClaimsIdentity!.FindFirst(PermissionClaims.AttemptId)?.Value);
+    }
+
+    [Fact]
     public async Task Expired_token_fails_validation()
     {
         var jwt = CreateOptions();
@@ -80,7 +120,8 @@ public sealed class JwtAccessTokenIssuerTests
             Audience = "InterviewQuiz.Tests",
             SigningKey = "InterviewQuiz-Testing-Signing-Key-Not-For-Production!",
             AccessTokenMinutes = 15,
-            RefreshTokenDays = 7
+            RefreshTokenDays = 7,
+            CandidateAccessTokenMinutes = 60
         };
 
     private static async Task<TokenValidationResult> ValidateAsync(string token, JwtOptions jwt)

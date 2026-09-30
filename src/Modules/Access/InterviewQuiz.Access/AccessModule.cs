@@ -29,6 +29,10 @@ public static class AccessModule
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .ValidateOnStart();
+        services.Configure<PublicBaseUrlOptions>(options =>
+        {
+            options.PublicBaseUrl = configuration[PublicBaseUrlOptions.ConfigurationKey]?.Trim() ?? "";
+        });
 
         services.AddDbContext<AccessDbContext>(options =>
         {
@@ -71,6 +75,8 @@ public static class AccessModule
 
         services.AddSingleton<IJwtAccessTokenIssuer, JwtAccessTokenIssuer>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+        services.AddScoped<IMagicLinkInviteStore, MagicLinkInviteStore>();
+        services.AddScoped<IMagicLinkService, MagicLinkService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IIdentityUserDirectory, IdentityUserDirectory>();
         services.AddScoped<IEffectivePermissionReader, EffectivePermissionReader>();

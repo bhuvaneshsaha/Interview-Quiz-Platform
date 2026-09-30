@@ -2,11 +2,13 @@ using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Seeding;
 using InterviewQuiz.Catalog.Infrastructure.Persistence;
 using InterviewQuiz.Catalog.Infrastructure.Seeding;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +37,12 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
                     ["ConnectionStrings:InterviewQuiz"] = ConnectionString
                 });
             }
+        });
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<TestAssignmentInviteInfo>();
+            services.AddSingleton<IAssignmentInviteInfo>(sp =>
+                sp.GetRequiredService<TestAssignmentInviteInfo>());
         });
     }
 
