@@ -5,9 +5,11 @@ using System.Text.Json;
 using InterviewQuiz.Access.Application.Contracts;
 using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Infrastructure.Seeding;
+using InterviewQuiz.Catalog.Infrastructure.Seeding;
+using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Permissions;
-using InterviewQuiz.Openings.Application.Contracts;
+using InterviewQuiz.Openings.Infrastructure.Seeding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -32,9 +34,8 @@ public sealed class MagicLinkApiTests
     [RequiresDatabaseFact]
     public async Task Consume_valid_invite_returns_candidate_jwt_and_me()
     {
-        var assignmentId = Guid.NewGuid();
-        ArrangeAssignment(assignmentId, "candidate.dev@example.com");
-        var raw = await IssueAsync(assignmentId);
+        var created = await CreateAsyncAssignmentAsync("candidate.dev@example.com");
+        var raw = TokenFromInviteUrl(created.InviteUrl!);
 
         var client = _factory.CreateClient();
         var consume = await client.PostAsJsonAsync(
@@ -50,12 +51,12 @@ public sealed class MagicLinkApiTests
         var tokens = JsonSerializer.Deserialize<CandidateTokenResponse>(payload, JsonOptions);
         Assert.NotNull(tokens);
         Assert.Equal("Bearer", tokens!.TokenType);
-        Assert.Equal(assignmentId, tokens.AssignmentId);
+        Assert.Equal(created.Id, tokens.AssignmentId);
         Assert.False(string.IsNullOrWhiteSpace(tokens.AccessToken));
 
         var claims = await ReadClaimsAsync(tokens.AccessToken);
         Assert.Equal([PermissionCodes.Candidate.AttemptParticipate], claims.Permissions);
-        Assert.Equal(assignmentId.ToString("D"), claims.AssignmentId);
+        Assert.Equal(created.Id.ToString("D"), claims.AssignmentId);
         Assert.Null(claims.AttemptId);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
@@ -67,17 +68,13 @@ public sealed class MagicLinkApiTests
         var permissions = await client.GetFromJsonAsync<List<string>>("/api/me/permissions", JsonOptions);
         Assert.Equal([PermissionCodes.Candidate.AttemptParticipate], permissions);
 
-        var forbidden = await client.PostAsJsonAsync("/api/openings", new CreateOpeningRequest
+        var forbidden = await client.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
         {
-            Title = "Should fail",
-            JobDescription = "Candidate must not have openings.write.",
-            Owner = "candidate.dev@example.com",
-            StartDate = new DateOnly(2026, 10, 6),
-            ExpectedCloseDate = new DateOnly(2026, 12, 6),
-            Headcount = 1,
-            ExpectedExperienceYears = 2,
-            Handlers = ["candidate.dev@example.com"],
-            Tags = new Dictionary<string, string>()
+            OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
+            QuizId = DevelopmentQuizSeeder.SampleQuizBackend,
+            CandidateEmail = "other@example.com",
+            Mode = "async",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 }
         });
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
@@ -85,10 +82,9 @@ public sealed class MagicLinkApiTests
     [RequiresDatabaseFact]
     public async Task Consume_after_rotate_rejects_old_token()
     {
-        var assignmentId = Guid.NewGuid();
-        ArrangeAssignment(assignmentId);
-        var first = await IssueAsync(assignmentId);
-        var second = await IssueAsync(assignmentId);
+        var created = await CreateAsyncAssignmentAsync();
+        var first = TokenFromInviteUrl(created.InviteUrl!);
+        var second = await IssueAsync(created.Id);
 
         var client = _factory.CreateClient();
         var old = await client.PostAsJsonAsync(
@@ -107,10 +103,18 @@ public sealed class MagicLinkApiTests
     [RequiresDatabaseFact]
     public async Task Consume_when_not_invitable_is_bad_request()
     {
-        var assignmentId = Guid.NewGuid();
-        ArrangeAssignment(assignmentId, status: "notStarted");
-        var raw = await IssueAsync(assignmentId);
-        ArrangeAssignment(assignmentId, status: "submitted");
+        var created = await CreateAsyncAssignmentAsync();
+        var raw = TokenFromInviteUrl(created.InviteUrl!);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var lifecycle = scope.ServiceProvider.GetRequiredService<IAssignmentLifecycle>();
+            await lifecycle.NotifyAttemptSubmitted(
+                created.Id,
+                Guid.NewGuid(),
+                AttemptResultStatuses.Complete,
+                CancellationToken.None);
+        }
 
         var client = _factory.CreateClient();
         var consume = await client.PostAsJsonAsync(
@@ -123,9 +127,8 @@ public sealed class MagicLinkApiTests
     [RequiresDatabaseFact]
     public async Task Employee_email_as_candidate_does_not_copy_recruiter_permissions()
     {
-        var assignmentId = Guid.NewGuid();
-        ArrangeAssignment(assignmentId, DevelopmentAccessSeeder.RecruiterEmail);
-        var raw = await IssueAsync(assignmentId);
+        var created = await CreateAsyncAssignmentAsync(DevelopmentAccessSeeder.RecruiterEmail);
+        var raw = TokenFromInviteUrl(created.InviteUrl!);
 
         var client = _factory.CreateClient();
         var consume = await client.PostAsJsonAsync(
@@ -162,9 +165,8 @@ public sealed class MagicLinkApiTests
     [RequiresDatabaseFact]
     public async Task Reconsume_same_invite_while_invitable_issues_new_access_token()
     {
-        var assignmentId = Guid.NewGuid();
-        ArrangeAssignment(assignmentId);
-        var raw = await IssueAsync(assignmentId);
+        var created = await CreateAsyncAssignmentAsync();
+        var raw = TokenFromInviteUrl(created.InviteUrl!);
 
         var client = _factory.CreateClient();
         var first = await client.PostAsJsonAsync(
@@ -179,7 +181,7 @@ public sealed class MagicLinkApiTests
         var firstTokens = await first.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
         var secondTokens = await second.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
         Assert.NotEqual(firstTokens!.AccessToken, secondTokens!.AccessToken);
-        Assert.Equal(assignmentId, secondTokens.AssignmentId);
+        Assert.Equal(created.Id, secondTokens.AssignmentId);
     }
 
     [RequiresDatabaseFact]
@@ -212,21 +214,59 @@ public sealed class MagicLinkApiTests
             (await ReadClaimsAsync(tokens.AccessToken)).Permissions);
     }
 
-    private void ArrangeAssignment(
-        Guid assignmentId,
-        string email = "candidate.dev@example.com",
-        string mode = "async",
-        string status = "notStarted")
+    private async Task<AssignmentResponse> CreateAsyncAssignmentAsync(
+        string email = "candidate.dev@example.com")
     {
-        _factory.Services.GetRequiredService<TestAssignmentInviteInfo>()
-            .Set(new AssignmentInviteInfoDto(assignmentId, email, mode, status));
+        var client = CreateAuthenticatedClient(Recruiter());
+        var post = await client.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
+        {
+            OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
+            QuizId = DevelopmentQuizSeeder.SampleQuizBackend,
+            CandidateEmail = email,
+            Mode = "async",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 },
+            AttemptLimit = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        var created = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.False(string.IsNullOrWhiteSpace(created!.InviteUrl));
+        return created;
     }
+
+    private HttpClient CreateAuthenticatedClient(string accessToken)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return client;
+    }
+
+    private static string Recruiter()
+        => JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite);
 
     private async Task<string> IssueAsync(Guid assignmentId)
     {
         using var scope = _factory.Services.CreateScope();
         var magic = scope.ServiceProvider.GetRequiredService<IMagicLinkService>();
         return await magic.IssueAsync(assignmentId, CancellationToken.None);
+    }
+
+    internal static string TokenFromInviteUrl(string inviteUrl)
+    {
+        var uri = new Uri(inviteUrl);
+        var query = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in query)
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length == 2 && string.Equals(pair[0], "token", StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(pair[1]);
+            }
+        }
+
+        throw new InvalidOperationException("inviteUrl does not contain a token.");
     }
 
     private static async Task<TokenClaims> ReadClaimsAsync(string token)

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Permissions;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -36,6 +37,18 @@ public static class AccessClaimsPrincipalExtensions
 
     public static Guid? FindAttemptId(this ClaimsPrincipal principal)
         => ParseGuidClaim(principal, PermissionClaims.AttemptId);
+
+    /// <summary>
+    /// Candidate JWTs may only touch the assignment in <c>assignment_id</c>. Mismatch is 403, not 404.
+    /// </summary>
+    public static void EnsureAssignmentScope(this ClaimsPrincipal principal, Guid assignmentId)
+    {
+        var claimed = principal.FindAssignmentId();
+        if (claimed is null || claimed.Value != assignmentId)
+        {
+            throw new ForbiddenException("This token is not scoped to that assignment.");
+        }
+    }
 
     private static Guid? ParseGuidClaim(ClaimsPrincipal principal, string claimType)
     {

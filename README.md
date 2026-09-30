@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** plus Access **candidate magic-link consume** (ADR 0008) are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate JWTs), **Openings**, **Catalog** quiz authoring, **templates**, **question bank** (copy-on-include, ADR 0007) **API and Angular UI**, **Search** saved filters, and the **web client**. Delivery assignments, Evaluation attempts, Angular `/attempt`, AI drafts, and Entra ID are **not** in this Auth pass.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** plus Access **candidate magic-link** (ADR 0008) and slice **5 Delivery assignments + Evaluation async attempts** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** attempts/auto-score, and the **web client**. Live start/pause, human review, AI drafts, Angular `/attempt`, and Entra ID are **not** in this pass.
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault)
 
 ## Migrate and run
 
-Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, and three live **bank questions** (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text). **Never seeded in Production.**
+Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `DeliveryDbContext`, `EvaluationDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live **bank questions**, and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`, 30 minutes, attempt limit 1). Invite raw tokens are **not** seeded; issue at runtime. **Never seeded in Production.**
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
@@ -84,6 +84,18 @@ dotnet ef database update \
   --project src/Modules/Search/InterviewQuiz.Search \
   --startup-project src/InterviewQuiz.Host \
   --context SearchDbContext
+
+# Delivery schema (assignments + snapshots)
+dotnet ef database update \
+  --project src/Modules/Delivery/InterviewQuiz.Delivery.Infrastructure \
+  --startup-project src/InterviewQuiz.Host \
+  --context DeliveryDbContext
+
+# Evaluation schema (attempts + answers)
+dotnet ef database update \
+  --project src/Modules/Evaluation/InterviewQuiz.Evaluation.Infrastructure \
+  --startup-project src/InterviewQuiz.Host \
+  --context EvaluationDbContext
 
 dotnet run --project src/InterviewQuiz.Host
 ```
@@ -204,7 +216,42 @@ Concurrency: integer `row_version` on Quiz and BankQuestion (incremented on upda
 
 In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time. `IQuestionBankReader.GetByIdAsync(id)` is registered and used **only** by include (not quiz create/update/publish/clone). GetById returns archived rows so include can reject them.
 
-Not in this slice: AI drafts, assignments, magic-link.
+## Delivery API (slice 5 — assignments)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `GET` | `/api/assignments` | `assignments.read` |
+| `GET` | `/api/assignments/{id}` | `assignments.read` |
+| `POST` | `/api/assignments` | `assignments.write` |
+| `POST` | `/api/assignments/{id}/invite` | `assignments.write` |
+
+List query: `openingId`, `keyword` (candidate email or snapshot title), `page`, `pageSize`. No `criteria` JSON. Create body: `openingId`, `quizId`, `candidateEmail`, `mode` (`async` \| `live`), `timing.overallDurationMinutes` (required 1–480 for async), `attemptLimit` (optional, default 1). POST create 201 `Location: /api/assignments/{id}`. Async create includes `inviteUrl` once (`{PublicBaseUrl}/attempt?token=`). GET never returns `inviteUrl`. Live create omits `inviteUrl`. No PUT/DELETE.
+
+Development seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001`, `candidate.dev@example.com`). To copy an invite URL after `dotnet run` (Development):
+
+```bash
+TOKEN=$(curl -s http://localhost:5147/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"recruiter.dev@example.com","password":"Dev.Recruiter!1"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
+curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/invite \
+  -H "Authorization: Bearer $TOKEN" -X POST
+```
+
+## Evaluation API (slice 5 — async attempts)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/api/assignments/{id}/attempts` | `candidate.attempt.participate` + `assignment_id` claim |
+| `GET` | `/api/assignments/{id}/attempts/current` | `candidate.attempt.participate` + `assignment_id` claim |
+| `PUT` | `/api/assignments/{id}/attempts/current/answers` | `candidate.attempt.participate` + `assignment_id` claim |
+| `POST` | `/api/assignments/{id}/attempts/current/submit` | `candidate.attempt.participate` + `assignment_id` claim |
+| `GET` | `/api/assignments/{id}/attempts` | `attempts.read` |
+| `GET` | `/api/attempts/{id}` | `attempts.read` |
+
+Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. No `GET /api/attempts` without an assignment. No `attempts.review` endpoints.
+
+Not in this slice: live start/pause REST, human review, AI drafts, Entra, SMTP.
 
 ## Search API (slice 3 — saved filters)
 
