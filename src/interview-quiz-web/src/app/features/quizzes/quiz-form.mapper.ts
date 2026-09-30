@@ -1,6 +1,8 @@
 import {
   BankItemBody,
+  BankQuestionResponse,
   ChoiceOptionBody,
+  CreateBankQuestionRequest,
   CreateQuizRequest,
   CreditMode,
   DragDropPerSlotBody,
@@ -18,6 +20,7 @@ import {
   SharedBankSlotBody,
   ShortTextBody,
   TrueFalseBody,
+  UpdateBankQuestionRequest,
   UpdateQuizRequest,
 } from '../../core/api/contracts';
 
@@ -172,6 +175,18 @@ export interface QuizDraft {
   questions: QuestionDraft[];
 }
 
+export interface BankQuestionDraft {
+  title: string;
+  tags: TagDraft[];
+  expectedExperienceYears: number;
+  type: QuestionType;
+  stem: string;
+  points: number;
+  scoringMode: ScoringMode;
+  creditMode: CreditMode | null;
+  body: QuestionBodyDraft;
+}
+
 export interface FieldError {
   path: string;
   message: string;
@@ -179,6 +194,10 @@ export interface FieldError {
 
 export function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value.trim());
+}
+
+function fieldPath(prefix: string, suffix: string): string {
+  return prefix ? `${prefix}.${suffix}` : suffix;
 }
 
 export function requiresCreditMode(type: QuestionType): boolean {
@@ -260,6 +279,21 @@ export function defaultQuestionDraft(type: QuestionType): QuestionDraft {
   };
 }
 
+export function defaultBankQuestionDraft(type: QuestionType = 'multipleChoiceSingle'): BankQuestionDraft {
+  const question = defaultQuestionDraft(type);
+  return {
+    title: '',
+    tags: [],
+    expectedExperienceYears: 0,
+    type: question.type,
+    stem: question.stem,
+    points: question.points,
+    scoringMode: question.scoringMode,
+    creditMode: question.creditMode,
+    body: question.body,
+  };
+}
+
 export function emptyQuizDraft(): QuizDraft {
   return {
     openingId: '',
@@ -303,6 +337,47 @@ export function toUpdateRequest(draft: QuizDraft, id: string, rowVersion: number
   };
 }
 
+export function bankQuestionToDraft(question: BankQuestionResponse): BankQuestionDraft {
+  return {
+    title: question.title,
+    tags: Object.entries(question.tags ?? {}).map(([key, value]) => ({ key, value })),
+    expectedExperienceYears: question.expectedExperienceYears,
+    type: question.type,
+    stem: question.stem,
+    points: question.points,
+    scoringMode: question.scoringMode,
+    creditMode: requiresCreditMode(question.type) ? question.creditMode : null,
+    body: bodyToDraft(question.type, question.body),
+  };
+}
+
+export function toCreateBankQuestionRequest(draft: BankQuestionDraft): CreateBankQuestionRequest {
+  const request: CreateBankQuestionRequest = {
+    title: draft.title.trim(),
+    tags: tagsFromDraft(draft.tags),
+    expectedExperienceYears: Number(draft.expectedExperienceYears),
+    type: draft.type,
+    stem: draft.stem.trim(),
+    scoringMode: draft.scoringMode,
+    points: Number(draft.points),
+    body: toQuestionBody(draft.type, draft.body),
+  };
+  if (requiresCreditMode(draft.type) && draft.creditMode) {
+    request.creditMode = draft.creditMode;
+  }
+  return request;
+}
+
+export function toUpdateBankQuestionRequest(
+  draft: BankQuestionDraft,
+  rowVersion: number,
+): UpdateBankQuestionRequest {
+  return {
+    ...toCreateBankQuestionRequest(draft),
+    rowVersion,
+  };
+}
+
 export function validateQuizDraft(draft: QuizDraft): FieldError[] {
   const errors: FieldError[] = [];
   const openingId = draft.openingId.trim();
@@ -334,8 +409,55 @@ export function validateQuizDraft(draft: QuizDraft): FieldError[] {
     });
   }
 
+  errors.push(...validateTags(draft.tags));
+
+  draft.questions.forEach((question, index) => {
+    errors.push(...validateQuestionDraft(question, `questions.${index}`));
+  });
+
+  return errors;
+}
+
+export function validateBankQuestionDraft(draft: BankQuestionDraft): FieldError[] {
+  const errors: FieldError[] = [];
+  const title = draft.title.trim();
+  if (!title) {
+    errors.push({ path: 'title', message: 'Title is required.' });
+  } else if (title.length > QUIZ_TITLE_MAX) {
+    errors.push({ path: 'title', message: `Title cannot exceed ${QUIZ_TITLE_MAX} characters.` });
+  }
+
+  const years = Number(draft.expectedExperienceYears);
+  if (!Number.isInteger(years) || years < EXPERIENCE_MIN || years > EXPERIENCE_MAX) {
+    errors.push({
+      path: 'expectedExperienceYears',
+      message: `Expected experience must be between ${EXPERIENCE_MIN} and ${EXPERIENCE_MAX}.`,
+    });
+  }
+
+  errors.push(...validateTags(draft.tags));
+  errors.push(
+    ...validateQuestionDraft(
+      {
+        id: null,
+        type: draft.type,
+        stem: draft.stem,
+        points: draft.points,
+        scoringMode: draft.scoringMode,
+        creditMode: draft.creditMode,
+        sourceQuestionId: null,
+        body: draft.body,
+      },
+      '',
+    ),
+  );
+  return errors;
+}
+
+function validateTags(tags: TagDraft[]): FieldError[] {
+  const errors: FieldError[] = [];
   const tagKeys = new Set<string>();
-  draft.tags.forEach((tag, index) => {
+  tags.forEach((tag, index) => {
     const key = tag.key.trim();
     const value = tag.value.trim();
     if (!key && !value) {
@@ -368,55 +490,52 @@ export function validateQuizDraft(draft: QuizDraft): FieldError[] {
       });
     }
   });
-
-  draft.questions.forEach((question, index) => {
-    errors.push(...validateQuestionDraft(question, index));
-  });
-
   return errors;
 }
 
-function validateQuestionDraft(question: QuestionDraft, index: number): FieldError[] {
+export function validateQuestionDraft(question: QuestionDraft, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
-  const prefix = `questions.${index}`;
   if (!QUESTION_TYPES.includes(question.type)) {
-    errors.push({ path: `${prefix}.type`, message: 'Unknown question type.' });
+    errors.push({ path: fieldPath(prefix, 'type'), message: 'Unknown question type.' });
     return errors;
   }
 
   const stem = question.stem.trim();
   if (!stem) {
-    errors.push({ path: `${prefix}.stem`, message: 'Stem is required.' });
+    errors.push({ path: fieldPath(prefix, 'stem'), message: 'Stem is required.' });
   } else if (stem.length > QUESTION_STEM_MAX) {
-    errors.push({ path: `${prefix}.stem`, message: `Stem cannot exceed ${QUESTION_STEM_MAX} characters.` });
+    errors.push({
+      path: fieldPath(prefix, 'stem'),
+      message: `Stem cannot exceed ${QUESTION_STEM_MAX} characters.`,
+    });
   }
 
   const points = Number(question.points);
   if (!Number.isInteger(points) || points < POINTS_MIN || points > POINTS_MAX) {
     errors.push({
-      path: `${prefix}.points`,
+      path: fieldPath(prefix, 'points'),
       message: `Points must be between ${POINTS_MIN} and ${POINTS_MAX}.`,
     });
   }
 
   if (!SCORING_MODES.includes(question.scoringMode)) {
-    errors.push({ path: `${prefix}.scoringMode`, message: 'Unknown scoring mode.' });
+    errors.push({ path: fieldPath(prefix, 'scoringMode'), message: 'Unknown scoring mode.' });
   }
 
   if (question.type === 'longText' && question.scoringMode === 'auto') {
-    errors.push({ path: `${prefix}.scoringMode`, message: 'Long text questions cannot use auto scoring.' });
+    errors.push({ path: fieldPath(prefix, 'scoringMode'), message: 'Long text questions cannot use auto scoring.' });
   }
 
   if (requiresCreditMode(question.type)) {
     if (question.creditMode !== 'partial' && question.creditMode !== 'allOrNothing') {
       errors.push({
-        path: `${prefix}.creditMode`,
+        path: fieldPath(prefix, 'creditMode'),
         message: `Credit mode is required for ${QUESTION_TYPE_LABELS[question.type].toLowerCase()} questions.`,
       });
     }
   } else if (question.creditMode) {
     errors.push({
-      path: `${prefix}.creditMode`,
+      path: fieldPath(prefix, 'creditMode'),
       message: `Credit mode must be omitted for ${question.type} questions.`,
     });
   }
@@ -432,7 +551,7 @@ function validateBody(question: QuestionDraft, prefix: string): FieldError[] {
     case 'multipleChoiceMulti':
       return validateMultipleChoice(question, prefix, false);
     case 'trueFalse':
-      return validateTrueFalse(question.body, `${prefix}.body.correct`);
+      return validateTrueFalse(question.body, `${fieldPath(prefix, 'body')}.correct`);
     case 'shortText':
       return validateShortText(question.body, question.scoringMode, prefix);
     case 'longText':
@@ -451,15 +570,15 @@ function validateMultipleChoice(question: QuestionDraft, prefix: string, single:
   const options = isMultipleChoiceBody(question.body) ? question.body.options : [];
   if (options.length < 2) {
     errors.push({
-      path: `${prefix}.body.options`,
+      path: `${fieldPath(prefix, 'body')}.options`,
       message: 'Multiple choice questions require at least two options.',
     });
   }
-  errors.push(...validateUniqueIds(options.map((option) => option.id), `${prefix}.body.options`, 'option'));
+  errors.push(...validateUniqueIds(options.map((option) => option.id), `${fieldPath(prefix, 'body')}.options`, 'option'));
   let correctCount = 0;
   options.forEach((option, index) => {
-    errors.push(...validateId(option.id, `${prefix}.body.options.${index}.id`, 'Option'));
-    errors.push(...validateText(option.text, `${prefix}.body.options.${index}.text`, 'Option text'));
+    errors.push(...validateId(option.id, `${fieldPath(prefix, 'body')}.options.${index}.id`, 'Option'));
+    errors.push(...validateText(option.text, `${fieldPath(prefix, 'body')}.options.${index}.text`, 'Option text'));
     if (option.isCorrect) {
       correctCount += 1;
     }
@@ -467,13 +586,13 @@ function validateMultipleChoice(question: QuestionDraft, prefix: string, single:
   if (question.scoringMode === 'auto') {
     if (single && correctCount !== 1) {
       errors.push({
-        path: `${prefix}.body.options`,
+        path: `${fieldPath(prefix, 'body')}.options`,
         message: 'Multiple choice (single) auto scoring requires exactly one correct option.',
       });
     }
     if (!single && correctCount < 1) {
       errors.push({
-        path: `${prefix}.body.options`,
+        path: `${fieldPath(prefix, 'body')}.options`,
         message: 'Multiple choice (multi) auto scoring requires at least one correct option.',
       });
     }
@@ -495,7 +614,7 @@ function validateShortText(body: QuestionBodyDraft, scoring: ScoringMode, prefix
   answers.forEach((row, index) => {
     if (typeof row.value !== 'string' || row.value.trim().length === 0) {
       errors.push({
-        path: `${prefix}.body.acceptableAnswers.${index}.value`,
+        path: `${fieldPath(prefix, 'body')}.acceptableAnswers.${index}.value`,
         message: 'Acceptable answers cannot be empty.',
       });
       return;
@@ -503,7 +622,7 @@ function validateShortText(body: QuestionBodyDraft, scoring: ScoringMode, prefix
     const trimmed = row.value.trim();
     if (seen.has(trimmed)) {
       errors.push({
-        path: `${prefix}.body.acceptableAnswers.${index}.value`,
+        path: `${fieldPath(prefix, 'body')}.acceptableAnswers.${index}.value`,
         message: 'Acceptable answers must be unique.',
       });
     }
@@ -511,7 +630,7 @@ function validateShortText(body: QuestionBodyDraft, scoring: ScoringMode, prefix
   });
   if (scoring === 'auto' && seen.size === 0) {
     errors.push({
-      path: `${prefix}.body.acceptableAnswers`,
+      path: `${fieldPath(prefix, 'body')}.acceptableAnswers`,
       message: 'Short text auto scoring requires at least one acceptable answer.',
     });
   }
@@ -527,7 +646,7 @@ function validateLongText(body: QuestionBodyDraft, prefix: string): FieldError[]
     const maxLength = Number(body.maxLength);
     if (!Number.isInteger(maxLength) || maxLength < 1) {
       errors.push({
-        path: `${prefix}.body.maxLength`,
+        path: `${fieldPath(prefix, 'body')}.maxLength`,
         message: 'Long text maxLength must be at least 1 when set.',
       });
     }
@@ -535,7 +654,7 @@ function validateLongText(body: QuestionBodyDraft, prefix: string): FieldError[]
   const guidance = (body.guidance ?? '').trim();
   if (guidance.length > QUESTION_STEM_MAX) {
     errors.push({
-      path: `${prefix}.body.guidance`,
+      path: `${fieldPath(prefix, 'body')}.guidance`,
       message: `Guidance cannot exceed ${QUESTION_STEM_MAX} characters.`,
     });
   }
@@ -545,28 +664,28 @@ function validateLongText(body: QuestionBodyDraft, prefix: string): FieldError[]
 function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
   if (!isSharedBankBody(body)) {
-    errors.push({ path: `${prefix}.body`, message: 'Shared-bank drag-and-drop body is invalid.' });
+    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'Shared-bank drag-and-drop body is invalid.' });
     return errors;
   }
   if (body.slots.length === 0) {
     errors.push({
-      path: `${prefix}.body.slots`,
+      path: `${fieldPath(prefix, 'body')}.slots`,
       message: 'Shared-bank drag-and-drop requires at least one slot.',
     });
   }
   if (body.bank.length === 0) {
     errors.push({
-      path: `${prefix}.body.bank`,
+      path: `${fieldPath(prefix, 'body')}.bank`,
       message: 'Shared-bank drag-and-drop requires a non-empty bank.',
     });
   }
-  errors.push(...validateUniqueIds(body.bank.map((item) => item.id), `${prefix}.body.bank`, 'bank item'));
-  errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${prefix}.body.slots`, 'slot'));
+  errors.push(...validateUniqueIds(body.bank.map((item) => item.id), `${fieldPath(prefix, 'body')}.bank`, 'bank item'));
+  errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${fieldPath(prefix, 'body')}.slots`, 'slot'));
   const nonDistractors = new Set<string>();
   const bankIds = new Set<string>();
   body.bank.forEach((item, index) => {
-    errors.push(...validateId(item.id, `${prefix}.body.bank.${index}.id`, 'Bank item'));
-    errors.push(...validateText(item.text, `${prefix}.body.bank.${index}.text`, 'Bank item text'));
+    errors.push(...validateId(item.id, `${fieldPath(prefix, 'body')}.bank.${index}.id`, 'Bank item'));
+    errors.push(...validateText(item.text, `${fieldPath(prefix, 'body')}.bank.${index}.text`, 'Bank item text'));
     bankIds.add(item.id.trim());
     if (!item.isDistractor) {
       nonDistractors.add(item.id.trim());
@@ -574,27 +693,27 @@ function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefi
   });
   if (body.bank.length > 0 && nonDistractors.size === 0) {
     errors.push({
-      path: `${prefix}.body.bank`,
+      path: `${fieldPath(prefix, 'body')}.bank`,
       message: 'Shared-bank drag-and-drop requires at least one non-distractor bank item.',
     });
   }
   body.slots.forEach((slot, index) => {
-    errors.push(...validateId(slot.id, `${prefix}.body.slots.${index}.id`, 'Slot'));
-    errors.push(...validateText(slot.label, `${prefix}.body.slots.${index}.label`, 'Slot label'));
+    errors.push(...validateId(slot.id, `${fieldPath(prefix, 'body')}.slots.${index}.id`, 'Slot'));
+    errors.push(...validateText(slot.label, `${fieldPath(prefix, 'body')}.slots.${index}.label`, 'Slot label'));
     const correctItemId = slot.correctItemId.trim();
     if (!correctItemId) {
       errors.push({
-        path: `${prefix}.body.slots.${index}.correctItemId`,
+        path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
         message: 'Slot correctItemId is required.',
       });
     } else if (scoring === 'auto' && !nonDistractors.has(correctItemId)) {
       errors.push({
-        path: `${prefix}.body.slots.${index}.correctItemId`,
+        path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
         message: `Slot '${slot.id}' correctItemId must reference a non-distractor bank item.`,
       });
     } else if (scoring !== 'auto' && !bankIds.has(correctItemId)) {
       errors.push({
-        path: `${prefix}.body.slots.${index}.correctItemId`,
+        path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
         message: `Slot '${slot.id}' correctItemId must reference a bank item.`,
       });
     }
@@ -605,41 +724,41 @@ function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefi
 function validatePerSlot(body: QuestionBodyDraft, scoring: ScoringMode, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
   if (!isPerSlotBody(body)) {
-    errors.push({ path: `${prefix}.body`, message: 'Per-slot drag-and-drop body is invalid.' });
+    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'Per-slot drag-and-drop body is invalid.' });
     return errors;
   }
   if (body.slots.length === 0) {
     errors.push({
-      path: `${prefix}.body.slots`,
+      path: `${fieldPath(prefix, 'body')}.slots`,
       message: 'Per-slot drag-and-drop requires at least one slot.',
     });
   }
-  errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${prefix}.body.slots`, 'slot'));
+  errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${fieldPath(prefix, 'body')}.slots`, 'slot'));
   body.slots.forEach((slot, slotIndex) => {
-    errors.push(...validateId(slot.id, `${prefix}.body.slots.${slotIndex}.id`, 'Slot'));
-    errors.push(...validateText(slot.label, `${prefix}.body.slots.${slotIndex}.label`, 'Slot label'));
+    errors.push(...validateId(slot.id, `${fieldPath(prefix, 'body')}.slots.${slotIndex}.id`, 'Slot'));
+    errors.push(...validateText(slot.label, `${fieldPath(prefix, 'body')}.slots.${slotIndex}.label`, 'Slot label'));
     if (slot.options.length < 2) {
       errors.push({
-        path: `${prefix}.body.slots.${slotIndex}.options`,
+        path: `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options`,
         message: `Slot '${slot.id}' requires at least two options.`,
       });
     }
     errors.push(
       ...validateUniqueIds(
         slot.options.map((option) => option.id),
-        `${prefix}.body.slots.${slotIndex}.options`,
+        `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options`,
         `slot '${slot.id}' option`,
       ),
     );
     let correctCount = 0;
     slot.options.forEach((option, optionIndex) => {
       errors.push(
-        ...validateId(option.id, `${prefix}.body.slots.${slotIndex}.options.${optionIndex}.id`, 'Option'),
+        ...validateId(option.id, `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options.${optionIndex}.id`, 'Option'),
       );
       errors.push(
         ...validateText(
           option.text,
-          `${prefix}.body.slots.${slotIndex}.options.${optionIndex}.text`,
+          `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options.${optionIndex}.text`,
           'Option text',
         ),
       );
@@ -649,7 +768,7 @@ function validatePerSlot(body: QuestionBodyDraft, scoring: ScoringMode, prefix: 
     });
     if (scoring === 'auto' && slot.options.length >= 2 && correctCount !== 1) {
       errors.push({
-        path: `${prefix}.body.slots.${slotIndex}.options`,
+        path: `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options`,
         message: `Slot '${slot.id}' auto scoring requires exactly one correct option.`,
       });
     }
@@ -660,24 +779,24 @@ function validatePerSlot(body: QuestionBodyDraft, scoring: ScoringMode, prefix: 
 function validateOrdering(body: QuestionBodyDraft, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
   if (!isOrderingBody(body)) {
-    errors.push({ path: `${prefix}.body`, message: 'Ordering body is invalid.' });
+    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'Ordering body is invalid.' });
     return errors;
   }
   if (body.items.length < 2) {
     errors.push({
-      path: `${prefix}.body.items`,
+      path: `${fieldPath(prefix, 'body')}.items`,
       message: 'Ordering questions require at least two items.',
     });
   }
-  errors.push(...validateUniqueIds(body.items.map((item) => item.id), `${prefix}.body.items`, 'ordering item'));
+  errors.push(...validateUniqueIds(body.items.map((item) => item.id), `${fieldPath(prefix, 'body')}.items`, 'ordering item'));
   const indexes: number[] = [];
   body.items.forEach((item, index) => {
-    errors.push(...validateId(item.id, `${prefix}.body.items.${index}.id`, 'Ordering item'));
-    errors.push(...validateText(item.text, `${prefix}.body.items.${index}.text`, 'Ordering item text'));
+    errors.push(...validateId(item.id, `${fieldPath(prefix, 'body')}.items.${index}.id`, 'Ordering item'));
+    errors.push(...validateText(item.text, `${fieldPath(prefix, 'body')}.items.${index}.text`, 'Ordering item text'));
     const correctIndex = Number(item.correctIndex);
     if (!Number.isInteger(correctIndex)) {
       errors.push({
-        path: `${prefix}.body.items.${index}.correctIndex`,
+        path: `${fieldPath(prefix, 'body')}.items.${index}.correctIndex`,
         message: 'Ordering correctIndex must be an integer.',
       });
     } else {
@@ -689,7 +808,7 @@ function validateOrdering(body: QuestionBodyDraft, prefix: string): FieldError[]
     const sorted = [...indexes].sort((a, b) => a - b);
     if (sorted.some((value, index) => value !== expected[index])) {
       errors.push({
-        path: `${prefix}.body.items`,
+        path: `${fieldPath(prefix, 'body')}.items`,
         message: 'Ordering correctIndex values must be unique and cover 0..n-1.',
       });
     }
@@ -732,7 +851,7 @@ function validateUniqueIds(ids: string[], path: string, noun: string): FieldErro
   return [];
 }
 
-function toQuestionRequest(question: QuestionDraft, _sortOrder: number): QuestionRequest {
+export function toQuestionRequest(question: QuestionDraft, _sortOrder = 0): QuestionRequest {
   const request: QuestionRequest = {
     type: question.type,
     stem: question.stem.trim(),
@@ -851,7 +970,7 @@ function tagsFromDraft(tags: TagDraft[]): Record<string, string> {
   return result;
 }
 
-function questionToDraft(question: QuestionResponse): QuestionDraft {
+export function questionToDraft(question: QuestionResponse): QuestionDraft {
   return {
     id: question.id,
     type: question.type,

@@ -1,0 +1,594 @@
+<div class="page-heading">
+  <h1>{{ isNew() ? 'Create bank question' : 'Bank question' }}</h1>
+  <a routerLink="/questions">Back to question bank</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading question."
+>
+  <form id="question-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      <label for="title">Title</label>
+      <input
+        id="title"
+        type="text"
+        formControlName="title"
+        [attr.maxlength]="titleMax"
+        data-field="title"
+        [attr.aria-invalid]="errorFor('title') ? true : null"
+        [attr.aria-describedby]="errorFor('title') ? 'err-title' : null"
+      />
+      @if (errorFor('title'); as message) {
+        <p id="err-title" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="expectedExperienceYears">Expected experience (years)</label>
+      <input
+        id="expectedExperienceYears"
+        type="number"
+        [attr.min]="experienceMin"
+        [attr.max]="experienceMax"
+        formControlName="expectedExperienceYears"
+        data-field="expectedExperienceYears"
+        [attr.aria-invalid]="errorFor('expectedExperienceYears') ? true : null"
+        [attr.aria-describedby]="errorFor('expectedExperienceYears') ? 'err-expectedExperienceYears' : null"
+      />
+      @if (errorFor('expectedExperienceYears'); as message) {
+        <p id="err-expectedExperienceYears" class="field-error">{{ message }}</p>
+      }
+    </div>
+
+    <fieldset class="tag-fieldset">
+      <legend>Tags</legend>
+      <p class="hint">Key/value tags. Keys may contain letters, digits, '.', '_' and '-'.</p>
+      @for (tag of tags.controls; track $index; let i = $index) {
+        <div class="tag-row" [formGroup]="tagGroup(i)">
+          <div class="field">
+            <label [attr.for]="'tag-key-' + i">Key</label>
+            <input
+              [id]="'tag-key-' + i"
+              type="text"
+              formControlName="key"
+              [attr.data-field]="'tags.' + i + '.key'"
+              [attr.aria-invalid]="errorFor('tags.' + i + '.key') ? true : null"
+              [attr.aria-describedby]="errorFor('tags.' + i + '.key') ? 'err-tag-key-' + i : null"
+            />
+            @if (errorFor('tags.' + i + '.key'); as message) {
+              <p [id]="'err-tag-key-' + i" class="field-error">{{ message }}</p>
+            }
+          </div>
+          <div class="field">
+            <label [attr.for]="'tag-value-' + i">Value</label>
+            <input
+              [id]="'tag-value-' + i"
+              type="text"
+              formControlName="value"
+              [attr.data-field]="'tags.' + i + '.value'"
+              [attr.aria-invalid]="errorFor('tags.' + i + '.value') ? true : null"
+              [attr.aria-describedby]="errorFor('tags.' + i + '.value') ? 'err-tag-value-' + i : null"
+            />
+            @if (errorFor('tags.' + i + '.value'); as message) {
+              <p [id]="'err-tag-value-' + i" class="field-error">{{ message }}</p>
+            }
+          </div>
+          <button
+            *hasPermission="codes.QuestionsWrite"
+            type="button"
+            class="button button-quiet"
+            (click)="removeTag(i)"
+          >
+            Remove tag
+          </button>
+        </div>
+      }
+      <button *hasPermission="codes.QuestionsWrite" type="button" class="button button-quiet" (click)="addTag()">
+        Add tag
+      </button>
+    </fieldset>
+
+    @if (!isNew() && archivedAtUtc()) {
+      <p class="hint" role="status">This question is archived.</p>
+    }
+
+    <fieldset class="questions-fieldset">
+      <legend>Question</legend>
+      <div class="field-row">
+        <div class="field">
+          <label for="type">Type</label>
+          <select id="type" formControlName="type" data-field="type" (change)="onTypeChange()">
+            @for (type of types; track type) {
+              <option [value]="type">{{ typeLabels[type] }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="points">Points</label>
+          <input
+            id="points"
+            type="number"
+            [attr.min]="pointsMin"
+            [attr.max]="pointsMax"
+            formControlName="points"
+            data-field="points"
+            [attr.aria-invalid]="errorFor('points') ? true : null"
+            [attr.aria-describedby]="errorFor('points') ? 'err-points' : null"
+          />
+          @if (errorFor('points'); as message) {
+            <p id="err-points" class="field-error">{{ message }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="scoring">Scoring</label>
+          <select
+            id="scoring"
+            formControlName="scoringMode"
+            data-field="scoringMode"
+            [attr.aria-invalid]="errorFor('scoringMode') ? true : null"
+            [attr.aria-describedby]="errorFor('scoringMode') ? 'err-scoring' : null"
+          >
+            @for (mode of scoringModes; track mode) {
+              <option [value]="mode" [disabled]="scoringDisabled(mode)">{{ scoringLabels[mode] }}</option>
+            }
+          </select>
+          @if (errorFor('scoringMode'); as message) {
+            <p id="err-scoring" class="field-error">{{ message }}</p>
+          }
+        </div>
+        @if (needsCreditMode()) {
+          <div class="field">
+            <label for="credit">Credit mode</label>
+            <select
+              id="credit"
+              formControlName="creditMode"
+              data-field="creditMode"
+              [attr.aria-invalid]="errorFor('creditMode') ? true : null"
+              [attr.aria-describedby]="errorFor('creditMode') ? 'err-credit' : null"
+            >
+              @for (mode of creditModes; track mode) {
+                <option [value]="mode">{{ creditLabels[mode] }}</option>
+              }
+            </select>
+            @if (errorFor('creditMode'); as message) {
+              <p id="err-credit" class="field-error">{{ message }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="field">
+        <label for="stem">Stem</label>
+        <textarea
+          id="stem"
+          rows="3"
+          formControlName="stem"
+          [attr.maxlength]="stemMax"
+          data-field="stem"
+          [attr.aria-invalid]="errorFor('stem') ? true : null"
+          [attr.aria-describedby]="errorFor('stem') ? 'err-stem' : null"
+        ></textarea>
+        @if (errorFor('stem'); as message) {
+          <p id="err-stem" class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div [formGroup]="bodyGroup()">
+        @switch (questionType()) {
+          @case ('multipleChoiceSingle') {
+            <ng-container [ngTemplateOutlet]="mcBody" />
+          }
+          @case ('multipleChoiceMulti') {
+            <ng-container [ngTemplateOutlet]="mcBody" />
+          }
+          @case ('trueFalse') {
+            <div class="field">
+              <label for="correct">Correct answer</label>
+              <select id="correct" formControlName="correct" data-field="body.correct">
+                <option [ngValue]="true">True</option>
+                <option [ngValue]="false">False</option>
+              </select>
+            </div>
+          }
+          @case ('shortText') {
+            <fieldset class="inner-fieldset">
+              <legend>Acceptable answers</legend>
+              @if (errorFor('body.acceptableAnswers'); as message) {
+                <p class="field-error" data-field="body.acceptableAnswers" tabindex="-1">{{ message }}</p>
+              }
+              <div class="field">
+                <label for="case-sensitive">
+                  <input id="case-sensitive" type="checkbox" formControlName="caseSensitive" />
+                  Case sensitive
+                </label>
+              </div>
+              @for (answer of answersArray().controls; track $index; let j = $index) {
+                <div class="item-row" [formGroup]="answerGroup(j)">
+                  <div class="field grow">
+                    <label [attr.for]="'ans-' + j">Answer {{ j + 1 }}</label>
+                    <input
+                      [id]="'ans-' + j"
+                      type="text"
+                      formControlName="value"
+                      [attr.data-field]="'body.acceptableAnswers.' + j + '.value'"
+                    />
+                    @if (errorFor('body.acceptableAnswers.' + j + '.value'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </div>
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="removeAnswer(j)"
+                  >
+                    Remove answer
+                  </button>
+                </div>
+              }
+              <button
+                *hasPermission="codes.QuestionsWrite"
+                type="button"
+                class="button button-quiet"
+                (click)="addAnswer()"
+              >
+                Add answer
+              </button>
+            </fieldset>
+          }
+          @case ('longText') {
+            <div class="field">
+              <label for="max-length">Max length (optional)</label>
+              <input
+                id="max-length"
+                type="number"
+                min="1"
+                formControlName="maxLength"
+                data-field="body.maxLength"
+              />
+              @if (errorFor('body.maxLength'); as message) {
+                <p class="field-error">{{ message }}</p>
+              }
+            </div>
+            <div class="field">
+              <label for="guidance">Guidance</label>
+              <textarea
+                id="guidance"
+                rows="3"
+                formControlName="guidance"
+                [attr.maxlength]="stemMax"
+                data-field="body.guidance"
+              ></textarea>
+              @if (errorFor('body.guidance'); as message) {
+                <p class="field-error">{{ message }}</p>
+              }
+            </div>
+          }
+          @case ('dragDropSharedBank') {
+            <fieldset class="inner-fieldset">
+              <legend>Bank</legend>
+              @if (errorFor('body.bank'); as message) {
+                <p class="field-error" data-field="body.bank" tabindex="-1">{{ message }}</p>
+              }
+              @for (item of bankArray().controls; track $index; let j = $index) {
+                <div class="item-row" [formGroup]="bankGroup(j)">
+                  <div class="field grow">
+                    <label [attr.for]="'bank-' + j">Bank item {{ j + 1 }}</label>
+                    <input
+                      [id]="'bank-' + j"
+                      type="text"
+                      formControlName="text"
+                      [attr.data-field]="'body.bank.' + j + '.text'"
+                    />
+                    @if (errorFor('body.bank.' + j + '.text'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </div>
+                  <div class="field">
+                    <label [attr.for]="'dist-' + j">
+                      <input [id]="'dist-' + j" type="checkbox" formControlName="isDistractor" />
+                      Distractor
+                    </label>
+                  </div>
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="removeBankItem(j)"
+                  >
+                    Remove bank item
+                  </button>
+                </div>
+              }
+              <button
+                *hasPermission="codes.QuestionsWrite"
+                type="button"
+                class="button button-quiet"
+                (click)="addBankItem()"
+              >
+                Add bank item
+              </button>
+            </fieldset>
+            <fieldset class="inner-fieldset">
+              <legend>Slots</legend>
+              @if (errorFor('body.slots'); as message) {
+                <p class="field-error" data-field="body.slots" tabindex="-1">{{ message }}</p>
+              }
+              @for (slot of slotsArray().controls; track $index; let j = $index) {
+                <div class="item-row" [formGroup]="slotGroup(j)">
+                  <div class="field grow">
+                    <label [attr.for]="'slot-' + j">Slot label {{ j + 1 }}</label>
+                    <input
+                      [id]="'slot-' + j"
+                      type="text"
+                      formControlName="label"
+                      [attr.data-field]="'body.slots.' + j + '.label'"
+                    />
+                    @if (errorFor('body.slots.' + j + '.label'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </div>
+                  <div class="field grow">
+                    <label [attr.for]="'slot-correct-' + j">Correct bank item</label>
+                    <select
+                      [id]="'slot-correct-' + j"
+                      formControlName="correctItemId"
+                      [attr.data-field]="'body.slots.' + j + '.correctItemId'"
+                    >
+                      @for (item of bankItems(); track item.id) {
+                        <option [value]="item.id">{{ item.text || item.id }}</option>
+                      }
+                    </select>
+                    @if (errorFor('body.slots.' + j + '.correctItemId'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </div>
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="removeSharedSlot(j)"
+                  >
+                    Remove slot
+                  </button>
+                </div>
+              }
+              <button
+                *hasPermission="codes.QuestionsWrite"
+                type="button"
+                class="button button-quiet"
+                (click)="addSharedSlot()"
+              >
+                Add slot
+              </button>
+            </fieldset>
+          }
+          @case ('dragDropPerSlot') {
+            @if (errorFor('body.slots'); as message) {
+              <p class="field-error" data-field="body.slots" tabindex="-1">{{ message }}</p>
+            }
+            @for (slot of slotsArray().controls; track $index; let j = $index) {
+              <fieldset class="inner-fieldset" [formGroup]="slotGroup(j)">
+                <legend>Slot {{ j + 1 }}</legend>
+                <div class="field">
+                  <label [attr.for]="'pslot-' + j">Label</label>
+                  <input
+                    [id]="'pslot-' + j"
+                    type="text"
+                    formControlName="label"
+                    [attr.data-field]="'body.slots.' + j + '.label'"
+                  />
+                  @if (errorFor('body.slots.' + j + '.label'); as message) {
+                    <p class="field-error">{{ message }}</p>
+                  }
+                </div>
+                @if (errorFor('body.slots.' + j + '.options'); as message) {
+                  <p class="field-error" [attr.data-field]="'body.slots.' + j + '.options'" tabindex="-1">
+                    {{ message }}
+                  </p>
+                }
+                @for (option of slotOptions(j).controls; track $index; let k = $index) {
+                  <div class="item-row" [formGroup]="slotOptionGroup(j, k)">
+                    <div class="field grow">
+                      <label [attr.for]="'pslot-' + j + '-opt-' + k">Option {{ k + 1 }}</label>
+                      <input
+                        [id]="'pslot-' + j + '-opt-' + k"
+                        type="text"
+                        formControlName="text"
+                        [attr.data-field]="'body.slots.' + j + '.options.' + k + '.text'"
+                      />
+                    </div>
+                    <div class="field">
+                      <label [attr.for]="'pslot-' + j + '-correct-' + k">
+                        <input
+                          [id]="'pslot-' + j + '-correct-' + k"
+                          type="checkbox"
+                          formControlName="isCorrect"
+                          (change)="markSlotCorrect(j, k, $event)"
+                        />
+                        Correct
+                      </label>
+                    </div>
+                    <button
+                      *hasPermission="codes.QuestionsWrite"
+                      type="button"
+                      class="button button-quiet"
+                      (click)="removePerSlotOption(j, k)"
+                    >
+                      Remove option
+                    </button>
+                  </div>
+                }
+                <div class="question-toolbar">
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="addPerSlotOption(j)"
+                  >
+                    Add option
+                  </button>
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="removePerSlot(j)"
+                  >
+                    Remove slot
+                  </button>
+                </div>
+              </fieldset>
+            }
+            <button
+              *hasPermission="codes.QuestionsWrite"
+              type="button"
+              class="button button-quiet"
+              (click)="addPerSlot()"
+            >
+              Add slot
+            </button>
+          }
+          @case ('ordering') {
+            <fieldset class="inner-fieldset">
+              <legend>Items</legend>
+              @if (errorFor('body.items'); as message) {
+                <p class="field-error" data-field="body.items" tabindex="-1">{{ message }}</p>
+              }
+              @for (item of itemsArray().controls; track $index; let j = $index) {
+                <div class="item-row" [formGroup]="itemGroup(j)">
+                  <div class="field grow">
+                    <label [attr.for]="'ord-' + j">Item {{ j + 1 }}</label>
+                    <input
+                      [id]="'ord-' + j"
+                      type="text"
+                      formControlName="text"
+                      [attr.data-field]="'body.items.' + j + '.text'"
+                    />
+                  </div>
+                  <div class="field">
+                    <label [attr.for]="'ord-idx-' + j">Correct index (0 is first)</label>
+                    <input
+                      [id]="'ord-idx-' + j"
+                      type="number"
+                      min="0"
+                      formControlName="correctIndex"
+                      [attr.data-field]="'body.items.' + j + '.correctIndex'"
+                    />
+                  </div>
+                  <button
+                    *hasPermission="codes.QuestionsWrite"
+                    type="button"
+                    class="button button-quiet"
+                    (click)="removeOrderingItem(j)"
+                  >
+                    Remove item
+                  </button>
+                </div>
+              }
+              <button
+                *hasPermission="codes.QuestionsWrite"
+                type="button"
+                class="button button-quiet"
+                (click)="addOrderingItem()"
+              >
+                Add item
+              </button>
+            </fieldset>
+          }
+        }
+      </div>
+    </fieldset>
+
+    <ng-template #mcBody>
+      <fieldset class="inner-fieldset">
+        <legend>Options</legend>
+        @if (errorFor('body.options'); as message) {
+          <p class="field-error" data-field="body.options" tabindex="-1">{{ message }}</p>
+        }
+        @for (option of optionsArray().controls; track $index; let j = $index) {
+          <div class="item-row" [formGroup]="optionGroup(j)">
+            <div class="field grow">
+              <label [attr.for]="'opt-' + j">Option {{ j + 1 }}</label>
+              <input
+                [id]="'opt-' + j"
+                type="text"
+                formControlName="text"
+                [attr.data-field]="'body.options.' + j + '.text'"
+                [attr.aria-invalid]="errorFor('body.options.' + j + '.text') ? true : null"
+              />
+              @if (errorFor('body.options.' + j + '.text'); as message) {
+                <p class="field-error">{{ message }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [attr.for]="'opt-correct-' + j">
+                <input
+                  [id]="'opt-correct-' + j"
+                  type="checkbox"
+                  formControlName="isCorrect"
+                  (change)="markCorrect(j, $event)"
+                />
+                Correct
+              </label>
+            </div>
+            <button
+              *hasPermission="codes.QuestionsWrite"
+              type="button"
+              class="button button-quiet"
+              (click)="removeOption(j)"
+            >
+              Remove option
+            </button>
+          </div>
+        }
+        <button
+          *hasPermission="codes.QuestionsWrite"
+          type="button"
+          class="button button-quiet"
+          (click)="addOption()"
+        >
+          Add option
+        </button>
+      </fieldset>
+    </ng-template>
+
+    <div class="question-toolbar">
+      <button
+        *hasPermission="codes.QuestionsWrite"
+        type="submit"
+        class="button"
+        [disabled]="saving()"
+        data-testid="save-question"
+      >
+        {{ saving() ? 'Saving…' : 'Save question' }}
+      </button>
+      @if (!isNew() && !archivedAtUtc()) {
+        <button
+          *hasPermission="codes.QuestionsWrite"
+          type="button"
+          class="button button-quiet"
+          data-testid="archive-question"
+          [disabled]="archiving()"
+          (click)="archive()"
+        >
+          {{ archiving() ? 'Archiving…' : 'Archive' }}
+        </button>
+      }
+      @if (!isNew() && archivedAtUtc()) {
+        <button
+          *hasPermission="codes.QuestionsWrite"
+          type="button"
+          class="button button-quiet"
+          data-testid="unarchive-question"
+          [disabled]="archiving()"
+          (click)="unarchive()"
+        >
+          {{ archiving() ? 'Restoring…' : 'Unarchive' }}
+        </button>
+      }
+    </div>
+  </form>
+</app-page-status>

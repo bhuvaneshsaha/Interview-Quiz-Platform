@@ -96,6 +96,36 @@ export const routes: Routes = [
         title: 'Template',
       },
       {
+        path: 'questions',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.QuestionsRead },
+        loadComponent: () =>
+          import('./features/questions/question-list/question-list.component').then(
+            (m) => m.QuestionList,
+          ),
+        title: 'Question bank',
+      },
+      {
+        path: 'questions/new',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.QuestionsWrite },
+        loadComponent: () =>
+          import('./features/questions/question-form/question-form.component').then(
+            (m) => m.QuestionForm,
+          ),
+        title: 'Create bank question',
+      },
+      {
+        path: 'questions/:id',
+        canActivate: [permissionGuard],
+        data: { permission: [PermissionCodes.QuestionsRead, PermissionCodes.QuestionsWrite] },
+        loadComponent: () =>
+          import('./features/questions/question-form/question-form.component').then(
+            (m) => m.QuestionForm,
+          ),
+        title: 'Bank question',
+      },
+      {
         path: 'opening-fields',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.OpeningsFieldsManage },

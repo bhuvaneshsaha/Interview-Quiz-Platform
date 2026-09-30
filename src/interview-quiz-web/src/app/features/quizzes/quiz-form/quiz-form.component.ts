@@ -9,8 +9,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CreditMode, OpeningResponse, PublishTemplateResponse, QuestionType, QuizResponse, ScoringMode } from '../../../core/api/contracts';
+import { BankQuestionResponse, CreditMode, IncludeQuestionsRequest, OpeningResponse, PublishTemplateResponse, QuestionType, QuizResponse, ScoringMode } from '../../../core/api/contracts';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
+import { QuestionsApi } from '../../../core/api/questions-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
@@ -63,6 +64,7 @@ export class QuizForm implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(QuizzesApi);
   private readonly openingsApi = inject(OpeningsApi);
+  private readonly questionsApi = inject(QuestionsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly permissions = inject(PermissionService);
@@ -97,8 +99,16 @@ export class QuizForm implements OnInit {
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
   readonly canWriteTemplates = this.permissions.hasPermission(PermissionCodes.TemplatesWrite);
   readonly canReadTemplates = this.permissions.hasPermission(PermissionCodes.TemplatesRead);
+  readonly canReadQuestions = this.permissions.hasPermission(PermissionCodes.QuestionsRead);
+  readonly including = signal(false);
+  readonly bankSearching = signal(false);
+  readonly bankResults = signal<BankQuestionResponse[]>([]);
+  readonly selectedBankIds = signal<ReadonlySet<string>>(new Set());
 
   readonly addType = new FormControl<QuestionType>('multipleChoiceSingle', { nonNullable: true });
+  readonly includeKeyword = new FormControl('', { nonNullable: true });
+  readonly includeType = new FormControl('', { nonNullable: true });
+  readonly includeAt = new FormControl('', { nonNullable: true });
 
   private quizId: string | null = null;
   private rowVersion = 0;
@@ -121,6 +131,10 @@ export class QuizForm implements OnInit {
 
   get questions(): FormArray {
     return this.form.controls.questions;
+  }
+
+  get showIncludeFromBank(): boolean {
+    return this.canWrite && this.canReadQuestions && !this.isNew();
   }
 
   ngOnInit(): void {
@@ -150,6 +164,9 @@ export class QuizForm implements OnInit {
         this.loading.set(false);
         if (!this.canWrite) {
           this.form.disable();
+        }
+        if (this.showIncludeFromBank) {
+          this.searchBank();
         }
       },
       error: (err: unknown) => {
@@ -454,6 +471,79 @@ export class QuizForm implements OnInit {
         this.error.set(mapped.message);
         this.correlationId.set(mapped.correlationId);
         this.saving.set(false);
+      },
+    });
+  }
+
+  searchBank(): void {
+    if (!this.canReadQuestions) {
+      return;
+    }
+    const type = this.includeType.value;
+    this.bankSearching.set(true);
+    this.questionsApi
+      .list(1, 20, {
+        keyword: this.includeKeyword.value.trim() || undefined,
+        type: QUESTION_TYPES.includes(type as QuestionType) ? (type as QuestionType) : undefined,
+      })
+      .subscribe({
+        next: (result) => {
+          this.bankResults.set(result.items);
+          this.selectedBankIds.set(new Set());
+          this.bankSearching.set(false);
+        },
+        error: (err: unknown) => {
+          const mapped = PageStatus.fromError(err);
+          this.error.set(mapped.message);
+          this.correlationId.set(mapped.correlationId);
+          this.bankSearching.set(false);
+        },
+      });
+  }
+
+  toggleBankSelection(id: string, event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    const next = new Set(this.selectedBankIds());
+    if (target.checked) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+    this.selectedBankIds.set(next);
+  }
+
+  includeFromBank(): void {
+    this.error.set(null);
+    if (!this.showIncludeFromBank || !this.quizId) {
+      return;
+    }
+    const questionIds = [...this.selectedBankIds()];
+    if (questionIds.length === 0) {
+      return;
+    }
+    const rawAt = this.includeAt.value.trim();
+    const parsed = rawAt === '' ? this.questions.length : Number(rawAt);
+    const insertAt = Number.isInteger(parsed) ? parsed : this.questions.length;
+    const body: IncludeQuestionsRequest = {
+      questionIds,
+      insertAt,
+      rowVersion: this.rowVersion,
+    };
+    this.including.set(true);
+    this.api.includeQuestions(this.quizId, body).subscribe({
+      next: (quiz) => {
+        this.patch(quiz);
+        this.selectedBankIds.set(new Set());
+        this.including.set(false);
+      },
+      error: (err: unknown) => {
+        const mapped = PageStatus.fromError(err);
+        this.error.set(mapped.message);
+        this.correlationId.set(mapped.correlationId);
+        this.including.set(false);
       },
     });
   }

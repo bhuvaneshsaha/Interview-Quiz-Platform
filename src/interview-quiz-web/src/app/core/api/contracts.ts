@@ -249,6 +249,54 @@ export interface QuestionRequest {
   sourceQuestionId?: string | null;
 }
 
+export interface BankQuestionResponse {
+  id: string;
+  title: string;
+  tags: Record<string, string>;
+  expectedExperienceYears: number;
+  type: QuestionType;
+  stem: string;
+  scoringMode: ScoringMode;
+  creditMode: CreditMode | null;
+  points: number;
+  body: QuestionBody;
+  archivedAtUtc: string | null;
+  rowVersion: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface CreateBankQuestionRequest {
+  title: string;
+  tags: Record<string, string>;
+  expectedExperienceYears: number;
+  type: QuestionType;
+  stem: string;
+  scoringMode?: ScoringMode;
+  creditMode?: CreditMode;
+  points: number;
+  body: QuestionBody;
+}
+
+export interface UpdateBankQuestionRequest extends CreateBankQuestionRequest {
+  rowVersion: number;
+}
+
+export interface BankQuestionListCriteria {
+  keyword?: string;
+  type?: QuestionType;
+  experienceMinYears?: number;
+  experienceMaxYears?: number;
+  tags?: Record<string, string>;
+  archived?: boolean;
+}
+
+export interface IncludeQuestionsRequest {
+  questionIds: string[];
+  insertAt?: number | null;
+  rowVersion: number;
+}
+
 export interface CreateQuizRequest {
   openingId: string;
   title: string;

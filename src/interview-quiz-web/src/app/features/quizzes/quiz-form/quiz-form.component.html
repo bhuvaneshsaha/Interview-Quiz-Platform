@@ -182,6 +182,67 @@
       </fieldset>
     }
 
+    @if (showIncludeFromBank) {
+      <fieldset class="questions-fieldset" data-testid="include-from-bank">
+        <legend>Include from question bank</legend>
+        <p class="hint">
+          Search live bank questions and copy them into this quiz. Copies get new ids; the bank row
+          is not joined live.
+        </p>
+        <div class="add-question">
+          <div class="field">
+            <label for="include-keyword">Keyword</label>
+            <input id="include-keyword" type="text" [formControl]="includeKeyword" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="include-type">Type</label>
+            <select id="include-type" [formControl]="includeType">
+              <option value="">Any type</option>
+              @for (type of types; track type) {
+                <option [value]="type">{{ typeLabels[type] }}</option>
+              }
+            </select>
+          </div>
+          <button type="button" class="button button-quiet" (click)="searchBank()" [disabled]="bankSearching()">
+            {{ bankSearching() ? 'Searching…' : 'Search' }}
+          </button>
+        </div>
+        @if (bankResults().length === 0 && !bankSearching()) {
+          <p class="hint">No live bank questions match this search.</p>
+        }
+        <ul class="include-list">
+          @for (item of bankResults(); track item.id) {
+            <li>
+              <label [attr.for]="'include-q-' + item.id">
+                <input
+                  type="checkbox"
+                  [id]="'include-q-' + item.id"
+                  [checked]="selectedBankIds().has(item.id)"
+                  (change)="toggleBankSelection(item.id, $event)"
+                />
+                {{ item.title }} — {{ typeLabels[item.type] }}
+              </label>
+            </li>
+          }
+        </ul>
+        <div class="add-question">
+          <div class="field">
+            <label for="include-at">Insert at (0-based; leave empty to append)</label>
+            <input id="include-at" type="number" min="0" [formControl]="includeAt" />
+          </div>
+          <button
+            type="button"
+            class="button"
+            data-testid="include-from-bank-submit"
+            [disabled]="including() || selectedBankIds().size === 0"
+            (click)="includeFromBank()"
+          >
+            {{ including() ? 'Including…' : 'Include' }}
+          </button>
+        </div>
+      </fieldset>
+    }
+
     <fieldset class="questions-fieldset">
       <legend>Questions</legend>
       <p class="hint">Question order is the order saved. Sort order is the list order.</p>
@@ -203,6 +264,9 @@
       @for (question of questions.controls; track $index; let i = $index) {
         <fieldset class="question-card" [formGroup]="questionGroup(i)">
           <legend>Question {{ i + 1 }}</legend>
+          @if (questionGroup(i).get('sourceQuestionId')?.value) {
+            <p class="hint">From question bank</p>
+          }
           <div class="question-toolbar">
             <button
               *hasPermission="codes.QuizzesWrite"

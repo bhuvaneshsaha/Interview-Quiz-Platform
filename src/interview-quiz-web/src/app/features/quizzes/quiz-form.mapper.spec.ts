@@ -1,9 +1,12 @@
 import {
+  BankQuestionResponse,
   CreateQuizRequest,
   QuestionType,
   QuizResponse,
 } from '../../core/api/contracts';
 import {
+  bankQuestionToDraft,
+  defaultBankQuestionDraft,
   defaultBodyForType,
   defaultCreditMode,
   defaultQuestionDraft,
@@ -12,9 +15,12 @@ import {
   QuestionDraft,
   QuizDraft,
   requiresCreditMode,
+  toCreateBankQuestionRequest,
   toCreateRequest,
+  toUpdateBankQuestionRequest,
   toUpdateRequest,
   quizToDraft,
+  validateBankQuestionDraft,
   validateQuizDraft,
 } from './quiz-form.mapper';
 
@@ -305,5 +311,67 @@ describe('quiz-form.mapper', () => {
     expect(update.questions[0].sourceQuestionId).toBe(sourceQuestionId);
     expect('originTemplateId' in update).toBe(false);
     expect('sourceTemplateVersionId' in update).toBe(false);
+  });
+
+  it('maps bank create/update without sourceQuestionId or sortOrder', () => {
+    const draft = defaultBankQuestionDraft('trueFalse');
+    draft.title = ' Shared TF ';
+    draft.stem = 'Is a quiz bound to one opening?';
+    draft.expectedExperienceYears = 3;
+    draft.tags = [{ key: 'Role', value: 'Backend' }];
+    const created = toCreateBankQuestionRequest(draft);
+    expect(created.title).toBe('Shared TF');
+    expect(created.type).toBe('trueFalse');
+    expect(created.tags).toEqual({ Role: 'Backend' });
+    expect(created.body).toEqual({ correct: true });
+    expect('sourceQuestionId' in created).toBe(false);
+    expect('sortOrder' in created).toBe(false);
+    expect('id' in created).toBe(false);
+
+    const updated = toUpdateBankQuestionRequest(draft, 7);
+    expect(updated.rowVersion).toBe(7);
+    expect('sourceQuestionId' in updated).toBe(false);
+    expect('sortOrder' in updated).toBe(false);
+  });
+
+  it('validates bank title and experience, reusing question body rules', () => {
+    const draft = defaultBankQuestionDraft('trueFalse');
+    draft.stem = 'Stem';
+    expect(validateBankQuestionDraft(draft).some((error) => error.path === 'title')).toBe(true);
+
+    draft.title = 'Bank TF';
+    draft.expectedExperienceYears = 81;
+    expect(
+      validateBankQuestionDraft(draft).some((error) => error.path === 'expectedExperienceYears'),
+    ).toBe(true);
+
+    draft.expectedExperienceYears = 2;
+    draft.stem = '';
+    expect(validateBankQuestionDraft(draft).some((error) => error.path === 'stem')).toBe(true);
+  });
+
+  it('round-trips a bank question response into a draft', () => {
+    const question: BankQuestionResponse = {
+      id: '6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4002',
+      title: 'True/false bank item',
+      tags: { Topic: 'Catalog' },
+      expectedExperienceYears: 2,
+      type: 'trueFalse',
+      stem: 'A quiz belongs to exactly one opening.',
+      scoringMode: 'auto',
+      creditMode: null,
+      points: 1,
+      body: { correct: true },
+      archivedAtUtc: null,
+      rowVersion: 1,
+      createdAtUtc: '2026-01-01T00:00:00Z',
+      updatedAtUtc: '2026-01-02T00:00:00Z',
+    };
+    const draft = bankQuestionToDraft(question);
+    expect(draft.title).toBe('True/false bank item');
+    expect(draft.tags).toEqual([{ key: 'Topic', value: 'Catalog' }]);
+    expect(draft.body).toEqual({ correct: true });
+    expect('sortOrder' in draft).toBe(false);
+    expect('sourceQuestionId' in draft).toBe(false);
   });
 });

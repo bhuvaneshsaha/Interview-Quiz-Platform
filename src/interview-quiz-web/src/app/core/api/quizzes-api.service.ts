@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { pageAndCriteria } from './list-query';
 import {
   CreateQuizRequest,
+  IncludeQuestionsRequest,
   PagedResult,
   PublishTemplateResponse,
   QuizListCriteria,
@@ -37,5 +38,9 @@ export class QuizzesApi {
 
   publishTemplate(id: string): Observable<PublishTemplateResponse> {
     return this.http.post<PublishTemplateResponse>(`/api/quizzes/${id}/publish-template`, {});
+  }
+
+  includeQuestions(quizId: string, body: IncludeQuestionsRequest): Observable<QuizResponse> {
+    return this.http.post<QuizResponse>(`/api/quizzes/${quizId}/include-questions`, body);
   }
 }

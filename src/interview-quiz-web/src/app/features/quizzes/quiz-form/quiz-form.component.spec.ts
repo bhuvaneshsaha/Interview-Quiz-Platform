@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of } from 'rxjs';
 import { QuizResponse } from '../../../core/api/contracts';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
+import { QuestionsApi } from '../../../core/api/questions-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
@@ -57,6 +58,7 @@ describe('QuizForm', () => {
             get: () => of(sampleQuiz),
             create: () => of(sampleQuiz),
             update: () => of({ ...sampleQuiz, rowVersion: 2 }),
+            includeQuestions: () => of({ ...sampleQuiz, rowVersion: 3 }),
             publishTemplate: () =>
               of({
                 templateId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001',
@@ -64,6 +66,12 @@ describe('QuizForm', () => {
                 versionNumber: 1,
                 createdNewTemplate: true,
               }),
+          },
+        },
+        {
+          provide: QuestionsApi,
+          useValue: {
+            list: () => of({ items: [], page: 1, pageSize: 20, totalCount: 0 }),
           },
         },
         {
@@ -120,5 +128,26 @@ describe('QuizForm', () => {
     const publish = fixture.nativeElement.querySelector('[data-testid="publish-template"]');
     expect(publish).toBeTruthy();
     expect(publish?.textContent).toContain('Publish as template');
+  });
+
+  it('hides include from bank without questions.read', async () => {
+    await setup([PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite], sampleQuiz.id);
+    expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeNull();
+  });
+
+  it('hides include from bank on create-new even with both permissions', async () => {
+    await setup(
+      [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite, PermissionCodes.QuestionsRead],
+      null,
+    );
+    expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeNull();
+  });
+
+  it('shows include from bank when quizzes.write and questions.read on an existing quiz', async () => {
+    await setup(
+      [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite, PermissionCodes.QuestionsRead],
+      sampleQuiz.id,
+    );
+    expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeTruthy();
   });
 });

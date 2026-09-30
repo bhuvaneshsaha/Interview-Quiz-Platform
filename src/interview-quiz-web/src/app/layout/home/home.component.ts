@@ -26,6 +26,7 @@ export class Home {
       PermissionCodes.QuizzesRead,
       PermissionCodes.QuizzesWrite,
       PermissionCodes.TemplatesRead,
+      PermissionCodes.QuestionsRead,
     ]),
   );
 }

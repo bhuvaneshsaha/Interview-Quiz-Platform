@@ -1,0 +1,101 @@
+<div class="page-heading">
+  <h1>Question bank</h1>
+  <a *hasPermission="codes.QuestionsWrite" routerLink="/questions/new" class="button">Create question</a>
+</div>
+
+<form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
+  <div class="field">
+    <label for="question-keyword">Keyword</label>
+    <input id="question-keyword" type="text" [formControl]="keyword" autocomplete="off" />
+  </div>
+  <div class="field">
+    <label for="question-type">Type</label>
+    <select id="question-type" [formControl]="typeFilter">
+      <option value="">Any type</option>
+      @for (type of types; track type) {
+        <option [value]="type">{{ typeLabels[type] }}</option>
+      }
+    </select>
+  </div>
+  <div class="field">
+    <label for="question-exp-min">Experience min (years)</label>
+    <input id="question-exp-min" type="number" min="0" max="80" [formControl]="experienceMin" />
+  </div>
+  <div class="field">
+    <label for="question-exp-max">Experience max (years)</label>
+    <input id="question-exp-max" type="number" min="0" max="80" [formControl]="experienceMax" />
+  </div>
+  <div class="field">
+    <label for="question-tag-key">Tag key</label>
+    <input id="question-tag-key" type="text" [formControl]="tagKey" autocomplete="off" />
+  </div>
+  <div class="field">
+    <label for="question-tag-value">Tag value</label>
+    <input id="question-tag-value" type="text" [formControl]="tagValue" autocomplete="off" />
+  </div>
+  @if (canWrite) {
+    <div class="field">
+      <label for="question-archived">
+        <input id="question-archived" type="checkbox" [formControl]="showArchived" />
+        Show archived only
+      </label>
+    </div>
+  }
+  <button type="submit" class="button">Filter</button>
+</form>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="!loading() && !error() && questions().length === 0"
+  emptyMessage="No questions match this filter."
+  loadingMessage="Loading question bank."
+>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th scope="col">Title</th>
+        <th scope="col">Type</th>
+        <th scope="col">Experience</th>
+        <th scope="col">Stem</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (question of questions(); track question.id) {
+        <tr>
+          <th scope="row">
+            <a [routerLink]="['/questions', question.id]">{{ question.title }}</a>
+          </th>
+          <td>{{ typeLabel(question.type) }}</td>
+          <td>{{ question.expectedExperienceYears }}</td>
+          <td>{{ stemExcerpt(question.stem) }}</td>
+          <td>
+            @if (question.archivedAtUtc) {
+              <span class="badge">Archived</span>
+            } @else {
+              Live
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  @if (totalCount() > pageSize) {
+    <nav class="pager" aria-label="Question bank pages">
+      <button type="button" class="button button-quiet" [disabled]="page() <= 1" (click)="load(page() - 1)">
+        Previous
+      </button>
+      <span>Page {{ page() }} of {{ lastPage }}</span>
+      <button
+        type="button"
+        class="button button-quiet"
+        [disabled]="page() >= lastPage"
+        (click)="load(page() + 1)"
+      >
+        Next
+      </button>
+    </nav>
+  }
+</app-page-status>
