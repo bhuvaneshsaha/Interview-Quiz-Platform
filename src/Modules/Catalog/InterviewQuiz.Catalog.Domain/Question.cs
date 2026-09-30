@@ -20,6 +20,7 @@ public sealed class Question
     public CreditMode? CreditMode { get; private set; }
     public int Points { get; private set; }
     public JsonDocument Body { get; private set; }
+    public Guid? SourceQuestionId { get; private set; }
 
     public static Question Create(
         Guid? id,
@@ -29,7 +30,8 @@ public sealed class Question
         ScoringMode? scoringMode,
         CreditMode? creditMode,
         int points,
-        JsonElement body)
+        JsonElement body,
+        Guid? sourceQuestionId = null)
     {
         if (!Enum.IsDefined(type))
         {
@@ -94,7 +96,25 @@ public sealed class Question
             ScoringMode = resolvedScoring,
             CreditMode = requiresCredit ? creditMode : null,
             Points = points,
-            Body = canonicalBody
+            Body = canonicalBody,
+            SourceQuestionId = sourceQuestionId is null || sourceQuestionId == Guid.Empty
+                ? null
+                : sourceQuestionId
         };
     }
+
+    /// <summary>
+    /// Copy-on-include / publish / clone: new question id, same payload, preserved bank provenance.
+    /// </summary>
+    public Question CopyWithNewId(int sortOrder, Guid? newId = null)
+        => Create(
+            newId ?? Guid.NewGuid(),
+            sortOrder,
+            Type,
+            Stem,
+            ScoringMode,
+            CreditMode,
+            Points,
+            Body.RootElement.Clone(),
+            SourceQuestionId);
 }

@@ -1,7 +1,9 @@
+using InterviewQuiz.Catalog.Application.Services;
+using InterviewQuiz.Openings.Application.Services;
+using InterviewQuiz.Search.Application.Services;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using InterviewQuiz.Openings.Application.Services;
 
 namespace InterviewQuiz.Host.Hosting;
 
@@ -22,7 +24,10 @@ public static class ObservabilityExtensions
                 tracing
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddSource(OpeningService.ActivitySource.Name);
+                    .AddSource(OpeningService.ActivitySource.Name)
+                    .AddSource(QuizService.ActivitySource.Name)
+                    .AddSource(TemplateService.ActivitySource.Name)
+                    .AddSource(FilterService.ActivitySource.Name);
 
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))
                 {

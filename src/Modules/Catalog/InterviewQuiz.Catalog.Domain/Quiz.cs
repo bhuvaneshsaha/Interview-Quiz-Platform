@@ -20,6 +20,8 @@ public sealed class Quiz
     public int ExpectedExperienceYears { get; private set; }
     public Dictionary<string, string> Tags { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<Question> Questions { get; private set; } = [];
+    public Guid? OriginTemplateId { get; private set; }
+    public Guid? SourceTemplateVersionId { get; private set; }
     public uint RowVersion { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -32,18 +34,46 @@ public sealed class Quiz
         IReadOnlyDictionary<string, string>? tags,
         IReadOnlyList<Question> questions,
         IClock clock,
-        Guid? id = null)
+        Guid? id = null,
+        Guid? originTemplateId = null,
+        Guid? sourceTemplateVersionId = null)
     {
         var now = clock.UtcNow;
         var quiz = new Quiz
         {
             Id = id ?? Guid.NewGuid(),
             CreatedAtUtc = now,
-            UpdatedAtUtc = now
+            UpdatedAtUtc = now,
+            OriginTemplateId = originTemplateId is null || originTemplateId == Guid.Empty
+                ? null
+                : originTemplateId,
+            SourceTemplateVersionId = sourceTemplateVersionId is null || sourceTemplateVersionId == Guid.Empty
+                ? null
+                : sourceTemplateVersionId
         };
 
         quiz.Apply(openingId, title, description, expectedExperienceYears, tags, questions, now);
         return quiz;
+    }
+
+    /// <summary>
+    /// Server-owned lineage. Increments <see cref="RowVersion"/> when the origin actually changes.
+    /// </summary>
+    public void AttachToTemplate(Guid templateId, IClock clock)
+    {
+        if (templateId == Guid.Empty)
+        {
+            throw new DomainException("Template is required.");
+        }
+
+        if (OriginTemplateId == templateId)
+        {
+            return;
+        }
+
+        OriginTemplateId = templateId;
+        UpdatedAtUtc = clock.UtcNow;
+        RowVersion++;
     }
 
     public void Update(

@@ -23,4 +23,7 @@ public sealed class QuestionRequest
     public int Points { get; set; } = 1;
 
     public JsonElement Body { get; set; }
+
+    /// <summary>Bank provenance. Persisted as sent; not validated against a bank in this slice.</summary>
+    public Guid? SourceQuestionId { get; set; }
 }

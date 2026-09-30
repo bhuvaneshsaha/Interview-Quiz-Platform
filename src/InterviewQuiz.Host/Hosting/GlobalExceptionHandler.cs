@@ -25,6 +25,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         var (status, title, detail) = exception switch
         {
             EntityNotFoundException => (StatusCodes.Status404NotFound, "Not Found", exception.Message),
+            ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
             ConcurrencyException => (StatusCodes.Status409Conflict, "Conflict", exception.Message),
             DomainException => (StatusCodes.Status400BadRequest, "Bad Request", exception.Message),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict",

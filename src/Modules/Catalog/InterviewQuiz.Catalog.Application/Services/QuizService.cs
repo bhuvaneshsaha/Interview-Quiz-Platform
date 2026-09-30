@@ -135,7 +135,8 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
                 item.ScoringMode,
                 item.CreditMode,
                 item.Points,
-                item.Body));
+                item.Body,
+                item.SourceQuestionId));
         }
 
         return questions;
@@ -155,6 +156,8 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
                 .ThenBy(q => q.Id)
                 .Select(MapQuestion)
                 .ToList(),
+            OriginTemplateId = quiz.OriginTemplateId,
+            SourceTemplateVersionId = quiz.SourceTemplateVersionId,
             RowVersion = quiz.RowVersion,
             CreatedAtUtc = quiz.CreatedAtUtc,
             UpdatedAtUtc = quiz.UpdatedAtUtc
@@ -179,13 +182,14 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
                     q.ScoringMode,
                     q.CreditMode,
                     q.Points,
-                    q.Body.RootElement.Clone()))
+                    q.Body.RootElement.Clone(),
+                    q.SourceQuestionId))
                 .ToList(),
             quiz.RowVersion,
             quiz.CreatedAtUtc,
             quiz.UpdatedAtUtc);
 
-    private static QuestionResponse MapQuestion(Question question)
+    internal static QuestionResponse MapQuestion(Question question)
         => new()
         {
             Id = question.Id,
@@ -195,6 +199,7 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             ScoringMode = question.ScoringMode,
             CreditMode = question.CreditMode,
             Points = question.Points,
-            Body = question.Body.RootElement.Clone()
+            Body = question.Body.RootElement.Clone(),
+            SourceQuestionId = question.SourceQuestionId
         };
 }

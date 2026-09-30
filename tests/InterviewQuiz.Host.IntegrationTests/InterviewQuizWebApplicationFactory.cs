@@ -4,6 +4,7 @@ using InterviewQuiz.Catalog.Infrastructure.Persistence;
 using InterviewQuiz.Catalog.Infrastructure.Seeding;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
+using InterviewQuiz.Search.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +51,8 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
         await scope.ServiceProvider.GetRequiredService<OpeningsDbContext>()
             .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<CatalogDbContext>()
+            .Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<SearchDbContext>()
             .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
             .SeedAsync();

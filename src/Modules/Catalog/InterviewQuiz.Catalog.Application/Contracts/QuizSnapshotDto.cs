@@ -26,4 +26,5 @@ public sealed record QuizSnapshotQuestionDto(
     ScoringMode ScoringMode,
     CreditMode? CreditMode,
     int Points,
-    JsonElement Body);
+    JsonElement Body,
+    Guid? SourceQuestionId);

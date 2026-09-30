@@ -21,17 +21,21 @@ internal static class JwtTestTokens
         => Create(PermissionCodes.Openings.Read);
 
     public static string Create(params string[] permissions)
-        => Issue(UtcNow(), "InterviewQuiz.Tests", permissions).Token;
+        => CreateForUser("integration-user", permissions);
+
+    public static string CreateForUser(string userId, params string[] permissions)
+        => Issue(UtcNow(), "InterviewQuiz.Tests", userId, permissions).Token;
 
     public static string CreateExpired(params string[] permissions)
-        => Issue(DateTimeOffset.UtcNow.AddMinutes(-20), "InterviewQuiz.Tests", permissions).Token;
+        => Issue(DateTimeOffset.UtcNow.AddMinutes(-20), "InterviewQuiz.Tests", "integration-user", permissions).Token;
 
     public static string CreateWrongAudience(params string[] permissions)
-        => Issue(UtcNow(), "not-the-api", permissions).Token;
+        => Issue(UtcNow(), "not-the-api", "integration-user", permissions).Token;
 
     private static IssuedAccessToken Issue(
         DateTimeOffset now,
         string audience,
+        string userId,
         IReadOnlyList<string> permissions)
     {
         var options = Options.Create(new JwtOptions
@@ -43,7 +47,7 @@ internal static class JwtTestTokens
             RefreshTokenDays = 7
         });
         var issuer = new JwtAccessTokenIssuer(options, new FixedClock(now));
-        return issuer.Issue("integration-user", "tester@example.com", permissions);
+        return issuer.Issue(userId, "tester@example.com", permissions);
     }
 
     private static DateTimeOffset UtcNow() => DateTimeOffset.UtcNow;

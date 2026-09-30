@@ -13,4 +13,5 @@ public sealed class QuestionResponse
     public CreditMode? CreditMode { get; init; }
     public required int Points { get; init; }
     public required JsonElement Body { get; init; }
+    public Guid? SourceQuestionId { get; init; }
 }

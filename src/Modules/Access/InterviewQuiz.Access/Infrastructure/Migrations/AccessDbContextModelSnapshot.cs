@@ -226,6 +226,20 @@ namespace InterviewQuiz.Access.Infrastructure.Migrations
                         },
                         new
                         {
+                            Code = "questions.read",
+                            DisplayName = "View question bank",
+                            IncludeInEmployeeRoleEditor = true,
+                            Module = "catalog"
+                        },
+                        new
+                        {
+                            Code = "questions.write",
+                            DisplayName = "Create and edit question bank",
+                            IncludeInEmployeeRoleEditor = true,
+                            Module = "catalog"
+                        },
+                        new
+                        {
                             Code = "ai.rules.manage",
                             DisplayName = "Manage company AI rule sets",
                             IncludeInEmployeeRoleEditor = true,

@@ -28,6 +28,8 @@ public static class PermissionCodes
         public const string QuizzesWrite = "quizzes.write";
         public const string TemplatesRead = "templates.read";
         public const string TemplatesWrite = "templates.write";
+        public const string QuestionsRead = "questions.read";
+        public const string QuestionsWrite = "questions.write";
         public const string AiRulesManage = "ai.rules.manage";
         public const string AiDraftUse = "ai.draft.use";
     }
@@ -70,6 +72,8 @@ public static class PermissionCodes
         new(Catalog.QuizzesWrite, "Create and edit quizzes", "catalog"),
         new(Catalog.TemplatesRead, "View templates", "catalog"),
         new(Catalog.TemplatesWrite, "Create and edit templates", "catalog"),
+        new(Catalog.QuestionsRead, "View question bank", "catalog"),
+        new(Catalog.QuestionsWrite, "Create and edit question bank", "catalog"),
         new(Catalog.AiRulesManage, "Manage company AI rule sets", "catalog"),
         new(Catalog.AiDraftUse, "Use AI draft", "catalog"),
         new(Delivery.AssignmentsRead, "View assignments", "delivery"),

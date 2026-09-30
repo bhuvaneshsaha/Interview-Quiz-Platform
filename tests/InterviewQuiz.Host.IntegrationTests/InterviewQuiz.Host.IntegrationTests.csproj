@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Modules\Openings\InterviewQuiz.Openings.Application\InterviewQuiz.Openings.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\InterviewQuiz.Catalog.Application\InterviewQuiz.Catalog.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\InterviewQuiz.Catalog.Infrastructure\InterviewQuiz.Catalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Search\InterviewQuiz.Search\InterviewQuiz.Search.csproj" />
   </ItemGroup>
 
 </Project>

@@ -44,10 +44,16 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OpeningId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("OriginTemplateId")
+                        .HasColumnType("uuid");
+
                     b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("row_version");
+
+                    b.Property<Guid?>("SourceTemplateVersionId")
+                        .HasColumnType("uuid");
 
                     b.Property<Dictionary<string, string>>("Tags")
                         .IsRequired()
@@ -65,6 +71,8 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OpeningId");
 
+                    b.HasIndex("OriginTemplateId");
+
                     b.HasIndex("Tags");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Tags"), "gin");
@@ -72,6 +80,85 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("quizzes", "catalog");
+                });
+
+            modelBuilder.Entity("InterviewQuiz.Catalog.Domain.Template", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OriginQuizId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OriginQuizId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("templates", "catalog");
+                });
+
+            modelBuilder.Entity("InterviewQuiz.Catalog.Domain.TemplateVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("ExpectedExperienceYears")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PublishedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("PublishedFromQuizId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Dictionary<string, string>>("Tags")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedAtUtc");
+
+                    b.HasIndex("Tags");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Tags"), "gin");
+
+                    b.HasIndex("TemplateId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("template_versions", "catalog");
                 });
 
             modelBuilder.Entity("InterviewQuiz.Catalog.Domain.Quiz", b =>
@@ -104,6 +191,9 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                             b1.Property<int>("SortOrder")
                                 .HasColumnType("integer");
 
+                            b1.Property<Guid?>("SourceQuestionId")
+                                .HasColumnType("uuid");
+
                             b1.Property<string>("Stem")
                                 .IsRequired()
                                 .HasMaxLength(8000)
@@ -122,6 +212,68 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("QuizId");
+                        });
+
+                    b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("InterviewQuiz.Catalog.Domain.TemplateVersion", b =>
+                {
+                    b.HasOne("InterviewQuiz.Catalog.Domain.Template", null)
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("InterviewQuiz.Catalog.Domain.Question", "Questions", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Body")
+                                .IsRequired()
+                                .HasColumnType("jsonb");
+
+                            b1.Property<string>("CreditMode")
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)");
+
+                            b1.Property<int>("Points")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("ScoringMode")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)");
+
+                            b1.Property<int>("SortOrder")
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid?>("SourceQuestionId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Stem")
+                                .IsRequired()
+                                .HasMaxLength(8000)
+                                .HasColumnType("character varying(8000)");
+
+                            b1.Property<Guid>("TemplateVersionId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("TemplateVersionId", "SortOrder");
+
+                            b1.ToTable("template_version_questions", "catalog");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TemplateVersionId");
                         });
 
                     b.Navigation("Questions");

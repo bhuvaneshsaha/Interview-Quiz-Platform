@@ -1,3 +1,4 @@
+using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Authorization;
 using InterviewQuiz.Catalog.Application;
 using InterviewQuiz.Catalog.Application.Contracts;
@@ -14,10 +15,12 @@ namespace InterviewQuiz.Host.Controllers;
 public sealed class QuizzesController : ControllerBase
 {
     private readonly IQuizService _quizzes;
+    private readonly ITemplateService _templates;
 
-    public QuizzesController(IQuizService quizzes)
+    public QuizzesController(IQuizService quizzes, ITemplateService templates)
     {
         _quizzes = quizzes;
+        _templates = templates;
     }
 
     [HttpGet]
@@ -26,7 +29,7 @@ public sealed class QuizzesController : ControllerBase
         [FromQuery] QuizListQuery query,
         CancellationToken cancellationToken)
     {
-        var criteria = new QuizListCriteria { OpeningId = query.OpeningId };
+        var criteria = QuizListCriteria.FromQuery(query);
         var page = new PageRequest(query.Page, query.PageSize);
         var result = await _quizzes.ListAsync(criteria, page, cancellationToken);
         return Ok(result);
@@ -62,5 +65,21 @@ public sealed class QuizzesController : ControllerBase
         var quiz = await _quizzes.UpdateAsync(request, cancellationToken);
         Response.Headers.ETag = $"\"{quiz.RowVersion}\"";
         return Ok(quiz);
+    }
+
+    [HttpPost("{id:guid}/publish-template")]
+    [HasPermission(PermissionCodes.Catalog.TemplatesWrite)]
+    public async Task<ActionResult<PublishTemplateResponse>> PublishTemplate(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindUserId();
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        var published = await _templates.PublishAsync(id, userId, cancellationToken);
+        return Created($"/api/templates/{published.TemplateId}", published);
     }
 }

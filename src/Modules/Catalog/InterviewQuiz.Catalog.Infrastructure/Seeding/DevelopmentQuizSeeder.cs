@@ -13,6 +13,8 @@ public sealed class DevelopmentQuizSeeder
     /// <summary>Must match <c>DevelopmentOpeningSeeder.SampleOpeningBackend</c>.</summary>
     public static readonly Guid SampleOpeningBackend = Guid.Parse("3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001");
     public static readonly Guid SampleQuizBackend = Guid.Parse("4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001");
+    public static readonly Guid SampleTemplateBackend = Guid.Parse("5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001");
+    public static readonly Guid SampleTemplateVersion1 = Guid.Parse("5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3101");
 
     private readonly CatalogDbContext _db;
     private readonly IClock _clock;
@@ -39,11 +41,16 @@ public sealed class DevelopmentQuizSeeder
             return;
         }
 
-        if (await _db.Quizzes.AnyAsync(q => q.Id == SampleQuizBackend, cancellationToken))
+        if (!await _db.Quizzes.AnyAsync(q => q.Id == SampleQuizBackend, cancellationToken))
         {
-            return;
+            await SeedQuizAsync(cancellationToken);
         }
 
+        await SeedTemplateAsync(cancellationToken);
+    }
+
+    private async Task SeedQuizAsync(CancellationToken cancellationToken)
+    {
         var questions = new[]
         {
             Question.Create(
@@ -208,6 +215,43 @@ public sealed class DevelopmentQuizSeeder
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded sample quiz {QuizId}", SampleQuizBackend);
     }
+
+    private async Task SeedTemplateAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.Templates.AnyAsync(t => t.Id == SampleTemplateBackend, cancellationToken))
+        {
+            return;
+        }
+
+        var quiz = await _db.Quizzes.FirstAsync(q => q.Id == SampleQuizBackend, cancellationToken);
+        var template = Template.Create(quiz.Id, _clock, SampleTemplateBackend);
+        var copies = quiz.Questions
+            .OrderBy(q => q.SortOrder)
+            .ThenBy(q => q.Id)
+            .Select((question, index) => question.CopyWithNewId(index, SeedTemplateQuestionId(index)))
+            .ToList();
+
+        var version = TemplateVersion.FromQuiz(
+            template.Id,
+            versionNumber: 1,
+            quiz,
+            publishedByUserId: "development-seeder",
+            _clock,
+            SampleTemplateVersion1,
+            copies);
+
+        quiz.AttachToTemplate(template.Id, _clock);
+        _db.Templates.Add(template);
+        _db.TemplateVersions.Add(version);
+        await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Seeded sample template {TemplateId} version {VersionId}",
+            SampleTemplateBackend,
+            SampleTemplateVersion1);
+    }
+
+    private static Guid SeedTemplateQuestionId(int index)
+        => Guid.Parse($"5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c32{index + 1:00}");
 
     private static JsonElement Body(object value)
         => JsonSerializer.SerializeToElement(value, CatalogJson.SerializerOptions);

@@ -30,11 +30,7 @@ public sealed class QuizRepository : IQuizRepository
         PageRequest page,
         CancellationToken cancellationToken)
     {
-        var query = _db.Quizzes.AsNoTracking().AsQueryable();
-        if (criteria.OpeningId is { } openingId && openingId != Guid.Empty)
-        {
-            query = query.Where(q => q.OpeningId == openingId);
-        }
+        var query = ApplyFilters(_db.Quizzes.AsNoTracking(), criteria);
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
@@ -57,5 +53,41 @@ public sealed class QuizRepository : IQuizRepository
         {
             throw new ConcurrencyException("Quiz was modified by another request. Reload and retry.");
         }
+    }
+
+    private static IQueryable<Quiz> ApplyFilters(IQueryable<Quiz> query, QuizListCriteria criteria)
+    {
+        if (criteria.OpeningId is { } openingId && openingId != Guid.Empty)
+        {
+            query = query.Where(q => q.OpeningId == openingId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(criteria.Keyword))
+        {
+            var keyword = criteria.Keyword.Trim().ToLower();
+            query = query.Where(q => q.Title.ToLower().Contains(keyword));
+        }
+
+        if (criteria.ExperienceMinYears is { } minYears)
+        {
+            query = query.Where(q => q.ExpectedExperienceYears >= minYears);
+        }
+
+        if (criteria.ExperienceMaxYears is { } maxYears)
+        {
+            query = query.Where(q => q.ExpectedExperienceYears <= maxYears);
+        }
+
+        if (criteria.Tags is { Count: > 0 })
+        {
+            foreach (var (key, value) in criteria.Tags)
+            {
+                var fragment = System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, string> { [key] = value });
+                query = query.Where(q => EF.Functions.JsonContains(q.Tags, fragment));
+            }
+        }
+
+        return query;
     }
 }

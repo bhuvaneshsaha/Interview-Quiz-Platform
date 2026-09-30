@@ -15,6 +15,7 @@ using InterviewQuiz.Openings.Infrastructure;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search;
+using InterviewQuiz.Search.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,7 @@ try
     builder.Services.AddCatalogModule(builder.Configuration);
     builder.Services.AddDeliveryModule();
     builder.Services.AddEvaluationModule();
-    builder.Services.AddSearchModule();
+    builder.Services.AddSearchModule(builder.Configuration);
 
     builder.Services.AddControllers().AddJsonOptions(options =>
     {
@@ -79,7 +80,8 @@ try
         .AddHealthChecks()
         .AddDbContextCheck<AccessDbContext>("access-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
         .AddDbContextCheck<OpeningsDbContext>("openings-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
-        .AddDbContextCheck<CatalogDbContext>("catalog-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
+        .AddDbContextCheck<CatalogDbContext>("catalog-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+        .AddDbContextCheck<SearchDbContext>("search-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
     builder.Services.AddOpenApi(options =>
     {
@@ -155,9 +157,11 @@ try
         var accessDb = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
         var openingsDb = scope.ServiceProvider.GetRequiredService<OpeningsDbContext>();
         var catalogDb = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var searchDb = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
         await accessDb.Database.MigrateAsync();
         await openingsDb.Database.MigrateAsync();
         await catalogDb.Database.MigrateAsync();
+        await searchDb.Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentOpeningSeeder>()

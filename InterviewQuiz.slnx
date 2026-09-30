@@ -31,5 +31,6 @@
     <Project Path="tests/InterviewQuiz.Catalog.UnitTests/InterviewQuiz.Catalog.UnitTests.csproj" />
     <Project Path="tests/InterviewQuiz.Host.IntegrationTests/InterviewQuiz.Host.IntegrationTests.csproj" />
     <Project Path="tests/InterviewQuiz.Openings.UnitTests/InterviewQuiz.Openings.UnitTests.csproj" />
+    <Project Path="tests/InterviewQuiz.Search.UnitTests/InterviewQuiz.Search.UnitTests.csproj" />
   </Folder>
 </Solution>
