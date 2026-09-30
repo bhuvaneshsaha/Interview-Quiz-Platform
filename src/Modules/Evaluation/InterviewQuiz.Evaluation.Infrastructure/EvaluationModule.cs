@@ -24,6 +24,7 @@ public static class EvaluationModule
                 npgsql.EnableRetryOnFailure();
                 npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
             });
+            options.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         });
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
