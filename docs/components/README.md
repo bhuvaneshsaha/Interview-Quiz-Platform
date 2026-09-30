@@ -9,10 +9,11 @@ Reusable UI primitives for the Angular SPA. Feature screens (login, openings, qu
 | PageStatus | angular | stable | Loading / empty / error sentences for API pages | [angular/PageStatus.md](angular/PageStatus.md) |
 | OfflineBanner | angular | stable | Online-first PWA “you are offline” banner | [angular/OfflineBanner.md](angular/OfflineBanner.md) |
 | HasPermission | angular | stable | Show/hide by permission code | [angular/HasPermission.md](angular/HasPermission.md) |
+| SavedFilters | angular | stable | Apply / save / share / delete list saved filters | [angular/SavedFilters.md](angular/SavedFilters.md) |
 
 ## Storybook (OSS gallery)
 
-Storybook 10 + `@storybook/angular-vite` (Angular 21 / zoneless / application builder). Stories live next to the source (`*.stories.ts`): `Shared/PageStatus`, `Shared/OfflineBanner`, `Shared/HasPermission`. Chromatic is not used.
+Storybook 10 + `@storybook/angular-vite` (Angular 21 / zoneless / application builder). Stories live next to the source (`*.stories.ts`): `Shared/PageStatus`, `Shared/OfflineBanner`, `Shared/HasPermission`, `Shared/SavedFilters`. Chromatic is not used.
 
 From `src/interview-quiz-web`:
 

@@ -1,5 +1,7 @@
 # ADR 0007 — Question bank is Catalog-owned; copy-on-include
 
+Status: Decision unchanged. Slice 3 **groundwork is in the code** (`sourceQuestionId`, reserved `IQuestionBankReader`, seeded `questions.read` / `questions.write` not granted on Dev Template author). Bank CRUD/UI remains **slice 4**.
+
 ## Context
 
 v1 already has three reuse mechanisms that are easy to confuse:

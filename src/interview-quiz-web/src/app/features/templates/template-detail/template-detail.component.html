@@ -1,0 +1,164 @@
+<div class="page-heading">
+  <h1>Template</h1>
+  <a routerLink="/templates">Back to templates</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading template."
+>
+  @if (template(); as item) {
+    <dl class="meta">
+      <div>
+        <dt>Title</dt>
+        <dd>{{ item.title }}</dd>
+      </div>
+      <div>
+        <dt>Description</dt>
+        <dd>{{ item.description || 'None' }}</dd>
+      </div>
+      <div>
+        <dt>Expected experience (years)</dt>
+        <dd>{{ item.expectedExperienceYears }}</dd>
+      </div>
+      <div>
+        <dt>Latest version</dt>
+        <dd>{{ item.latestVersionNumber }}</dd>
+      </div>
+      <div>
+        <dt>Origin quiz</dt>
+        <dd>{{ item.originQuizId }}</dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>{{ formatWhen(item.updatedAtUtc) }}</dd>
+      </div>
+    </dl>
+
+    @if (tagEntries(item.tags).length > 0) {
+      <h2>Tags</h2>
+      <ul>
+        @for (tag of tagEntries(item.tags); track tag.key) {
+          <li>{{ tag.key }}: {{ tag.value }}</li>
+        }
+      </ul>
+    }
+
+    <h2>Versions</h2>
+    @if (versionsLoading()) {
+      <p class="status" role="status">Loading versions.</p>
+    }
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Version</th>
+          <th scope="col">Title</th>
+          <th scope="col">Questions</th>
+          <th scope="col">Published</th>
+          <th scope="col">Questions view</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (version of versions(); track version.id) {
+          <tr>
+            <th scope="row">{{ version.versionNumber }}</th>
+            <td>{{ version.title }}</td>
+            <td>{{ version.questionCount }}</td>
+            <td>{{ formatWhen(version.publishedAtUtc) }}</td>
+            <td>
+              <button
+                type="button"
+                class="button button-quiet"
+                (click)="loadVersionQuestions(version.id)"
+              >
+                {{ selectedVersion()?.id === version.id ? 'Showing' : 'View questions' }}
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (versionTotal() > versionPageSize) {
+      <nav class="pager" aria-label="Template version pages">
+        <button
+          type="button"
+          class="button button-quiet"
+          [disabled]="versionPage() <= 1"
+          (click)="loadVersions(versionPage() - 1)"
+        >
+          Previous
+        </button>
+        <span>Page {{ versionPage() }} of {{ lastVersionPage }}</span>
+        <button
+          type="button"
+          class="button button-quiet"
+          [disabled]="versionPage() >= lastVersionPage"
+          (click)="loadVersions(versionPage() + 1)"
+        >
+          Next
+        </button>
+      </nav>
+    }
+
+    <h2>Version questions</h2>
+    @if (questionsLoading()) {
+      <p class="status" role="status">Loading questions.</p>
+    } @else if (selectedVersion(); as version) {
+      <p class="hint">Version {{ version.versionNumber }} — read-only.</p>
+      @if (version.questions.length === 0) {
+        <p>This version has no questions.</p>
+      } @else {
+        <ol class="question-list">
+          @for (question of version.questions; track question.id) {
+            <li>
+              <span class="question-type">{{ questionLabel(question) }}</span>
+              <span>{{ question.stem }}</span>
+              <span class="question-points">{{ question.points }} pts</span>
+            </li>
+          }
+        </ol>
+      }
+    }
+
+    @if (canClone) {
+      <form class="clone-form" (submit)="$event.preventDefault(); clone()">
+        <h2>Clone into a quiz</h2>
+        <p class="hint">
+          Creates a working quiz from the version shown above (or the latest version if none is
+          selected).
+        </p>
+        @if (cloneError(); as message) {
+          <p class="status status-error" role="alert">
+            {{ message }}
+            @if (cloneCorrelationId()) {
+              <span> Correlation id: {{ cloneCorrelationId() }}</span>
+            }
+          </p>
+        }
+        <div class="field">
+          @if (canReadOpenings) {
+            <label for="clone-opening">Opening</label>
+            <select id="clone-opening" [formControl]="openingId">
+              <option value="">Select an opening</option>
+              @for (opening of openings(); track opening.id) {
+                <option [value]="opening.id">{{ opening.title }}</option>
+              }
+            </select>
+          } @else {
+            <label for="clone-opening">Opening id</label>
+            <input id="clone-opening" type="text" [formControl]="openingId" autocomplete="off" />
+          }
+        </div>
+        <div class="field">
+          <label for="clone-title">Title (optional)</label>
+          <input id="clone-title" type="text" [formControl]="cloneTitle" maxlength="200" />
+        </div>
+        <button type="submit" class="button" data-testid="clone-template" [disabled]="cloning()">
+          {{ cloning() ? 'Cloning…' : 'Clone as quiz' }}
+        </button>
+      </form>
+    }
+  }
+</app-page-status>

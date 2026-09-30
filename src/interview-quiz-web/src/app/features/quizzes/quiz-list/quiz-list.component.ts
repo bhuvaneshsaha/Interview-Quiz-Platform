@@ -1,18 +1,23 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { OpeningResponse, QuizResponse } from '../../../core/api/contracts';
+import { ListCriteria, OpeningResponse, QuizListCriteria, QuizResponse } from '../../../core/api/contracts';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
+import {
+  optionalIntFromInput,
+  quizCriteriaFromUnknown,
+} from '../../../shared/saved-filters/saved-filter.criteria';
+import { SavedFilters } from '../../../shared/saved-filters/saved-filters.component';
 import { isUuid } from '../quiz-form.mapper';
 
 @Component({
   selector: 'app-quiz-list',
-  imports: [RouterLink, ReactiveFormsModule, HasPermission, PageStatus],
+  imports: [RouterLink, ReactiveFormsModule, HasPermission, PageStatus, SavedFilters],
   templateUrl: './quiz-list.component.html',
   styleUrl: './quiz-list.component.css',
 })
@@ -24,6 +29,9 @@ export class QuizList implements OnInit {
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
   readonly openingFilter = new FormControl('', { nonNullable: true });
+  readonly keyword = new FormControl('', { nonNullable: true });
+  readonly experienceMin = new FormControl('', { nonNullable: true });
+  readonly experienceMax = new FormControl('', { nonNullable: true });
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -33,6 +41,7 @@ export class QuizList implements OnInit {
   readonly page = signal(1);
   readonly totalCount = signal(0);
   readonly pageSize = 20;
+  readonly appliedCriteria = signal<QuizListCriteria>({});
 
   ngOnInit(): void {
     if (this.canReadOpenings) {
@@ -44,18 +53,48 @@ export class QuizList implements OnInit {
     this.load();
   }
 
+  criteriaFromForm(): QuizListCriteria {
+    return quizCriteriaFromUnknown({
+      ...this.appliedCriteria(),
+      openingId: this.openingFilter.value,
+      keyword: this.keyword.value,
+      experienceMinYears: optionalIntFromInput(this.experienceMin.value),
+      experienceMaxYears: optionalIntFromInput(this.experienceMax.value),
+    });
+  }
+
+  applySaved(raw: ListCriteria): void {
+    const criteria = quizCriteriaFromUnknown(raw);
+    this.openingFilter.setValue(criteria.openingId ?? '');
+    this.keyword.setValue(criteria.keyword ?? '');
+    this.experienceMin.setValue(criteria.experienceMinYears?.toString() ?? '');
+    this.experienceMax.setValue(criteria.experienceMaxYears?.toString() ?? '');
+    this.appliedCriteria.set(criteria);
+    this.load(1);
+  }
+
+  submitFilter(): void {
+    const rawOpening = this.openingFilter.value.trim();
+    if (rawOpening && !isUuid(rawOpening)) {
+      this.error.set('Opening filter must be a valid opening id.');
+      this.correlationId.set(null);
+      return;
+    }
+    this.appliedCriteria.set(this.criteriaFromForm());
+    this.load(1);
+  }
+
   load(page = 1): void {
     this.loading.set(true);
     this.error.set(null);
-    const raw = this.openingFilter.value.trim();
+    const raw = this.appliedCriteria().openingId?.trim() ?? '';
     if (raw && !isUuid(raw)) {
       this.error.set('Opening filter must be a valid opening id.');
       this.correlationId.set(null);
       this.loading.set(false);
       return;
     }
-    const openingId = raw || undefined;
-    this.api.list(page, this.pageSize, openingId).subscribe({
+    this.api.list(page, this.pageSize, this.appliedCriteria()).subscribe({
       next: (result) => {
         this.quizzes.set(result.items);
         this.page.set(result.page);

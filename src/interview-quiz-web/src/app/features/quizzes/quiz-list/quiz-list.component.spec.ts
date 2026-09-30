@@ -6,6 +6,7 @@ import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
+import { savedFilterTestProviders } from '../../../shared/saved-filters/saved-filters.testing';
 import { QuizList } from './quiz-list.component';
 
 const sampleQuiz: QuizResponse = {
@@ -16,6 +17,8 @@ const sampleQuiz: QuizResponse = {
   expectedExperienceYears: 5,
   tags: {},
   questions: [],
+  originTemplateId: null,
+  sourceTemplateVersionId: null,
   rowVersion: 0,
   createdAtUtc: '2026-01-01T00:00:00Z',
   updatedAtUtc: '2026-01-01T00:00:00Z',
@@ -42,6 +45,7 @@ describe('QuizList', () => {
             list: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
           },
         },
+        ...savedFilterTestProviders(),
       ],
     }).compileComponents();
     permissions = TestBed.inject(PermissionService);

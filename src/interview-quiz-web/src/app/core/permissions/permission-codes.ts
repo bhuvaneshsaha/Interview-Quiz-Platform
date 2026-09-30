@@ -12,6 +12,8 @@ export const PermissionCodes = {
   QuizzesWrite: 'quizzes.write',
   TemplatesRead: 'templates.read',
   TemplatesWrite: 'templates.write',
+  QuestionsRead: 'questions.read',
+  QuestionsWrite: 'questions.write',
   AiRulesManage: 'ai.rules.manage',
   AiDraftUse: 'ai.draft.use',
   AssignmentsRead: 'assignments.read',

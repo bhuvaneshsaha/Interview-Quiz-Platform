@@ -1,0 +1,124 @@
+<section class="saved-filters" aria-labelledby="saved-filters-heading">
+  <h2 id="saved-filters-heading" class="saved-filters-heading">Saved filters</h2>
+  <p class="hint">Apply a visible saved filter, or save the criteria currently on this list.</p>
+
+  @if (loading()) {
+    <p class="status" role="status">Loading saved filters.</p>
+  }
+
+  @if (error(); as message) {
+    <p class="status status-error" role="alert">
+      {{ message }}
+      @if (showDevCorrelation && correlationId()) {
+        <span> Correlation id: {{ correlationId() }}</span>
+      }
+    </p>
+  }
+
+  @if (status(); as message) {
+    <p class="status" role="status">{{ message }}</p>
+  }
+
+  <div class="saved-filters-row">
+    <div class="field">
+      <label for="saved-filter-select">Visible filters</label>
+      <select
+        id="saved-filter-select"
+        [formControl]="selectedId"
+        (change)="onSelectionChange()"
+      >
+        <option value="">Select a saved filter</option>
+        @for (filter of filters(); track filter.id) {
+          <option [value]="filter.id">{{ filter.name }} ({{ shareLabel(filter.shareMode) }})</option>
+        }
+      </select>
+    </div>
+    <button type="button" class="button" data-testid="apply-saved-filter" (click)="applySelected()">
+      Apply
+    </button>
+  </div>
+
+  <div class="saved-filters-row" *hasPermission="codes.FiltersWrite">
+    <div class="field grow">
+      <label for="saved-filter-name">Name for current criteria</label>
+      <input
+        id="saved-filter-name"
+        type="text"
+        [formControl]="newName"
+        [attr.maxlength]="nameMax"
+        autocomplete="off"
+      />
+    </div>
+    <button
+      type="button"
+      class="button"
+      data-testid="save-saved-filter"
+      [disabled]="saving()"
+      (click)="saveCurrent()"
+    >
+      Save current criteria
+    </button>
+  </div>
+
+  @if (selectedOwned()) {
+    <fieldset class="share-fieldset" *hasPermission="codes.FiltersShare">
+      <legend>Share this filter</legend>
+      <p class="hint">Sharing is only available for filters you own.</p>
+      <div class="field">
+        <label for="saved-filter-share-mode">Share mode</label>
+        <select id="saved-filter-share-mode" [formControl]="shareMode" (change)="onShareModeChange()">
+          <option value="publicInsideCompany">{{ shareLabels.publicInsideCompany }}</option>
+          <option value="specificUsers">{{ shareLabels.specificUsers }}</option>
+        </select>
+      </div>
+      @if (shareModeValue() === 'specificUsers') {
+        @if (canManageUsers && users().length > 0) {
+          <div class="field">
+            <label for="saved-filter-pick-user">Add a person</label>
+            <select id="saved-filter-pick-user" (change)="addUserFromPicker($event)">
+              <option value="">Select a user to add</option>
+              @for (user of users(); track user.id) {
+                <option [value]="user.id">{{ user.email }}</option>
+              }
+            </select>
+          </div>
+        }
+        <div class="field">
+          <label for="saved-filter-user-ids">User ids</label>
+          <input
+            id="saved-filter-user-ids"
+            type="text"
+            [formControl]="shareUserIds"
+            autocomplete="off"
+            aria-describedby="saved-filter-user-ids-hint"
+          />
+          <p id="saved-filter-user-ids-hint" class="hint">
+            Comma-separated user ids. Recruiter accounts typically paste ids here.
+          </p>
+        </div>
+      }
+      <div class="saved-filters-row">
+        <button type="button" class="button" [disabled]="saving()" (click)="shareSelected()">Share</button>
+        @if (selected()?.shareMode !== 'private') {
+          <button type="button" class="button button-quiet" [disabled]="saving()" (click)="unshareSelected()">
+            Unshare (make private)
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    <div class="saved-filters-row" *hasPermission="codes.FiltersWrite">
+      @if (!confirmingDelete()) {
+        <button type="button" class="button button-quiet" data-testid="delete-saved-filter" (click)="requestDelete()">
+          Delete this filter
+        </button>
+      } @else {
+        <p class="hint">Delete “{{ selected()?.name }}”? This cannot be undone.</p>
+        <button type="button" class="button" data-testid="confirm-delete-saved-filter" (click)="confirmDelete()">
+          Confirm delete
+        </button>
+        <button type="button" class="button button-quiet" (click)="cancelDelete()">Cancel</button>
+      }
+    </div>
+  }
+</section>

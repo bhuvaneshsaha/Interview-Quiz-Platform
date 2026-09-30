@@ -1,6 +1,6 @@
 # Interview Quiz web client
 
-Angular SPA + installable PWA for the Interview Quiz Platform (slice 1: sign-in, openings, permission-aware admin; slice 2: quiz list and authoring editor).
+Angular SPA + installable PWA for the Interview Quiz Platform (slice 1: sign-in, openings, permission-aware admin; slice 2: quiz list and authoring editor; slice 3: templates, clone/publish, saved list filters). Question-bank screens are **slice 4** (not in this client).
 
 ## Prerequisites
 
@@ -36,17 +36,21 @@ Run API and SPA together:
 
 Do not put JWT signing keys, connection strings, or dummy passwords into environment files that ship in the client bundle. Dummy users exist only in API Development seed.
 
-## Routes (slice 2)
+## Routes (slice 2–3)
 
 | Path | Permission | Screen |
 |------|------------|--------|
-| `/quizzes` | `quizzes.read` | Quiz list (filter by opening, paginate) |
+| `/quizzes` | `quizzes.read` | Quiz list (opening, keyword, experience, saved filters) |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
-| `/quizzes/:id` | `quizzes.read` or `quizzes.write` | View / edit quiz |
+| `/quizzes/:id` | `quizzes.read` or `quizzes.write` | View / edit quiz; `templates.write` can publish as template |
+| `/templates` | `templates.read` | Template list (keyword, experience, tags, saved filters) |
+| `/templates/:id` | `templates.read` | Template detail, versions, read-only questions |
 
-Create is hidden without `quizzes.write`. Recruiter (read only) sees a disabled form. Author (write) gets the full editor. After a successful create the client navigates to `/quizzes/{id}`. PUT sends the full question list and `rowVersion`.
+Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`) can browse templates but not clone. Author (`quizzes.write` + `templates.read`) can clone a version into a quiz (opening picker needs `openings.read`, otherwise an opening id field). After clone the client navigates to `/quizzes/{id}`. Publish as template is hidden without `templates.write` and is not shown on create-new.
 
-Exercise slice 2 with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` for write, `recruiter.dev@example.com` for read-only. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6.
+Saved filters live on the openings, quizzes, and templates list screens (`GET /api/filters`). Saving requires `filters.write`; sharing requires `filters.share` and ownership. Recruiter can share but typically lacks `users.manage`, so share-with is a user-id text field.
+
+Exercise with the Development dummy users in the repository root README (passwords stay in that table only): `author.dev@example.com` has `templates.write` + `quizzes.write` (publish and clone) and `filters.write`; `recruiter.dev@example.com` has `templates.read` + `filters.share` and **no** `quizzes.write`, so no clone. Other employee routes (openings, field defaults, roles, users) are listed in `docs/architecture.md` §6. The Development seed template id is `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`. Host Development auto-migrates `SearchDbContext` with Catalog; see the root README for `dotnet ef` commands.
 
 ## Build and tests
 
@@ -72,6 +76,7 @@ Opens **http://localhost:6006**. Stories:
 - `Shared/PageStatus` — Loading, Empty, Error (correlation id), Content
 - `Shared/OfflineBanner` — Online vs Offline (`OnlineStatus` mocked)
 - `Shared/HasPermission` — granted vs denied (`PermissionService` mocked)
+- `Shared/SavedFilters` — apply-only vs write/share (`FiltersApi` mocked)
 
 Static build:
 
@@ -107,11 +112,15 @@ Requests send `Authorization: Bearer {accessToken}` and `X-Correlation-ID` (gene
 
 UI hide/show uses `hasPermission(code)` and `*hasPermission="'quizzes.write'"` — never role names. Route `data.permission` is a permission code or an any-of list. Role editor (`roles.manage`) lists catalog checkboxes and excludes `candidate.attempt.participate` / `includeInEmployeeRoleEditor === false`.
 
-Quiz authoring checks `quizzes.read` / `quizzes.write` only. Opening picker uses `GET /api/openings` when the user has `openings.read`; otherwise the editor falls back to a UUID field for `openingId`.
+Quiz authoring checks `quizzes.read` / `quizzes.write` only. Opening picker uses `GET /api/openings` when the user has `openings.read`; otherwise the editor falls back to a UUID field for `openingId`. Publish as template uses `templates.write`. Clone uses both `quizzes.write` and `templates.read` (any-of `*hasPermission` is not used for clone). Saved filters use `filters.write` / `filters.share`.
+
+Mapper round-trips optional `sourceQuestionId` on save. `originTemplateId` and `sourceTemplateVersionId` are read-only on `QuizResponse` and are never sent on create/update.
 
 ## Layout
 
 - `src/app/core` — auth, interceptors, permission helpers, typed API wrappers
-- `src/app/features` — login, openings, quizzes, roles, users
-- `src/app/shared` — page status (loading / empty / error)
+- `src/app/features` — login, openings, quizzes, templates, roles, users
+- `src/app/shared` — page status (loading / empty / error), saved filters
 - `src/app/layout` — authenticated shell
+
+List and editor screens keep criteria and form state in component signals. Session: `AuthService` signals. Permissions: `PermissionService`. No global entity store.

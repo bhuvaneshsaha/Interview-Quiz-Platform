@@ -3,13 +3,15 @@
   <a *hasPermission="codes.OpeningsWrite" routerLink="/openings/new" class="button">Create opening</a>
 </div>
 
-<form class="filter-row" (submit)="$event.preventDefault(); load(1)">
+<form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
   <div class="field">
     <label for="owner-filter">Owner</label>
     <input id="owner-filter" type="text" [formControl]="ownerFilter" />
   </div>
   <button type="submit" class="button">Filter</button>
 </form>
+
+<app-saved-filters [target]="'openings'" [criteria]="criteriaFromForm()" (apply)="applySaved($event)" />
 
 <app-page-status
   [loading]="loading()"

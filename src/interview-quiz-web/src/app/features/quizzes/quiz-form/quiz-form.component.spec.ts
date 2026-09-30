@@ -25,8 +25,11 @@ const sampleQuiz: QuizResponse = {
       creditMode: null,
       points: 1,
       body: { correct: true },
+      sourceQuestionId: null,
     },
   ],
+  originTemplateId: null,
+  sourceTemplateVersionId: null,
   rowVersion: 1,
   createdAtUtc: '2026-01-01T00:00:00Z',
   updatedAtUtc: '2026-01-02T00:00:00Z',
@@ -54,6 +57,13 @@ describe('QuizForm', () => {
             get: () => of(sampleQuiz),
             create: () => of(sampleQuiz),
             update: () => of({ ...sampleQuiz, rowVersion: 2 }),
+            publishTemplate: () =>
+              of({
+                templateId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001',
+                versionId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3101',
+                versionNumber: 1,
+                createdNewTemplate: true,
+              }),
           },
         },
         {
@@ -87,5 +97,28 @@ describe('QuizForm', () => {
     const save = fixture.nativeElement.querySelector('[data-testid="save-quiz"]');
     expect(save).toBeTruthy();
     expect(save?.getAttribute('disabled')).toBeNull();
+  });
+
+  it('hides Publish as template without templates.write', async () => {
+    await setup([PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite], sampleQuiz.id);
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-template"]')).toBeNull();
+  });
+
+  it('hides Publish as template on create-new even with templates.write', async () => {
+    await setup(
+      [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite, PermissionCodes.TemplatesWrite],
+      null,
+    );
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-template"]')).toBeNull();
+  });
+
+  it('shows Publish as template when templates.write is granted on an existing quiz', async () => {
+    await setup(
+      [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite, PermissionCodes.TemplatesWrite],
+      sampleQuiz.id,
+    );
+    const publish = fixture.nativeElement.querySelector('[data-testid="publish-template"]');
+    expect(publish).toBeTruthy();
+    expect(publish?.textContent).toContain('Publish as template');
   });
 });

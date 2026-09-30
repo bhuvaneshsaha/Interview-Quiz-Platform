@@ -139,6 +139,49 @@
       </button>
     </fieldset>
 
+    @if (!isNew()) {
+      <fieldset class="tag-fieldset">
+        <legend>Template</legend>
+        @if (originTemplateId(); as templateId) {
+          <p>
+            Origin template:
+            @if (canReadTemplates) {
+              <a [routerLink]="['/templates', templateId]">{{ templateId }}</a>
+            } @else {
+              <span>{{ templateId }}</span>
+            }
+          </p>
+        }
+        @if (sourceTemplateVersionId(); as versionId) {
+          <p class="hint">Source template version: {{ versionId }}</p>
+        }
+        <div *hasPermission="codes.TemplatesWrite">
+          <p class="hint">
+            The first publish creates a template. Later publishes from this lineage add a version.
+          </p>
+          @if (published(); as result) {
+            <p class="status" role="status">
+              Published as template version {{ result.versionNumber }}
+              @if (result.createdNewTemplate) {
+                (new template).
+              } @else {
+                (added version).
+              }
+            </p>
+          }
+          <button
+            type="button"
+            class="button"
+            data-testid="publish-template"
+            [disabled]="publishing()"
+            (click)="publishTemplate()"
+          >
+            {{ publishing() ? 'Publishing…' : 'Publish as template' }}
+          </button>
+        </div>
+      </fieldset>
+    }
+
     <fieldset class="questions-fieldset">
       <legend>Questions</legend>
       <p class="hint">Question order is the order saved. Sort order is the list order.</p>

@@ -1,9 +1,11 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { pageAndCriteria } from './list-query';
 import {
   CreateOpeningRequest,
   OpeningFieldDefinitionResponse,
+  OpeningListCriteria,
   OpeningResponse,
   PagedResult,
   ReplaceOpeningFieldDefinitionsRequest,
@@ -16,12 +18,14 @@ import {
 export class OpeningsApi {
   private readonly http = inject(HttpClient);
 
-  list(page = 1, pageSize = 20, owner?: string): Observable<PagedResult<OpeningResponse>> {
-    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
-    if (owner) {
-      params = params.set('owner', owner);
-    }
-    return this.http.get<PagedResult<OpeningResponse>>('/api/openings', { params });
+  list(
+    page = 1,
+    pageSize = 20,
+    criteria?: OpeningListCriteria,
+  ): Observable<PagedResult<OpeningResponse>> {
+    return this.http.get<PagedResult<OpeningResponse>>('/api/openings', {
+      params: pageAndCriteria(page, pageSize, criteria),
+    });
   }
 
   get(id: string): Observable<OpeningResponse> {

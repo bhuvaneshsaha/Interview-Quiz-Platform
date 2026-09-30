@@ -1,6 +1,6 @@
 # Interview Quiz Platform — Architecture
 
-Status: v1 architecture record  
+Status: v1 architecture record — slices **1–3 implemented**; **slice 4** (question bank) is next.  
 Platform skill: `enterprise-architecture-onprem.md`  
 Client shape: **Angular SPA + installable PWA, online-first** (no Ionic / Capacitor)  
 AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link; Entra ID later as external login. Auth owns issuance, storage, and protocol.  
@@ -187,11 +187,11 @@ flowchart TB
 
 **Public contracts:**
 
-Slice 2 **implemented** (REST, camelCase JSON): `GET|POST /api/quizzes`, `GET|PUT /api/quizzes/{id}`. List query today: `openingId`, `page`, `pageSize` (slice 3 **expands** list criteria — §15.3). Permissions: list `quizzes.read`; create/update `quizzes.write`; get by id `quizzes.read` **or** `quizzes.write`. Question `type` / `scoringMode` / `creditMode` are strings (`multipleChoiceSingle`, `auto`, `partial`, …). `creditMode` is required only for `multipleChoiceMulti` and `ordering`. A quiz belongs to **exactly one** opening. Code question types are rejected.
+Slice 2 **implemented** (REST, camelCase JSON): `GET|POST /api/quizzes`, `GET|PUT /api/quizzes/{id}`. Permissions: list `quizzes.read`; create/update `quizzes.write`; get by id `quizzes.read` **or** `quizzes.write`. Question `type` / `scoringMode` / `creditMode` are strings (`multipleChoiceSingle`, `auto`, `partial`, …). `creditMode` is required only for `multipleChoiceMulti` and `ordering`. A quiz belongs to **exactly one** opening. Code question types are rejected.
 
-Slice 3 **locked** (implement now — full paths, DTOs, permissions in §15): publish quiz → template version; list/get templates and versions; clone version into a new quiz; expand quiz list criteria so Search-stored filters execute here.
+Slice 3 **implemented** (paths, DTOs, permissions in §15): `POST /api/quizzes/{id}/publish-template`; `GET /api/templates`, `GET /api/templates/{id}`, versions list/get, clone; quiz list criteria expanded so Search-stored filters execute here (`openingId`, `keyword`, experience range, `tags`, `criteria` JSON — §15.3).
 
-Slice 3 **groundwork** (same pass, no bank REST/UI — §15.6): nullable `sourceQuestionId` on questions and snapshots; reserved `IQuestionBankReader`; publish/clone copy questions with new ids and **preserve** `sourceQuestionId`.
+Slice 3 **groundwork** (in code, no bank REST/UI — §15.6): nullable `sourceQuestionId` on questions and snapshots; reserved `IQuestionBankReader` (defined, **not** registered); publish/clone copy questions with new ids and **preserve** `sourceQuestionId`.
 
 Later (not this pass):
 
@@ -204,7 +204,7 @@ Later (not this pass):
 - `IQuizSnapshotReader.GetSnapshotAsync(quizId)` → immutable DTO of questions, keys, scoring rules for Delivery to persist on assign (wired; Delivery does not call it yet). Snapshot questions include `sourceQuestionId`.
 - `IOpeningLookup.GetOpeningAsync(id)` — already used; clone and quiz write still require the opening to exist.
 - Slice 3: template version read for clone (Catalog-internal; other modules still must not read `catalog` tables).
-- Reserved: `IQuestionBankReader.GetByIdAsync(sourceQuestionId)` — slice 4 include/validation. **Do not** register a fake that returns bank items. Slice 3 quiz CRUD **does not call** it.
+- Reserved: `IQuestionBankReader.GetByIdAsync(id)` — slice 4 include/validation. **Not** registered (no fake bank). Slice 3 quiz CRUD / publish / clone **do not call** it.
 
 **Permissions:** `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write` (seed codes now; bank APIs in slice 4), `ai.rules.manage`, `ai.draft.use`.
 
@@ -260,14 +260,15 @@ Later (not this pass):
 
 **Owns:** stored filter definitions (target, criteria JSON, owner, share mode, share list). **Does not execute** domain queries — Openings and Catalog list endpoints accept the **same criteria shape** Search persists. Search does not read `openings` or `catalog` tables.
 
-**Public contracts:** slice 3, locked in §15.5.
+**Public contracts:** slice 3 **implemented** (§15.5).
 
-- `GET|POST|PUT|DELETE /api/filters`
+- `GET|POST /api/filters`
+- `GET|PUT|DELETE /api/filters/{id}`
 - `POST /api/filters/{id}/share`, `POST /api/filters/{id}/unshare`
 
 **Permissions:** `filters.write` (mutate **own** filters); `filters.share` (share/unshare **own** filters, plus ownership resource check). `GET` is authenticated and returns filters the caller can see (owned, public-inside-company, or listed in `sharedWithUserIds`). There is **no** `filters.read` code. Applying criteria on a list endpoint requires only the matching `*.read` (or quiz get’s read-or-write) permission — the client sends `criteria` JSON; list endpoints do **not** join `filterId` into Search.
 
-Module is a composition stub today (`SearchModule.cs`); slice 3 implements persistence in schema `search`.
+Persistence is schema `search` (`SearchDbContext`, table `filters`). Search does not read `openings` or `catalog` tables.
 
 ---
 
@@ -275,7 +276,7 @@ Module is a composition stub today (`SearchModule.cs`); slice 3 implements persi
 
 | Store | Use |
 |--------|-----|
-| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, snapshots, filter criteria, AI rule JSON. Slice 3 adds `catalog.templates` / `catalog.template_versions` (owned questions) and `search` filter rows. Slice 4 adds `catalog.bank_questions`. |
+| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, snapshots, filter criteria, AI rule JSON. Slice 3 **has** `catalog.templates` / `catalog.template_versions` (owned questions with `SourceQuestionId`) and `search.filters`. Slice 4 will add `catalog.bank_questions`. |
 | **Local / NAS files** | Resume uploads and future attachments. DB holds path + content type + owning module id. |
 | Not used in v1 | Redis as a default, document DB, cloud blobs, message bus. |
 
@@ -314,13 +315,13 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/quizzes` | `quizzes.read` | Quiz list |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
 | `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz |
-| `/templates` | `templates.read` | Template library list/search (slice 3) |
-| `/templates/:id` | `templates.read` | Template detail + versions (slice 3) |
+| `/templates` | `templates.read` | Template library list/search |
+| `/templates/:id` | `templates.read` | Template detail + versions |
 | `/opening-fields` | `openings.fields.manage` | Opening field defaults |
 | `/roles`, `/roles/new`, `/roles/:id` | `roles.manage` | Role list / editor |
 | `/users`, `/users/new`, `/users/:id` | `users.manage` | User list / form |
 
-Nav and home link to Quizzes when the user has `quizzes.read`. Create is hidden without `quizzes.write`. Recruiter (read only) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden without `quizzes.write`. Saved filters live on list screens (openings / quizzes / templates), not a separate admin module. Question-bank routes wait for slice 4 (`questions.read` / `questions.write`).
+Nav and home link to Quizzes when the user has `quizzes.read`. Create is hidden without `quizzes.write`. Recruiter (read only) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden unless the user has **both** `quizzes.write` and `templates.read`. Publish-as-template is hidden without `templates.write`. Saved filters live on list screens (openings / quizzes / templates), not a separate admin module. Question-bank routes wait for slice 4 (`questions.read` / `questions.write`). Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); permissions are `PermissionService`. There is no global entity store. Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); permissions are `PermissionService`. There is no global entity store.
 
 Shared UI primitives: [`docs/components/README.md`](components/README.md). Playbook markdown pages are the source of API tables. OSS Storybook 10 (`@storybook/angular-vite`, Angular 21 zoneless application builder) is the isolated gallery for those primitives (`npm run storybook` in `src/interview-quiz-web` → http://localhost:6006). No Chromatic.
 
@@ -412,8 +413,8 @@ Vertical slices. Each slice is not done until the collaboration skill DoD holds 
 |-------|--------|------|---------|
 | **1 Foundations** | Implemented | Users, permission catalog + role editor, openings + dynamic fields/tags, Angular shell / PWA | Access, Openings, Angular |
 | **2 Authoring** | Implemented | Quiz authoring API + Angular list/editor; eight v1 question types; scoring and credit modes | Catalog, Angular |
-| **3 Templates and search** | Next | Publish template, versions, list/search, clone into opening, saved/shared filters; **question-bank groundwork** (`sourceQuestionId`, `IQuestionBankReader` reserved) | Catalog, Search, Access (seed `questions.*` codes), Angular |
-| **4 Question bank** | Later | Authoring library + include-into-quiz (copy-on-include); grant `questions.write` on Dev Template author seed | Catalog, Angular |
+| **3 Templates and search** | Implemented | Publish template, versions, list/search, clone into opening, saved/shared filters; **question-bank groundwork** (`sourceQuestionId`, `IQuestionBankReader` reserved, `questions.*` seeded not granted on Dev Template author) | Catalog, Search, Access, Angular |
+| **4 Question bank** | Next | Authoring library + include-into-quiz (copy-on-include); grant `questions.read` / `questions.write` on Dev Template author seed; bank UI | Catalog, Angular |
 | **5 Assignments** | Later | Candidate assignment, snapshot, async timed link, basic results | Delivery, Evaluation (submit + auto-score), Access (magic-link) |
 | **6 Live mode** | Later | Start/pause/monitor on the **same** assignment model | Delivery |
 | **7 Review** | Later | Human + AI-assist marking, auditable drafts, finalise | Evaluation |
@@ -441,13 +442,15 @@ Permission catalog: [`docs/permissions.md`](permissions.md).
 
 ## 14. Delivery status
 
-Slices **1** (foundations) and **2** (Catalog quiz authoring: API + Angular editor) are implemented. **Slice 3** is templates, saved filters, and question-bank **groundwork** (not bank CRUD). Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank.
+Slices **1** (foundations), **2** (Catalog quiz authoring), and **3** (templates, saved filters, question-bank **groundwork**) are implemented. **Slice 4** (question bank CRUD/UI, copy-on-include) is next. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank.
 
-Still later: slice 4 question bank, production runbook, self-hosted CI (DevOps), candidate magic-link, assignments, live mode, review, AI draft. No LLM in slices 1–6.
+Still later: production runbook, self-hosted CI (DevOps), candidate magic-link, assignments, live mode, review, AI draft. No LLM in slices 1–6.
 
 ---
 
-## 15. Slice 3 contracts (locked for .NET)
+## 15. Slice 3 contracts (implemented)
+
+Locked contract for Catalog/Search. Status: **in code**. Do not treat this section as a backlog. Slice 4 bank APIs remain plan-only (§15.7).
 
 REST, camelCase JSON, permission-based. Page defaults match `PageRequest` (page 1, pageSize 20, cap 100). No CQRS, no MediatR. Catalog and Search application services; never a mediator.
 
@@ -530,7 +533,7 @@ Search persists this JSON; Catalog executes it. Field names match Openings where
 
 Query also: `page`, `pageSize`, `criteria` (full JSON).
 
-**`QuizListCriteria`** — **expand in slice 3** from `openingId`-only:
+**`QuizListCriteria`** — implemented (expanded from slice 2 `openingId`-only):
 
 | Field | Match |
 |-------|--------|
@@ -545,7 +548,7 @@ Query: existing `openingId`, `page`, `pageSize`, plus `keyword`, experience rang
 
 ### 15.4 Quiz response additions (slice 3)
 
-`QuizResponse` adds `originTemplateId` (nullable Guid). Questions add `sourceQuestionId`. `IQuizSnapshotReader` / `QuizSnapshotQuestionDto` add `sourceQuestionId`. EF: nullable uuid column on `catalog.questions`; **no FK** in slice 3 (bank table does not exist). Slice 4 may add FK to bank items when that table ships.
+`QuizResponse` adds `originTemplateId` and `sourceTemplateVersionId` (nullable Guids). Questions add `sourceQuestionId`. `IQuizSnapshotReader` / `QuizSnapshotQuestionDto` add `sourceQuestionId`. EF: nullable uuid column on `catalog.questions` and template-version owned questions; **no FK** (bank table does not exist). Slice 4 may add FK to bank items when that table ships.
 
 ### 15.5 Saved filters (Search)
 
@@ -580,15 +583,15 @@ Visibility: owner **or** `publicInsideCompany` **or** (`specificUsers` and curre
 
 Activity names: `filters.list`, `filters.write`, `filters.share`. Do not log criteria JSON if it might include names beyond tags — tags/keyword are fine.
 
-### 15.6 Question-bank groundwork (required in this .NET pass)
+### 15.6 Question-bank groundwork (implemented in slice 3)
 
-Do **not** add bank REST or UI.
+No bank REST or UI. In Catalog/Access:
 
 1. Nullable `sourceQuestionId` on quiz questions (`Question` + EF `catalog.questions`), template-version questions, `QuestionRequest`, `QuestionResponse`, `QuizSnapshotQuestionDto`.
 2. Same `Question` shape reused later by bank items: `id`, `type`, `stem`, `scoringMode`, `creditMode`, `points`, `body`, `sourceQuestionId` (bank rows use `sourceQuestionId` null; they **are** the source).
-3. Catalog application interface `IQuestionBankReader` with `GetByIdAsync(Guid sourceQuestionId, CancellationToken)` → DTO of that question shape (plus slice-4 library fields `title`, `tags`, `expectedExperienceYears` may appear on the DTO as unused until slice 4). **Do not** implement a seeder or fake that returns bank items. Do not call it from quiz create/update/list/publish/clone in slice 3.
+3. Catalog application interface `IQuestionBankReader` with `GetByIdAsync(Guid id, CancellationToken)` → `QuestionBankItemDto` (question shape plus unused-until-slice-4 `title`, `tags`, `expectedExperienceYears`). **Not** registered. Not called from quiz create/update/list/publish/clone.
 4. Publish and clone **copy** questions with **new ids** and **preserve** `sourceQuestionId`.
-5. Access seeds permission catalog rows `questions.read` / `questions.write` (same pattern as `templates.*`). **Do not** add them to the Dev Template author seed bundle until slice 4.
+5. Access seeds permission catalog rows `questions.read` / `questions.write` (same pattern as `templates.*`). They are **not** on the Dev Template author seed bundle until slice 4.
 6. `archive.restore.catalog` will cover bank items when they exist; no new restore code now.
 
 ### 15.7 Slice 4 bank (plan only — do not implement)

@@ -220,6 +220,7 @@ export interface QuestionResponse {
   creditMode: CreditMode | null;
   points: number;
   body: QuestionBody;
+  sourceQuestionId: string | null;
 }
 
 export interface QuizResponse {
@@ -230,6 +231,8 @@ export interface QuizResponse {
   expectedExperienceYears: number;
   tags: Record<string, string>;
   questions: QuestionResponse[];
+  originTemplateId: string | null;
+  sourceTemplateVersionId: string | null;
   rowVersion: number;
   createdAtUtc: string;
   updatedAtUtc: string;
@@ -243,6 +246,7 @@ export interface QuestionRequest {
   creditMode?: CreditMode;
   points: number;
   body: QuestionBody;
+  sourceQuestionId?: string | null;
 }
 
 export interface CreateQuizRequest {
@@ -257,6 +261,121 @@ export interface CreateQuizRequest {
 export interface UpdateQuizRequest extends CreateQuizRequest {
   id: string;
   rowVersion: number;
+}
+
+export interface OpeningListCriteria {
+  owner?: string;
+  experienceMinYears?: number;
+  experienceMaxYears?: number;
+  startDateFrom?: string;
+  startDateTo?: string;
+  expectedCloseDateFrom?: string;
+  expectedCloseDateTo?: string;
+  tags?: Record<string, string>;
+}
+
+export interface QuizListCriteria {
+  openingId?: string;
+  keyword?: string;
+  experienceMinYears?: number;
+  experienceMaxYears?: number;
+  tags?: Record<string, string>;
+}
+
+export interface TemplateListCriteria {
+  keyword?: string;
+  experienceMinYears?: number;
+  experienceMaxYears?: number;
+  tags?: Record<string, string>;
+}
+
+export type ListCriteria = OpeningListCriteria | QuizListCriteria | TemplateListCriteria;
+
+export type FilterTarget = 'openings' | 'quizzes' | 'templates';
+
+export type FilterShareMode = 'private' | 'publicInsideCompany' | 'specificUsers';
+
+export interface FilterResponse {
+  id: string;
+  name: string;
+  target: FilterTarget;
+  criteria: ListCriteria;
+  ownerUserId: string;
+  shareMode: FilterShareMode;
+  sharedWithUserIds: string[];
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface CreateFilterRequest {
+  name: string;
+  target: FilterTarget;
+  criteria: ListCriteria;
+}
+
+export interface UpdateFilterRequest {
+  name: string;
+  target: FilterTarget;
+  criteria: ListCriteria;
+}
+
+export interface ShareFilterRequest {
+  shareMode: 'publicInsideCompany' | 'specificUsers';
+  userIds?: string[];
+}
+
+export interface TemplateSummaryResponse {
+  id: string;
+  title: string;
+  description: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  latestVersionId: string;
+  latestVersionNumber: number;
+  originQuizId: string;
+  updatedAtUtc: string;
+}
+
+export interface TemplateResponse {
+  id: string;
+  title: string;
+  description: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  latestVersionId: string;
+  latestVersionNumber: number;
+  originQuizId: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface TemplateVersionSummaryResponse {
+  id: string;
+  templateId: string;
+  versionNumber: number;
+  title: string;
+  publishedFromQuizId: string;
+  publishedAtUtc: string;
+  questionCount: number;
+}
+
+export interface TemplateVersionResponse extends TemplateVersionSummaryResponse {
+  description: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  questions: QuestionResponse[];
+}
+
+export interface PublishTemplateResponse {
+  templateId: string;
+  versionId: string;
+  versionNumber: number;
+  createdNewTemplate: boolean;
+}
+
+export interface CloneTemplateVersionRequest {
+  openingId: string;
+  title?: string;
 }
 
 export interface ProblemDetails {

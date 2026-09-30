@@ -165,9 +165,10 @@ describe('quiz-form.mapper', () => {
           stem: 'A quiz belongs to exactly one opening.',
           scoringMode: 'auto',
           creditMode: null,
-          points: 1,
-          body: { correct: true },
-        },
+      points: 1,
+      body: { correct: true },
+      sourceQuestionId: null,
+    },
         {
           id: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2101',
           sortOrder: 0,
@@ -182,8 +183,11 @@ describe('quiz-form.mapper', () => {
               { id: 'opt-201', text: '201 Created', isCorrect: true },
             ],
           },
+          sourceQuestionId: null,
         },
       ],
+      originTemplateId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001',
+      sourceTemplateVersionId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3101',
       rowVersion: 3,
       createdAtUtc: '2026-01-01T00:00:00Z',
       updatedAtUtc: '2026-01-02T00:00:00Z',
@@ -206,6 +210,8 @@ describe('quiz-form.mapper', () => {
     expect(update.questions[1].id).toBe('4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2103');
     expect(update.questions[2].id).toBeUndefined();
     expect(update.questions[0].creditMode).toBeUndefined();
+    expect('originTemplateId' in update).toBe(false);
+    expect('sourceTemplateVersionId' in update).toBe(false);
   });
 
   it('maps tags and optional description onto the create request', () => {
@@ -257,5 +263,47 @@ describe('quiz-form.mapper', () => {
       expect(id.startsWith('opt-')).toBe(true);
       expect(id.length).toBeLessThanOrEqual(64);
     }
+  });
+
+  it('round-trips sourceQuestionId and does not send originTemplateId on create', () => {
+    const sourceQuestionId = '6d0e4a43-9e5f-4f2d-0a44-3c1e5d9d4001';
+    const question = defaultQuestionDraft('trueFalse');
+    question.stem = 'Stem';
+    question.sourceQuestionId = sourceQuestionId;
+    const created = toCreateRequest(draftWithQuestion(question));
+    expect(created.questions[0].sourceQuestionId).toBe(sourceQuestionId);
+    expect('originTemplateId' in created).toBe(false);
+    expect('sourceTemplateVersionId' in created).toBe(false);
+
+    const quiz: QuizResponse = {
+      id: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001',
+      openingId: '3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001',
+      title: 'Backend interview',
+      description: 'Working copy',
+      expectedExperienceYears: 5,
+      tags: {},
+      questions: [
+        {
+          id: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2103',
+          sortOrder: 0,
+          type: 'trueFalse',
+          stem: 'A quiz belongs to exactly one opening.',
+          scoringMode: 'auto',
+          creditMode: null,
+          points: 1,
+          body: { correct: true },
+          sourceQuestionId,
+        },
+      ],
+      originTemplateId: '5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001',
+      sourceTemplateVersionId: null,
+      rowVersion: 1,
+      createdAtUtc: '2026-01-01T00:00:00Z',
+      updatedAtUtc: '2026-01-02T00:00:00Z',
+    };
+    const update = toUpdateRequest(quizToDraft(quiz), quiz.id, quiz.rowVersion);
+    expect(update.questions[0].sourceQuestionId).toBe(sourceQuestionId);
+    expect('originTemplateId' in update).toBe(false);
+    expect('sourceTemplateVersionId' in update).toBe(false);
   });
 });

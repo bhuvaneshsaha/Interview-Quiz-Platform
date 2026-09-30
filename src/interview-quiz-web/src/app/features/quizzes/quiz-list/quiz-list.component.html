@@ -3,7 +3,7 @@
   <a *hasPermission="codes.QuizzesWrite" routerLink="/quizzes/new" class="button">Create quiz</a>
 </div>
 
-<form class="filter-row" (submit)="$event.preventDefault(); load(1)">
+<form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
   <div class="field">
     @if (canReadOpenings) {
       <label for="opening-filter">Opening</label>
@@ -18,8 +18,22 @@
       <input id="opening-filter" type="text" [formControl]="openingFilter" autocomplete="off" />
     }
   </div>
+  <div class="field">
+    <label for="quiz-keyword">Keyword</label>
+    <input id="quiz-keyword" type="text" [formControl]="keyword" autocomplete="off" />
+  </div>
+  <div class="field">
+    <label for="quiz-exp-min">Experience min (years)</label>
+    <input id="quiz-exp-min" type="number" min="0" max="80" [formControl]="experienceMin" />
+  </div>
+  <div class="field">
+    <label for="quiz-exp-max">Experience max (years)</label>
+    <input id="quiz-exp-max" type="number" min="0" max="80" [formControl]="experienceMax" />
+  </div>
   <button type="submit" class="button">Filter</button>
 </form>
+
+<app-saved-filters [target]="'quizzes'" [criteria]="criteriaFromForm()" (apply)="applySaved($event)" />
 
 <app-page-status
   [loading]="loading()"

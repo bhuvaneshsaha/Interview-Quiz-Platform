@@ -154,6 +154,7 @@ export interface QuestionDraft {
   points: number;
   scoringMode: ScoringMode;
   creditMode: CreditMode | null;
+  sourceQuestionId: string | null;
   body: QuestionBodyDraft;
 }
 
@@ -254,6 +255,7 @@ export function defaultQuestionDraft(type: QuestionType): QuestionDraft {
     points: 1,
     scoringMode: defaultScoringMode(type),
     creditMode: defaultCreditMode(type),
+    sourceQuestionId: null,
     body: defaultBodyForType(type),
   };
 }
@@ -745,6 +747,10 @@ function toQuestionRequest(question: QuestionDraft, _sortOrder: number): Questio
   if (requiresCreditMode(question.type) && question.creditMode) {
     request.creditMode = question.creditMode;
   }
+  const sourceQuestionId = question.sourceQuestionId?.trim();
+  if (sourceQuestionId && isUuid(sourceQuestionId)) {
+    request.sourceQuestionId = sourceQuestionId;
+  }
   return request;
 }
 
@@ -853,6 +859,7 @@ function questionToDraft(question: QuestionResponse): QuestionDraft {
     points: question.points,
     scoringMode: question.scoringMode,
     creditMode: requiresCreditMode(question.type) ? question.creditMode : null,
+    sourceQuestionId: question.sourceQuestionId?.trim() ? question.sourceQuestionId : null,
     body: bodyToDraft(question.type, question.body),
   };
 }

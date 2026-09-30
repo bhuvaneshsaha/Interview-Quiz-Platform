@@ -9,7 +9,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CreditMode, OpeningResponse, QuestionType, QuizResponse, ScoringMode } from '../../../core/api/contracts';
+import { CreditMode, OpeningResponse, PublishTemplateResponse, QuestionType, QuizResponse, ScoringMode } from '../../../core/api/contracts';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
@@ -89,8 +89,14 @@ export class QuizForm implements OnInit {
   readonly isNew = signal(true);
   readonly fieldErrors = signal<ReadonlyMap<string, string>>(new Map());
   readonly openings = signal<OpeningResponse[]>([]);
+  readonly originTemplateId = signal<string | null>(null);
+  readonly sourceTemplateVersionId = signal<string | null>(null);
+  readonly publishing = signal(false);
+  readonly published = signal<PublishTemplateResponse | null>(null);
   readonly canWrite = this.permissions.hasPermission(PermissionCodes.QuizzesWrite);
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
+  readonly canWriteTemplates = this.permissions.hasPermission(PermissionCodes.TemplatesWrite);
+  readonly canReadTemplates = this.permissions.hasPermission(PermissionCodes.TemplatesRead);
 
   readonly addType = new FormControl<QuestionType>('multipleChoiceSingle', { nonNullable: true });
 
@@ -452,6 +458,43 @@ export class QuizForm implements OnInit {
     });
   }
 
+  publishTemplate(): void {
+    this.error.set(null);
+    this.published.set(null);
+    if (!this.canWriteTemplates || this.isNew() || !this.quizId) {
+      return;
+    }
+    this.publishing.set(true);
+    this.api.publishTemplate(this.quizId).subscribe({
+      next: (result) => {
+        this.published.set(result);
+        this.originTemplateId.set(result.templateId);
+        if (!this.quizId) {
+          this.publishing.set(false);
+          return;
+        }
+        this.api.get(this.quizId).subscribe({
+          next: (quiz) => {
+            this.patch(quiz);
+            this.publishing.set(false);
+          },
+          error: (err: unknown) => {
+            const mapped = PageStatus.fromError(err);
+            this.error.set(mapped.message);
+            this.correlationId.set(mapped.correlationId);
+            this.publishing.set(false);
+          },
+        });
+      },
+      error: (err: unknown) => {
+        const mapped = PageStatus.fromError(err);
+        this.error.set(mapped.message);
+        this.correlationId.set(mapped.correlationId);
+        this.publishing.set(false);
+      },
+    });
+  }
+
   private toErrorMap(errors: FieldError[]): Map<string, string> {
     const map = new Map<string, string>();
     for (const error of errors) {
@@ -473,6 +516,8 @@ export class QuizForm implements OnInit {
   private patch(quiz: QuizResponse): void {
     this.rowVersion = quiz.rowVersion;
     this.quizId = quiz.id;
+    this.originTemplateId.set(quiz.originTemplateId);
+    this.sourceTemplateVersionId.set(quiz.sourceTemplateVersionId);
     const draft = quizToDraft(quiz);
     this.form.patchValue({
       openingId: draft.openingId,
@@ -508,6 +553,7 @@ export class QuizForm implements OnInit {
       ],
       scoringMode: [question.scoringMode, Validators.required],
       creditMode: new FormControl<CreditMode | null>(question.creditMode),
+      sourceQuestionId: [question.sourceQuestionId],
       body: this.createBodyGroup(question.type, question.body),
     });
   }

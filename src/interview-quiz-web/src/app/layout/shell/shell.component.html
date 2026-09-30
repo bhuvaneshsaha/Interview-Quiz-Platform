@@ -11,6 +11,7 @@
     <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
     <a routerLink="/openings" routerLinkActive="is-active" *hasPermission="codes.OpeningsRead">Openings</a>
     <a routerLink="/quizzes" routerLinkActive="is-active" *hasPermission="codes.QuizzesRead">Quizzes</a>
+    <a routerLink="/templates" routerLinkActive="is-active" *hasPermission="codes.TemplatesRead">Templates</a>
     <a
       routerLink="/opening-fields"
       routerLinkActive="is-active"

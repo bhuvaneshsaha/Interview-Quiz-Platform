@@ -76,6 +76,26 @@ export const routes: Routes = [
         title: 'Quiz',
       },
       {
+        path: 'templates',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.TemplatesRead },
+        loadComponent: () =>
+          import('./features/templates/template-list/template-list.component').then(
+            (m) => m.TemplateList,
+          ),
+        title: 'Templates',
+      },
+      {
+        path: 'templates/:id',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.TemplatesRead },
+        loadComponent: () =>
+          import('./features/templates/template-detail/template-detail.component').then(
+            (m) => m.TemplateDetail,
+          ),
+        title: 'Template',
+      },
+      {
         path: 'opening-fields',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.OpeningsFieldsManage },
