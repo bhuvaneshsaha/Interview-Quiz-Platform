@@ -23,8 +23,8 @@ public static class EvaluationModule
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "evaluation");
                 npgsql.EnableRetryOnFailure();
                 npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson());
+                npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
-            options.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         });
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
