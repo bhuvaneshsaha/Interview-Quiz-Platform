@@ -168,6 +168,8 @@ try
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentQuizSeeder>()
             .SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentBankQuestionSeeder>()
+            .SeedAsync();
     }
 
     app.Run();

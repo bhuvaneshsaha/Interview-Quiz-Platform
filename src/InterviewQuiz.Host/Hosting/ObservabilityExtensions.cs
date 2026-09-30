@@ -27,6 +27,7 @@ public static class ObservabilityExtensions
                     .AddSource(OpeningService.ActivitySource.Name)
                     .AddSource(QuizService.ActivitySource.Name)
                     .AddSource(TemplateService.ActivitySource.Name)
+                    .AddSource(BankQuestionService.ActivitySource.Name)
                     .AddSource(FilterService.ActivitySource.Name);
 
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))

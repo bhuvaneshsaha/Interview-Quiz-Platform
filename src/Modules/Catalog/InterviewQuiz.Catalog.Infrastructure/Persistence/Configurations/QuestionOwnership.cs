@@ -17,6 +17,7 @@ internal static class QuestionOwnership
         question.ToTable(tableName);
         question.WithOwner().HasForeignKey(foreignKey);
         question.HasKey(e => e.Id);
+        question.Property(e => e.Id).ValueGeneratedNever();
 
         question.Property(e => e.SortOrder).IsRequired();
         question.Property(e => e.Stem).HasMaxLength(Question.StemMaxLength).IsRequired();

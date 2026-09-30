@@ -60,6 +60,8 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentQuizSeeder>()
             .SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentBankQuestionSeeder>()
+            .SeedAsync();
     }
 
     public new async Task DisposeAsync() => await base.DisposeAsync();

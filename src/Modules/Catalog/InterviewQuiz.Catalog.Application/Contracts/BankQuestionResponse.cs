@@ -3,22 +3,20 @@ using InterviewQuiz.Catalog.Domain;
 
 namespace InterviewQuiz.Catalog.Application.Contracts;
 
-/// <summary>
-/// Question-bank item for copy-on-include. Bank rows are the source; <see cref="SourceQuestionId"/> is null.
-/// </summary>
-public sealed class QuestionBankItemDto
+public sealed class BankQuestionResponse
 {
     public required Guid Id { get; init; }
-    public required int SortOrder { get; init; }
+    public required string Title { get; init; }
+    public required IReadOnlyDictionary<string, string> Tags { get; init; }
+    public required int ExpectedExperienceYears { get; init; }
     public required QuestionType Type { get; init; }
     public required string Stem { get; init; }
     public required ScoringMode ScoringMode { get; init; }
     public CreditMode? CreditMode { get; init; }
     public required int Points { get; init; }
     public required JsonElement Body { get; init; }
-    public Guid? SourceQuestionId { get; init; }
-    public string? Title { get; init; }
-    public IReadOnlyDictionary<string, string>? Tags { get; init; }
-    public int? ExpectedExperienceYears { get; init; }
     public DateTimeOffset? ArchivedAtUtc { get; init; }
+    public required uint RowVersion { get; init; }
+    public required DateTimeOffset CreatedAtUtc { get; init; }
+    public required DateTimeOffset UpdatedAtUtc { get; init; }
 }

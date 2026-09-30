@@ -13,6 +13,7 @@ public sealed class CatalogDbContext : DbContext
     public DbSet<Quiz> Quizzes => Set<Quiz>();
     public DbSet<Template> Templates => Set<Template>();
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
+    public DbSet<BankQuestion> BankQuestions => Set<BankQuestion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

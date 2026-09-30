@@ -84,6 +84,8 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Catalog.QuizzesWrite,
                 PermissionCodes.Catalog.TemplatesRead,
                 PermissionCodes.Catalog.TemplatesWrite,
+                PermissionCodes.Catalog.QuestionsRead,
+                PermissionCodes.Catalog.QuestionsWrite,
                 PermissionCodes.Catalog.AiDraftUse,
                 PermissionCodes.Search.FiltersWrite
             ],

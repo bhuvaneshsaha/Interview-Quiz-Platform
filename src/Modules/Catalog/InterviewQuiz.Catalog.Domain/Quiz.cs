@@ -89,6 +89,69 @@ public sealed class Quiz
         RowVersion++;
     }
 
+    /// <summary>
+    /// Copy-on-include: insert bank copies (already given new ids and <c>sourceQuestionId</c>)
+    /// at <paramref name="insertAt"/> (clamped 0..count; null appends), then re-number sortOrder.
+    /// Adds/removes tracked questions in place so EF can insert owned rows without a full replace.
+    /// </summary>
+    public void IncludeQuestions(IReadOnlyList<Question> copies, int? insertAt, IClock clock)
+    {
+        if (copies is null || copies.Count == 0)
+        {
+            throw new DomainException("Question ids are required.");
+        }
+
+        var ordered = Questions
+            .OrderBy(q => q.SortOrder)
+            .ThenBy(q => q.Id)
+            .ToList();
+
+        var index = Math.Clamp(insertAt ?? ordered.Count, 0, ordered.Count);
+        var after = ordered.Skip(index).ToList();
+        var nextOrder = index;
+
+        foreach (var copy in copies)
+        {
+            Questions.Add(WithSortOrder(copy, nextOrder++));
+        }
+
+        foreach (var existing in after)
+        {
+            var newOrder = nextOrder++;
+            if (existing.SortOrder == newOrder)
+            {
+                continue;
+            }
+
+            Questions.Remove(existing);
+            Questions.Add(WithSortOrder(existing, newOrder));
+        }
+
+        var seen = new HashSet<Guid>();
+        foreach (var question in Questions)
+        {
+            if (!seen.Add(question.Id))
+            {
+                throw new DomainException($"Duplicate question id '{question.Id}'.");
+            }
+        }
+
+        UpdatedAtUtc = clock.UtcNow;
+        RowVersion++;
+    }
+
+    private static Question WithSortOrder(Question question, int sortOrder)
+        => Question.Create(
+            question.Id,
+            sortOrder,
+            question.Type,
+            question.Stem,
+            question.ScoringMode,
+            question.CreditMode,
+            question.Points,
+            question.Body.RootElement.Clone(),
+            question.SourceQuestionId);
+
     private void Apply(
         Guid openingId,
         string title,

@@ -3,8 +3,8 @@ using InterviewQuiz.Catalog.Application.Contracts;
 namespace InterviewQuiz.Catalog.Application;
 
 /// <summary>
-/// Reserved for slice 4 bank include/validation. Slice 3 does not register an implementation
-/// and must not call this from quiz CRUD, publish, or clone.
+/// In-process bank lookup for copy-on-include. Quiz create/update/publish/clone must not call this.
+/// GetById returns archived items so include can distinguish missing vs archived.
 /// </summary>
 public interface IQuestionBankReader
 {

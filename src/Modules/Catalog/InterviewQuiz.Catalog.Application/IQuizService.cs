@@ -9,4 +9,8 @@ public interface IQuizService
     Task<QuizResponse> UpdateAsync(UpdateQuizRequest request, CancellationToken cancellationToken);
     Task<QuizResponse> GetAsync(Guid id, CancellationToken cancellationToken);
     Task<PagedResult<QuizResponse>> ListAsync(QuizListCriteria criteria, PageRequest page, CancellationToken cancellationToken);
+    Task<QuizResponse> IncludeQuestionsAsync(
+        Guid quizId,
+        IncludeQuestionsRequest request,
+        CancellationToken cancellationToken);
 }

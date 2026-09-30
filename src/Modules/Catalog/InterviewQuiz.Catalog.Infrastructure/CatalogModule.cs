@@ -28,11 +28,15 @@ public static class CatalogModule
 
         services.AddScoped<IQuizRepository, QuizRepository>();
         services.AddScoped<ITemplateRepository, TemplateRepository>();
+        services.AddScoped<IBankQuestionRepository, BankQuestionRepository>();
+        services.AddScoped<IQuestionBankReader, QuestionBankReader>();
         services.AddScoped<QuizService>();
         services.AddScoped<IQuizService>(sp => sp.GetRequiredService<QuizService>());
         services.AddScoped<IQuizSnapshotReader>(sp => sp.GetRequiredService<QuizService>());
         services.AddScoped<ITemplateService, TemplateService>();
+        services.AddScoped<IBankQuestionService, BankQuestionService>();
         services.AddScoped<DevelopmentQuizSeeder>();
+        services.AddScoped<DevelopmentBankQuestionSeeder>();
         return services;
     }
 }

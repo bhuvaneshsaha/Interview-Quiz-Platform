@@ -128,13 +128,13 @@ public sealed class CatalogApiTests
         var client = CreateAuthenticatedClient(JwtTestTokens.Create(PermissionCodes.Catalog.QuizzesRead));
 
         var response = await client.GetAsync(
-            $"/api/quizzes?openingId={DevelopmentOpeningSeeder.SampleOpeningBackend}&page=1&pageSize=20");
+            $"/api/quizzes?openingId={DevelopmentOpeningSeeder.SampleOpeningBackend}&keyword=working%20copy&page=1&pageSize=20");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var page = await response.Content.ReadFromJsonAsync<PagedResult<QuizResponse>>(JsonOptions);
         Assert.NotNull(page);
         Assert.Contains(page!.Items, item =>
-            item.OpeningId == DevelopmentOpeningSeeder.SampleOpeningBackend
+            item.Id == DevelopmentQuizSeeder.SampleQuizBackend
             && item.Questions.Count >= 8);
     }
 

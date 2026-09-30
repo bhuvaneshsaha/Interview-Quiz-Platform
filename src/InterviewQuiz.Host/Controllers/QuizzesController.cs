@@ -67,6 +67,19 @@ public sealed class QuizzesController : ControllerBase
         return Ok(quiz);
     }
 
+    [HttpPost("{quizId:guid}/include-questions")]
+    [HasPermission(PermissionCodes.Catalog.QuizzesWrite)]
+    [HasPermission(PermissionCodes.Catalog.QuestionsRead)]
+    public async Task<ActionResult<QuizResponse>> IncludeQuestions(
+        Guid quizId,
+        [FromBody] IncludeQuestionsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var quiz = await _quizzes.IncludeQuestionsAsync(quizId, request, cancellationToken);
+        Response.Headers.ETag = $"\"{quiz.RowVersion}\"";
+        return Ok(quiz);
+    }
+
     [HttpPost("{id:guid}/publish-template")]
     [HasPermission(PermissionCodes.Catalog.TemplatesWrite)]
     public async Task<ActionResult<PublishTemplateResponse>> PublishTemplate(

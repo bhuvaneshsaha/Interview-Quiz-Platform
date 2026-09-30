@@ -162,6 +162,7 @@ public sealed class TemplateServiceTests
         var quizService = new QuizService(
             quizzes,
             new FakeOpeningLookup(OpeningId),
+            new FakeQuestionBankReader(),
             _clock,
             NullLogger<QuizService>.Instance);
 
@@ -316,5 +317,11 @@ public sealed class TemplateServiceTests
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeQuestionBankReader : IQuestionBankReader
+    {
+        public Task<QuestionBankItemDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+            => Task.FromResult<QuestionBankItemDto?>(null);
     }
 }

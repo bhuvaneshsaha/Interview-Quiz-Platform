@@ -15,17 +15,20 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
 
     private readonly IQuizRepository _quizzes;
     private readonly IOpeningLookup _openings;
+    private readonly IQuestionBankReader _bank;
     private readonly IClock _clock;
     private readonly ILogger<QuizService> _logger;
 
     public QuizService(
         IQuizRepository quizzes,
         IOpeningLookup openings,
+        IQuestionBankReader bank,
         IClock clock,
         ILogger<QuizService> logger)
     {
         _quizzes = quizzes;
         _openings = openings;
+        _bank = bank;
         _clock = clock;
         _logger = logger;
     }
@@ -105,6 +108,69 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
         var result = await _quizzes.ListAsync(criteria, page, cancellationToken);
         var items = result.Items.Select(Map).ToList();
         return new PagedResult<QuizResponse>(items, result.Page, result.PageSize, result.TotalCount);
+    }
+
+    public async Task<QuizResponse> IncludeQuestionsAsync(
+        Guid quizId,
+        IncludeQuestionsRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("quizzes.include-questions");
+        var ids = request.QuestionIds ?? [];
+        if (ids.Count == 0)
+        {
+            throw new DomainException("Question ids are required.");
+        }
+
+        if (ids.Distinct().Count() != ids.Count)
+        {
+            throw new DomainException("Question ids must be unique.");
+        }
+
+        var quiz = await _quizzes.GetAsync(quizId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Quiz), quizId);
+
+        if (quiz.RowVersion != request.RowVersion)
+        {
+            throw new ConcurrencyException("Quiz was modified by another request. Reload and retry.");
+        }
+
+        var copies = new List<Question>(ids.Count);
+        foreach (var bankId in ids)
+        {
+            var item = await _bank.GetByIdAsync(bankId, cancellationToken);
+            if (item is null)
+            {
+                throw new DomainException("Question does not exist.");
+            }
+
+            if (item.ArchivedAtUtc is not null)
+            {
+                throw new DomainException("Archived question cannot be included.");
+            }
+
+            copies.Add(Question.Create(
+                Guid.NewGuid(),
+                sortOrder: 0,
+                item.Type,
+                item.Stem,
+                item.ScoringMode,
+                item.CreditMode,
+                item.Points,
+                item.Body,
+                sourceQuestionId: item.Id));
+        }
+
+        quiz.IncludeQuestions(copies, request.InsertAt, _clock);
+        _quizzes.SetExpectedRowVersion(quiz, request.RowVersion);
+        await _quizzes.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Included bank questions {QuestionIds} into quiz {QuizId}",
+            ids,
+            quiz.Id);
+
+        return Map(quiz);
     }
 
     private async Task EnsureOpeningExistsAsync(Guid openingId, CancellationToken cancellationToken)
