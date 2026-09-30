@@ -26,6 +26,7 @@ Build an internal openings-centric interview quiz platform where anyone with the
 * Create and maintain openings with flexible tracking fields.
 * Build quizzes manually or from an AI draft (resume + company rules), then review before use.
 * Turn strong quizzes into templates owned across teams (Dev, QA, HR, Finance, etc.).
+* Maintain a **question bank** of reusable items and copy them into quizzes (not a live join).
 * Search templates by experience and tags, then assign to a candidate.
 * Run the assignment as live (proctored / screen-share style) or async (timed link).
 * Track attempts, auto-score where possible, and review written answers with per-question scoring modes.
@@ -34,7 +35,7 @@ Build an internal openings-centric interview quiz platform where anyone with the
 
 1. Replace ad-hoc Forms packs with searchable, maintainable quizzes tied to openings.
 2. Let Recruitment assign the right quiz without owning deep technical content.
-3. Let specialist teams author and maintain templates with richer question types.
+3. Let specialist teams author and maintain templates **and a question bank of reusable items**, with richer question types.
 4. Support both live and async delivery from day one using one quiz model.
 5. Use AI only as a draft assistant—humans always edit before assign.
 6. Avoid rigid org hierarchy: use tags / key–value fields and saved filters instead.
@@ -62,13 +63,14 @@ Suggested permission capabilities
 * Create / edit openings — Title, JD, owners, dates, headcount, handlers, tags
 * Create / edit quizzes — Manual authoring, structure, scoring mode per question
 * Create / edit templates — Publish quiz as template; maintain library
+* Create / edit question bank — Author reusable items; include (copy) into a quiz
 * Use AI draft — Generate draft from resume + rules
 * Assign quizzes — Attach quiz to candidate + opening; choose live or async
 * Run live sessions — Start/pause/monitor live attempt
 * Review attempts — Score written answers; finalise result
 * Manage saved filters — Personal filters; share public or with specific people
 
-A Dev engineer can author templates without opening access. A recruiter can assign and run sessions without editing company AI rules.
+A Dev engineer can author templates and bank items without opening write access. A recruiter can assign and run sessions without editing company AI rules.
 
 ---
 
@@ -103,6 +105,7 @@ A concrete question set that can be assigned.
 * Linked to one or more openings (or created in opening context)
 * Questions with type + scoring mode
 * Can be converted to a template for reuse
+* May include items copied from the **question bank** (new question ids; `sourceQuestionId` provenance)
 
 6.3 Template
 
@@ -112,7 +115,15 @@ A reusable quiz owned/maintained by specialist teams.
 * Recruiter (or permitted user) clones/instantiates into a quiz for an opening/candidate
 * Supports specialised variants: generic template vs candidate-specific quiz (manual or AI-drafted)
 
-6.4 Assignment
+6.4 Question bank
+
+A company **item** library (not a new product, not a new bounded context).
+
+* Reusable questions with the same types, scoring, and credit as quiz questions
+* Including an item into a quiz **copies** it (new id). Later bank edits do not change existing quizzes, templates, or assignments
+* Distinct from **templates** (whole-quiz reuse across openings) and from the drag-and-drop **shared answer bank** question type (tokens inside one question)
+
+6.5 Assignment
 
 Binds a quiz to a candidate under an opening.
 
@@ -124,7 +135,7 @@ Binds a quiz to a candidate under an opening.
 
 Mode is a property of the assignment, not a separate product. Scoring, tags, openings, and reports stay shared.
 
-6.5 Attempt & result
+6.6 Attempt & result
 
 * Answers, timestamps, duration
 * Auto-scored items settled immediately
@@ -132,9 +143,9 @@ Mode is a property of the assignment, not a separate product. Scoring, tags, ope
 * Attempt stays pending review until every non-auto item is settled
 * Final score / outcome visible to permitted users
 
-6.6 Saved filters
+6.7 Saved filters
 
-* Filter openings/quizzes by tags, experience, owner, dates, handlers, etc.
+* Filter openings/quizzes/**templates** by tags, experience, owner, dates, handlers, keyword/title, etc.
 * Save personal filters
 * Share as public or with specific people
 
@@ -147,7 +158,7 @@ Mode is a property of the assignment, not a separate product. Scoring, tags, ope
 * True / false — Auto-score
 * Short text / fill-in — Optional auto when acceptable answers are keyed; otherwise AI-assist or human
 * Long text / written scenario — AI-assist or human-only (not auto by default)
-* Drag and drop — shared answer bank — Auto-score. One bank of items (plus author-chosen distractors) dragged into slots in the stem
+* Drag and drop — shared answer bank — Auto-score. One bank of items (plus author-chosen distractors) dragged into slots in the stem. This is a **question type**, not the company question-bank library (see §6.4)
 * Drag and drop — per-slot options — Auto-score. Each slot has its own option set (plus author-chosen distractors)
 * Ordering / sequence — Auto-score. Candidate reorders a list. Credit mode per question: Partial credit or All-or-nothing (same modes as multi-select; default partial formula TBD — recommended adjacent-pair)
 
@@ -232,7 +243,7 @@ A. Create opening
 
 B. Author template / quiz (manual)
 
-1. Permitted author builds questions (types above).
+1. Permitted author builds questions (types above), including items copied from the question bank when that library exists.
 2. Sets scoring mode per question.
 3. Tags by experience/client/project/role/etc.
 4. Optionally publishes as template for others to search.
@@ -278,6 +289,7 @@ v1 succeeds when:
 
 * Recruitment can find and assign a quiz for an opening without pinging Dev for the Forms link every time.
 * Specialist teams maintain templates instead of one-off Forms.
+* Authors reuse individual questions from a company bank by copying them into quizzes (not by live-joining the library).
 * The same quiz content supports live and async without duplicate authoring.
 * AI drafts speed authoring but never skip human edit.
 * Openings remain findable via tags + saved filters despite inconsistent hierarchy.
@@ -292,10 +304,11 @@ v1 succeeds when:
 1. Foundations: users, fine-grained permissions, openings + dynamic fields/tags
 2. Authoring: quiz editor + question types + per-question scoring modes
 3. Templates & search: publish template, filters, saved/shared filters
-4. Assignments: candidate assignment, async timed link, basic results
-5. Live mode: live session controls on the same assignment model
-6. Review: human + AI-assist marking for written answers
-7. AI draft: resume + opening + company rules → draft quiz → forced human edit gate
+4. Question bank: company item library + copy-on-include into a quiz
+5. Assignments: candidate assignment, async timed link, basic results
+6. Live mode: live session controls on the same assignment model
+7. Review: human + AI-assist marking for written answers
+8. AI draft: resume + opening + company rules → draft quiz → forced human edit gate
 
 ---
 
@@ -305,6 +318,7 @@ v1 succeeds when:
 * Retention restore: shared vs separate policies for resumes / attempts / quiz content; who can restore from archive
 * Ordering partial-credit formula (recommended default: adjacent-pair)
 * Concrete company AI rule schema / versioning details
+* Whether publishing a cloned quiz may fork a **new** template lineage (v1 / slice 3 default: new version of the origin template)
 
 16. Recommended clarifications
 
@@ -313,6 +327,7 @@ Keep these decisions simple and explicit before development:
 * Template versioning: When a template changes, create a new version. Existing assignments keep the old version.
 * Quiz snapshot: When a quiz is assigned, save the exact questions, answers, and scoring rules used for that assignment.
 * Quiz reuse: A quiz can be used for one opening. To reuse the same quiz for another opening, convert it to a template first.
+* Question bank: Reusable **items** (copy into a quiz; new question id; later bank edits do not change existing quizzes/templates/assignments). Not templates (whole quiz) and not the drag-drop shared answer bank question type.
 * Dynamic filters: Keep filters flexible. Users should be able to create, save, and share filters using tags and custom fields.
 * Scoring: Keep one common scoring model for all question types: Auto, AI-assist, or Human-only.
 * AI: AI creates drafts only. A user must review and approve before a quiz can be assigned.
@@ -325,4 +340,4 @@ These decisions reduce confusion later and make the system easier to build and m
 
 17. One-line pitch
 
-An openings-first interview quiz system: templates and tags for reuse, live or async assignment, and AI that drafts—never publishes—while permissions stay fine-grained.
+An openings-first interview quiz system: templates, a question bank of reusable items, and tags for reuse, live or async assignment, and AI that drafts—never publishes—while permissions stay fine-grained.

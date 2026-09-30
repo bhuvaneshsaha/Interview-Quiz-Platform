@@ -21,7 +21,7 @@ Deploy a **single Modular Monolith** process:
 
 **Explicitly out of scope as defaults:** Azure App Service / Azure SQL / Azure OpenAI / Azure Monitor, AWS equivalents, commercial appliances, Ionic native hosting.
 
-Slice 7 AI uses an operator-configured OpenAI-compatible **HTTP URL**, which may be self-hosted. That is not an Azure/AWS hosting choice.
+Slice 8 AI uses an operator-configured OpenAI-compatible **HTTP URL**, which may be self-hosted. That is not an Azure/AWS hosting choice. (Slice numbering shifted when the question bank was inserted as slice 4 — ADR 0007; hosting is unchanged.)
 
 ## Consequences
 
