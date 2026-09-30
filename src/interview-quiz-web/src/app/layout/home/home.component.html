@@ -4,8 +4,8 @@
 }
 @if (!hasSliceOneScreen()) {
   <p>
-    You are signed in, but none of the slice 1–4 screens (openings, quizzes, templates, question
-    bank, field defaults, roles, users) are available for your permissions.
+    You are signed in, but none of the slice 1–5 screens (openings, quizzes, templates, question
+    bank, assignments, field defaults, roles, users) are available for your permissions.
   </p>
 }
 <ul class="home-links">
@@ -20,6 +20,9 @@
   </li>
   <li *hasPermission="codes.QuestionsRead">
     <a routerLink="/questions">Question bank</a>
+  </li>
+  <li *hasPermission="codes.AssignmentsRead">
+    <a routerLink="/assignments">Assignments</a>
   </li>
   <li *hasPermission="codes.OpeningsFieldsManage">
     <a routerLink="/opening-fields">Opening field defaults</a>

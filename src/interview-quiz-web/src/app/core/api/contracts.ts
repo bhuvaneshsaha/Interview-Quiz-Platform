@@ -435,3 +435,195 @@ export interface ProblemDetails {
   correlationId?: string;
   [key: string]: unknown;
 }
+
+export type AssignmentMode = 'async' | 'live';
+
+export type AssignmentStatus =
+  | 'notStarted'
+  | 'inProgress'
+  | 'submitted'
+  | 'pendingReview'
+  | 'completed';
+
+export interface AssignmentListQuery {
+  openingId?: string;
+  keyword?: string;
+}
+
+export interface AssignmentTimingRequest {
+  overallDurationMinutes?: number | null;
+}
+
+export interface CreateAssignmentRequest {
+  openingId: string;
+  quizId: string;
+  candidateEmail: string;
+  mode: AssignmentMode;
+  timing?: AssignmentTimingRequest | null;
+  attemptLimit?: number | null;
+}
+
+export interface AssignmentSummaryResponse {
+  id: string;
+  openingId: string;
+  quizId: string;
+  snapshotId: string;
+  snapshotTitle: string;
+  snapshotQuestionCount: number;
+  candidateEmail: string;
+  mode: AssignmentMode | string;
+  overallDurationMinutes: number | null;
+  attemptLimit: number;
+  status: AssignmentStatus | string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface AssignmentResponse extends AssignmentSummaryResponse {
+  createdByUserId: string;
+  inviteUrl?: string | null;
+}
+
+export interface InviteResponse {
+  assignmentId: string;
+  inviteUrl: string;
+}
+
+export interface ConsumeMagicLinkRequest {
+  token: string;
+}
+
+export interface CandidateTokenResponse {
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  tokenType: string;
+  assignmentId: string;
+}
+
+export interface MultipleChoiceSingleAnswer {
+  optionId: string;
+}
+
+export interface MultipleChoiceMultiAnswer {
+  optionIds: string[];
+}
+
+export interface TrueFalseAnswer {
+  value: boolean;
+}
+
+export interface TextAnswer {
+  text: string;
+}
+
+export interface DragDropSharedSlotAnswer {
+  slotId: string;
+  itemId: string;
+}
+
+export interface DragDropPerSlotAnswer {
+  slotId: string;
+  optionId: string;
+}
+
+export interface DragDropAnswer {
+  slots: Array<DragDropSharedSlotAnswer | DragDropPerSlotAnswer>;
+}
+
+export interface OrderingAnswer {
+  itemIds: string[];
+}
+
+export type AnswerValue =
+  | MultipleChoiceSingleAnswer
+  | MultipleChoiceMultiAnswer
+  | TrueFalseAnswer
+  | TextAnswer
+  | DragDropAnswer
+  | OrderingAnswer
+  | Record<string, unknown>;
+
+export interface AnswerDto {
+  questionId: string;
+  value: AnswerValue;
+}
+
+export interface SaveAnswersRequest {
+  answers: AnswerDto[];
+}
+
+export interface CandidateQuestion {
+  id: string;
+  sortOrder: number;
+  type: QuestionType;
+  stem: string;
+  scoringMode: ScoringMode;
+  creditMode: CreditMode | null;
+  points: number;
+  body: Record<string, unknown>;
+  sourceQuestionId: string | null;
+}
+
+export interface CandidateItemResult {
+  questionId: string;
+  scoringMode: string;
+  status: 'scored' | 'unsettled' | string;
+  pointsAwarded: number | null;
+}
+
+export interface CandidateAttemptResponse {
+  id: string;
+  assignmentId: string;
+  status: string;
+  startedAtUtc: string;
+  dueAtUtc: string;
+  submittedAtUtc: string | null;
+  remainingSeconds: number;
+  questions: CandidateQuestion[];
+  answers: AnswerDto[];
+  itemResults?: CandidateItemResult[] | null;
+}
+
+export interface CandidateSubmitResponse {
+  id: string;
+  assignmentId: string;
+  status: string;
+  resultStatus: string;
+  startedAtUtc: string;
+  dueAtUtc: string;
+  submittedAtUtc: string | null;
+  autoPointsAwarded: number;
+  autoPointsAvailable: number;
+  totalPointsAvailable: number;
+  itemResults: CandidateItemResult[];
+}
+
+export interface AttemptSummaryResponse {
+  id: string;
+  assignmentId: string;
+  openingId: string;
+  candidateEmail: string;
+  status: string;
+  resultStatus: string;
+  startedAtUtc: string;
+  submittedAtUtc: string | null;
+  autoPointsAwarded: number;
+  autoPointsAvailable: number;
+  totalPointsAvailable: number;
+}
+
+export interface AttemptResultItem {
+  questionId: string;
+  sortOrder: number;
+  type: string;
+  scoringMode: string;
+  points: number;
+  status: string;
+  pointsAwarded: number | null;
+  candidateAnswer?: unknown;
+  stem?: string | null;
+}
+
+export interface AttemptResultResponse extends AttemptSummaryResponse {
+  items: AttemptResultItem[];
+}

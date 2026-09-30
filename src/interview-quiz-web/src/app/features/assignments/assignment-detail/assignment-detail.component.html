@@ -1,0 +1,106 @@
+<div class="page-heading">
+  <h1>Assignment</h1>
+  <a routerLink="/assignments">Back to assignments</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="!loading() && !error() && !assignment()"
+  emptyMessage="Assignment not found."
+  loadingMessage="Loading assignment."
+>
+  @if (assignment(); as item) {
+    <dl class="summary">
+      <div>
+        <dt>Candidate</dt>
+        <dd>{{ item.candidateEmail }}</dd>
+      </div>
+      <div>
+        <dt>Status</dt>
+        <dd>{{ statusLabel(item.status) }}</dd>
+      </div>
+      <div>
+        <dt>Snapshot</dt>
+        <dd>{{ item.snapshotTitle }} ({{ item.snapshotQuestionCount }} questions)</dd>
+      </div>
+      <div>
+        <dt>Mode</dt>
+        <dd>{{ item.mode === 'live' ? 'Live' : 'Async' }}</dd>
+      </div>
+      <div>
+        <dt>Duration</dt>
+        <dd>{{ item.overallDurationMinutes ? item.overallDurationMinutes + ' minutes' : '—' }}</dd>
+      </div>
+      <div>
+        <dt>Attempt limit</dt>
+        <dd>{{ item.attemptLimit }}</dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>{{ formatDate(item.updatedAtUtc) }}</dd>
+      </div>
+    </dl>
+
+    @if (item.mode === 'live') {
+      <p class="hint" role="note">Live invite links and candidate start are in slice 6.</p>
+    }
+
+    @if (canInvite) {
+      <button
+        *hasPermission="codes.AssignmentsWrite"
+        type="button"
+        class="button"
+        [disabled]="inviting()"
+        (click)="invite()"
+      >
+        {{ inviting() ? 'Issuing invite…' : 'Issue invite link' }}
+      </button>
+    }
+
+    @if (inviteUrl(); as url) {
+      <div class="field invite-field">
+        <label for="detail-invite-url">Invite link</label>
+        <input id="detail-invite-url" data-testid="invite-url" type="text" readonly [value]="url" />
+        <button type="button" class="button button-quiet" (click)="copyInvite(url)">
+          {{ copied() ? 'Copied' : 'Copy invite link' }}
+        </button>
+      </div>
+    }
+
+    @if (canReadAttempts) {
+      <section class="results" aria-labelledby="results-heading">
+        <h2 id="results-heading">Results</h2>
+        @if (attemptsLoading()) {
+          <p class="status" role="status">Loading results.</p>
+        } @else if (attempts().length === 0) {
+          <p class="hint">No attempts yet.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Status</th>
+                <th scope="col">Result</th>
+                <th scope="col">Auto score</th>
+                <th scope="col">Started</th>
+                <th scope="col">Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (attempt of attempts(); track attempt.id) {
+                <tr>
+                  <th scope="row">{{ statusLabel(attempt.status) }}</th>
+                  <td>{{ attempt.resultStatus }}</td>
+                  <td>{{ attempt.autoPointsAwarded }} / {{ attempt.autoPointsAvailable }}</td>
+                  <td>{{ formatDate(attempt.startedAtUtc) }}</td>
+                  <td>{{ formatDate(attempt.submittedAtUtc) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+  }
+</app-page-status>
