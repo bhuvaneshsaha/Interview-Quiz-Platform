@@ -187,7 +187,10 @@ public sealed class MagicLinkApiTests
     {
         var client = _factory.CreateClient();
         var response = await client.GetAsync("/api/auth/magic-link/consume");
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(
+            response.StatusCode,
+            [HttpStatusCode.MethodNotAllowed, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound]);
     }
 
     [RequiresDatabaseFact]

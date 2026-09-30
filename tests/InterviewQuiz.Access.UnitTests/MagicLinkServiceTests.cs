@@ -13,7 +13,7 @@ namespace InterviewQuiz.Access.UnitTests;
 
 public sealed class MagicLinkServiceTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private static readonly Guid AssignmentId = Guid.Parse("7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001");
 
     [Fact]
