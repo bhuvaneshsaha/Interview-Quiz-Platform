@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–4** are in this branch: **host**, **Access** (JWT + Identity + permissions), **Openings**, **Catalog** quiz authoring, **templates**, **question bank** (copy-on-include, ADR 0007) **API and Angular UI**, **Search** saved filters, and the **web client**. Candidate magic-link, AI drafts, and Entra ID are **not** in this slice.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, Entra ID, and SMTP are **not** in this pass. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Prerequisites
 
@@ -48,12 +48,14 @@ export ConnectionStrings__InterviewQuiz="Host=localhost;Port=5432;Database=inter
 | `Jwt__Audience` | JWT audience (defaults to `InterviewQuiz` in appsettings) |
 | `Jwt__AccessTokenMinutes` | Access token lifetime (default `15`) |
 | `Jwt__RefreshTokenDays` | Refresh token lifetime (default `14`) |
+| `Jwt__CandidateAccessTokenMinutes` | Candidate magic-link access token lifetime (default `60`, range 1–180). No candidate refresh token |
+| `PublicBaseUrl` | Public origin for recruiter-copied invite URLs (no trailing slash; not a secret). Access `IMagicLinkService.BuildInviteUrl` produces `{PublicBaseUrl}/attempt?token=` |
 
 Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
 ## Migrate and run
 
-Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, and three live **bank questions** (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text). **Never seeded in Production.**
+Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `DeliveryDbContext`, `EvaluationDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live **bank questions**, and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`, 30 minutes, attempt limit 1). Invite raw tokens are **not** seeded; issue at runtime. **Never seeded in Production.**
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
@@ -83,6 +85,18 @@ dotnet ef database update \
   --startup-project src/InterviewQuiz.Host \
   --context SearchDbContext
 
+# Delivery schema (assignments + snapshots)
+dotnet ef database update \
+  --project src/Modules/Delivery/InterviewQuiz.Delivery.Infrastructure \
+  --startup-project src/InterviewQuiz.Host \
+  --context DeliveryDbContext
+
+# Evaluation schema (attempts + answers)
+dotnet ef database update \
+  --project src/Modules/Evaluation/InterviewQuiz.Evaluation.Infrastructure \
+  --startup-project src/InterviewQuiz.Host \
+  --context EvaluationDbContext
+
 dotnet run --project src/InterviewQuiz.Host
 ```
 
@@ -106,18 +120,22 @@ Employee entry is **email + password → JWT**. The API default scheme is JwtBea
 
 There is **no self-registration**. Admins provision users (`users.manage`).
 
-Not in this slice: candidate magic-link, Entra ID.
+Candidates enter with a **magic-link**: `POST /api/auth/magic-link/consume` with `{ "token": "<opaque>" }` returns a short-lived assignment-scoped JWT (`candidate.attempt.participate` + `assignment_id`). The invite is reusable until the assignment is submitted or the recruiter rotates it. No candidate refresh token. Recruiter invite HTTP (`POST /api/assignments/{id}/invite`) is Delivery; Access exposes `IMagicLinkService.IssueAsync` (raw token, hashed in `access.magic_link_invites`) and `BuildInviteUrl`. Candidates have **no password** — do not invent one.
+
+Not in this slice: Entra ID, SMTP.
 
 ### Sign in locally (Development dummy users)
 
 These accounts exist only when the host runs in Development (or tests seed them). Do not use them in Production.
 
-| Email | Password | Sample bundle | Slice 4 notes |
+| Email | Password | Sample bundle | Slice 4–5 notes |
 |-------|----------|----------------|---------------|
-| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
-| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write` |
-| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | No template/filter/bank write |
-| `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | Role editor can assign `questions.*`; they are not on this seed bundle |
+| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **`assignments.write`** + `assignments.read` + `attempts.read`; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
+| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write`; **typically no** `assignments.*` (no Assignments nav) |
+| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read`; no template/filter/bank write |
+| `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | Role editor can assign `questions.*` / `assignments.*`; they are not on this seed bundle |
+
+There is **no** dummy candidate password. `candidate.dev@example.com` is magic-link only (seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001`). Dummy passwords stay in this table only.
 
 ```bash
 curl -s http://localhost:5147/api/auth/login \
@@ -127,7 +145,7 @@ curl -s http://localhost:5147/api/auth/login \
 
 Use `Authorization: Bearer {accessToken}` on subsequent requests. Call `POST /api/auth/refresh` with the refresh token to rotate; the new access token re-reads permissions from the database (role changes take effect on the next tokens). Call `POST /api/auth/logout` with the refresh token to revoke it.
 
-Angular should keep the access token **in memory** and the refresh token in **sessionStorage** (not `localStorage`, Cache Storage, IndexedDB, or the service worker). See `src/interview-quiz-web/README.md`. Service workers must not cache tokens, `/me`, login, or refresh.
+Angular should keep the employee access token **in memory** and the refresh token in **sessionStorage** (not `localStorage`, Cache Storage, IndexedDB, or the service worker). Candidate `/attempt` keeps its access token in-memory on `CandidateSession` only (no refresh; not `TokenStore`). See `src/interview-quiz-web/README.md`. Service workers must not cache tokens, `/me`, login, refresh, assignments, attempts, or magic-link URLs.
 
 Do **not** use `[Authorize(Roles = ...)]`. Roles are operator-composed permission sets; API and UI check permission codes only.
 
@@ -138,6 +156,7 @@ Do **not** use `[Authorize(Roles = ...)]`. Roles are operator-composed permissio
 | `POST` | `/api/auth/login` | anonymous |
 | `POST` | `/api/auth/refresh` | anonymous (valid refresh token) |
 | `POST` | `/api/auth/logout` | anonymous (refresh token body) |
+| `POST` | `/api/auth/magic-link/consume` | anonymous (opaque invite) |
 | `GET` | `/api/me` | authenticated |
 | `GET` | `/api/me/permissions` | authenticated |
 | `GET` | `/api/permissions` | `roles.manage` |
@@ -199,7 +218,42 @@ Concurrency: integer `row_version` on Quiz and BankQuestion (incremented on upda
 
 In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time. `IQuestionBankReader.GetByIdAsync(id)` is registered and used **only** by include (not quiz create/update/publish/clone). GetById returns archived rows so include can reject them.
 
-Not in this slice: AI drafts, assignments, magic-link.
+## Delivery API (slice 5 — assignments)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `GET` | `/api/assignments` | `assignments.read` |
+| `GET` | `/api/assignments/{id}` | `assignments.read` |
+| `POST` | `/api/assignments` | `assignments.write` |
+| `POST` | `/api/assignments/{id}/invite` | `assignments.write` |
+
+List query: `openingId`, `keyword` (candidate email or snapshot title), `page`, `pageSize`. No `criteria` JSON. Create body: `openingId`, `quizId`, `candidateEmail`, `mode` (`async` \| `live`), `timing.overallDurationMinutes` (required 1–480 for async), `attemptLimit` (optional, default 1). POST create 201 `Location: /api/assignments/{id}`. Async create includes `inviteUrl` once (`{PublicBaseUrl}/attempt?token=`). GET never returns `inviteUrl`. Live create omits `inviteUrl`. No PUT/DELETE.
+
+Development seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001`, `candidate.dev@example.com`). To copy an invite URL after `dotnet run` (Development):
+
+```bash
+TOKEN=$(curl -s http://localhost:5147/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"recruiter.dev@example.com","password":"Dev.Recruiter!1"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
+curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/invite \
+  -H "Authorization: Bearer $TOKEN" -X POST
+```
+
+## Evaluation API (slice 5 — async attempts)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/api/assignments/{id}/attempts` | `candidate.attempt.participate` + `assignment_id` claim |
+| `GET` | `/api/assignments/{id}/attempts/current` | `candidate.attempt.participate` + `assignment_id` claim |
+| `PUT` | `/api/assignments/{id}/attempts/current/answers` | `candidate.attempt.participate` + `assignment_id` claim |
+| `POST` | `/api/assignments/{id}/attempts/current/submit` | `candidate.attempt.participate` + `assignment_id` claim |
+| `GET` | `/api/assignments/{id}/attempts` | `attempts.read` |
+| `GET` | `/api/attempts/{id}` | `attempts.read` |
+
+Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. No `GET /api/attempts` without an assignment. No `attempts.review` endpoints.
+
+Not in this slice: live start/pause REST, human review, AI drafts, Entra, SMTP.
 
 ## Search API (slice 3 — saved filters)
 
@@ -217,7 +271,7 @@ List query: optional `target` (`openings` / `quizzes` / `templates`), `page`, `p
 
 ## Web client (Angular SPA / PWA)
 
-Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`). Slice 1: sign-in, openings, permission-aware admin. Slice 2: quiz list and authoring editor. Slice 3: template library, clone/publish, saved list filters. Slice 4: question bank list/editor and include-from-quiz.
+Workspace: `src/interview-quiz-web`. Official CLI (`ng new`, `ng generate`, `ng add @angular/pwa`). Slice 1: sign-in, openings, permission-aware admin. Slice 2: quiz list and authoring editor. Slice 3: template library, clone/publish, saved list filters. Slice 4: question bank list/editor and include-from-quiz. Slice 5: employee assignments + candidate `/attempt` magic-link.
 
 ```bash
 export PATH=$HOME/.npm-global/bin:$PATH
@@ -228,7 +282,7 @@ ng serve
 
 `ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`.
 
-Employee routes used in slices 2–4 (permission on the route, same codes as the API):
+Employee routes used in slices 2–5 (permission on the route, same codes as the API):
 
 | Path | Permission | Screen |
 |------|------------|--------|
@@ -240,24 +294,31 @@ Employee routes used in slices 2–4 (permission on the route, same codes as the
 | `/questions` | `questions.read` | Question bank list (keyword, type, experience, tags; archived-only toggle only with `questions.write`). **No** SavedFilters |
 | `/questions/new` | `questions.write` | Create bank question |
 | `/questions/:id` | `questions.read` **or** `questions.write` | View / edit bank question; archive/unarchive with write |
+| `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager). **No** SavedFilters |
+| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
+| `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
 
-Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, and to **Question bank** when `questions.read`. Create is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`, **no** `questions.*`) can browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank. Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
+Candidate (outside the employee shell): `/attempt?token=` — `POST /api/auth/magic-link/consume`, then start/save/submit. Isolated in-memory `CandidateSession` (not employee `TokenStore`). No candidate password.
 
-### Exercise slices 2–4 locally (Development-only)
+Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, to **Question bank** when `questions.read`, and to **Assignments** when `assignments.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live mode may be stored on create; invite/attempt for live is **not** executed (slice 6). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
+
+### Exercise slices 2–5 locally (Development-only)
 
 Dummy users and passwords are in the table under **Sign in locally** above — do not copy them elsewhere. Use:
 
-- `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), question bank (`questions.read` + `questions.write`), include from an existing quiz (`quizzes.write` + `questions.read`), save filters (`filters.write`).
-- `recruiter.dev@example.com` (Dev Recruiter) for **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone. **No** `questions.*` — no bank nav, no include panel.
+- `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), question bank (`questions.read` + `questions.write`), include from an existing quiz (`quizzes.write` + `questions.read`), save filters (`filters.write`). Typically **cannot** assign.
+- `recruiter.dev@example.com` (Dev Recruiter) for **assignments** (`assignments.write`): list/create, copy invite (`POST /api/assignments/{id}/invite`), basic results (`attempts.read`). Also **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone. **No** `questions.*` — no bank nav, no include panel.
 
-Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, and three live bank questions (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text). **Never seeded in Production.**
+Candidates: open `{PublicBaseUrl}/attempt?token=` after the recruiter copies `inviteUrl`. **No** candidate password.
+
+Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live bank questions (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text), and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`). Invite raw tokens are **not** seeded. **Never seeded in Production.**
 
 ```bash
 ng build
 ng test --watch=false
 ```
 
-`ng test` runs **Vitest** (Angular unit/component tests, including quiz list/editor, templates, SavedFilters, and question bank list/editor/include). The client has component specs for those screens.
+`ng test` runs **Vitest** (Angular unit/component tests, including quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`). The client has component specs for those screens.
 
 ### Storybook
 
@@ -278,7 +339,7 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), and saved-filter API coverage (`SearchApiTests`).
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules, Delivery assignment rules, Evaluation auto-score). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). Specialists reported `dotnet test` **173 passed** with the database set, and `npm test` **74 passed** — not re-counted in this docs pass.
 
 Angular (Vitest):
 
@@ -295,6 +356,7 @@ ng test --watch=false
 - `src/Modules/Openings` — Domain / Application / Infrastructure (`openings` schema)
 - `src/Modules/Catalog` — Domain / Application / Infrastructure (`catalog` schema; quiz authoring, templates, question bank)
 - `src/Modules/Search` — saved filters (`search` schema)
-- `src/Modules/Delivery|Evaluation` — empty composition stubs (assignments / review later)
-- `src/interview-quiz-web` — Angular SPA + installable PWA (slices 1–4: openings, quizzes, templates, question bank, saved filters)
+- `src/Modules/Delivery` — assignments + snapshots (`delivery` schema)
+- `src/Modules/Evaluation` — async attempts + auto-score (`evaluation` schema)
+- `src/interview-quiz-web` — Angular SPA + installable PWA (slices 1–5: openings, quizzes, templates, question bank, saved filters, assignments, candidate `/attempt`)
 - `deploy/local/compose.yaml` — local PostgreSQL 16

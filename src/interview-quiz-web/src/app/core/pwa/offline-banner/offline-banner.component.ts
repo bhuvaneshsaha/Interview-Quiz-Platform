@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { OnlineStatus } from '../online-status.service';
 
 @Component({
@@ -9,4 +9,6 @@ import { OnlineStatus } from '../online-status.service';
 })
 export class OfflineBanner {
   readonly online = inject(OnlineStatus).online;
+  /** `attempt` on the candidate quiz; the shell keeps authoring copy. */
+  readonly context = input<'shell' | 'attempt'>('shell');
 }

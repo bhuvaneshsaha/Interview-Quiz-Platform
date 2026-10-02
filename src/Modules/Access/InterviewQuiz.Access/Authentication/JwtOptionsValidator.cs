@@ -37,6 +37,11 @@ public sealed class JwtOptionsValidator : IValidateOptions<JwtOptions>
             errors.Add("Jwt__RefreshTokenDays must be between 1 and 90.");
         }
 
+        if (options.CandidateAccessTokenMinutes is < 1 or > 180)
+        {
+            errors.Add("Jwt__CandidateAccessTokenMinutes must be between 1 and 180.");
+        }
+
         return errors.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(errors);

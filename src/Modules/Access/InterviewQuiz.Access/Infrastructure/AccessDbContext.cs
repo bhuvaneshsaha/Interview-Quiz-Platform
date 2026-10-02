@@ -22,6 +22,8 @@ public sealed class AccessDbContext : IdentityUserContext<ApplicationUser>
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<MagicLinkInvite> MagicLinkInvites => Set<MagicLinkInvite>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -17,4 +17,9 @@ public sealed class JwtOptions
     public int AccessTokenMinutes { get; set; } = 15;
 
     public int RefreshTokenDays { get; set; } = 14;
+
+    /// <summary>
+    /// Candidate access token lifetime. Set via Jwt__CandidateAccessTokenMinutes. Default 60, range 1–180.
+    /// </summary>
+    public int CandidateAccessTokenMinutes { get; set; } = 60;
 }

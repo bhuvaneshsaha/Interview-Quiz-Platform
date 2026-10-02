@@ -1,10 +1,11 @@
 import { Component, input } from '@angular/core';
 import { isDevMode } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { ApiError } from '../../core/http/api-error';
 
 @Component({
   selector: 'app-page-status',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './page-status.component.html',
   styleUrl: './page-status.component.css',
 })
@@ -15,6 +16,8 @@ export class PageStatus {
   readonly correlationId = input<string | null>(null);
   readonly loadingMessage = input('Loading.');
   readonly emptyMessage = input('Nothing to show yet.');
+  readonly emptyActionLabel = input<string | null>(null);
+  readonly emptyActionLink = input<string | null>(null);
 
   readonly showDevCorrelation = isDevMode();
 

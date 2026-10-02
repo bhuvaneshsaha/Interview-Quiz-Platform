@@ -1,0 +1,33 @@
+.mode-fieldset {
+  border: 1px solid var(--color-border);
+  padding: 0.75rem 1rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 1rem;
+}
+
+.choice-disabled,
+.coming-soon {
+  color: var(--color-muted);
+}
+
+.coming-soon {
+  font-size: 0.85rem;
+}
+
+.hint {
+  color: var(--color-muted);
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.created {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}

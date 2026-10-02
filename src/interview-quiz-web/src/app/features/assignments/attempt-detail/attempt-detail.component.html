@@ -1,0 +1,55 @@
+<div class="page-heading">
+  <h1>Attempt</h1>
+  @if (assignmentId()) {
+    <a [routerLink]="['/assignments', assignmentId()]">Back to assignment</a>
+  }
+</div>
+
+@if (result(); as current) {
+  <dl class="summary">
+    <div>
+      <dt>Candidate</dt>
+      <dd>{{ current.candidateEmail }}</dd>
+    </div>
+    <div>
+      <dt>Status</dt>
+      <dd>{{ statusLabel(current.status) }}</dd>
+    </div>
+    <div>
+      <dt>Result</dt>
+      <dd>{{ resultStatusLabel(current.resultStatus) }}</dd>
+    </div>
+    <div>
+      <dt>Auto score</dt>
+      <dd>{{ current.autoPointsAwarded }} / {{ current.autoPointsAvailable }}</dd>
+    </div>
+    <div>
+      <dt>Submitted</dt>
+      <dd>{{ formatDate(current.submittedAtUtc) }}</dd>
+    </div>
+  </dl>
+}
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="showEmpty()"
+  [emptyMessage]="emptyMessage()"
+  loadingMessage="Loading attempt."
+>
+  @if (result(); as current) {
+    <ol class="items">
+      @for (item of current.items; track item.questionId; let i = $index) {
+        <li class="item">
+          <h2>{{ i + 1 }}. {{ typeLabel(item.type) }}</h2>
+          <p class="stem">{{ item.stem || 'Question stem unavailable.' }}</p>
+          <p class="answer"><span class="answer-label">Answer.</span> {{ formatCandidateAnswer(item.candidateAnswer) }}</p>
+          <p class="item-result" [class.is-unsettled]="item.status === 'unsettled'">
+            {{ itemResultLabel(item.status, item.pointsAwarded, item.points) }}
+          </p>
+        </li>
+      }
+    </ol>
+  }
+</app-page-status>

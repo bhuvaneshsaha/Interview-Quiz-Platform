@@ -40,7 +40,9 @@
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && quizzes().length === 0"
-  emptyMessage="No quizzes match this filter."
+  [emptyMessage]="emptyMessage()"
+  [emptyActionLabel]="emptyActionLabel()"
+  [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading quizzes."
 >
   <table class="data-table">

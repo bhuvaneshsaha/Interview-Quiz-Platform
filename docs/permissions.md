@@ -1,6 +1,6 @@
 # Permission catalog
 
-Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring (`quizzes.read` / `quizzes.write` on `/api/quizzes` and `/quizzes`), slice 3 templates (`templates.read` / `templates.write` on `/api/templates`, `/api/quizzes/{id}/publish-template`, `/templates`) and saved filters (`filters.write` / `filters.share` on `/api/filters`; apply-criteria on list screens), slice 4 question bank (`questions.read` / `questions.write` on `/api/questions` and Angular `/questions`; include-into-quiz with `quizzes.write` + `questions.read` on `POST /api/quizzes/{quizId}/include-questions` and the quiz editor include panel). Later: AI, assignments, attempts. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`). Later: live session REST, review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 
@@ -15,7 +15,7 @@ Deny by default: unauthenticated → 401; authenticated without the code → 403
 - **Assignment** — users receive one or more roles; effective set is the union.
 - **Resource rules** (in addition to a permission): e.g. candidate JWT may only access one assignment; opening handlers do not bypass `openings.write` via a role name.
 
-Candidate access is **not** a row in the employee role editor. Magic-link JWTs are scoped to an assignment (Auth). Do not add `isCandidate` checks.
+Candidate access is **not** a row in the employee role editor. Magic-link JWTs are scoped to an assignment (Auth; ADR 0008). Do not add `isCandidate` checks.
 
 ---
 
@@ -70,11 +70,13 @@ These codes are **not** the drag-drop question type `dragDropSharedBank` (items 
 
 | Code | Display name | Capability |
 |------|----------------|------------|
-| `assignments.read` | View assignments | See assignment status and configuration (not a substitute for review) |
-| `assignments.write` | Assign quizzes | Bind snapshot to candidate + opening; live or async; timing/attempt rules |
-| `sessions.live.run` | Run live sessions | Start, pause, and monitor a live attempt |
+| `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id`. **No** SavedFilters on the list. |
+| `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/{id}/invite`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
+| `sessions.live.run` | Run live sessions | **Seeded but inactive until slice 6.** Start, pause, and monitor a live attempt. No slice 5 API or screen uses this code. Dev Recruiter seed includes it. |
 
-Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes.write`.
+Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes.write`. **Dev Recruiter seed already includes** `assignments.read` / `assignments.write` / `sessions.live.run`. **Dev Template author seed does not** — authors cannot assign unless an operator grants the codes. Candidate JWTs never include `assignments.write`.
+
+Slice 5 does **not** add saved-filter `target: assignments`.
 
 ---
 
@@ -82,10 +84,21 @@ Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes
 
 | Code | Display name | Capability |
 |------|----------------|------------|
-| `attempts.read` | View attempts and results | Scores/outcomes for permitted openings |
-| `attempts.review` | Review attempts | Score written items (human or confirm AI-assist); finalise result |
+| `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
+| `attempts.review` | Review attempts | **Seeded but inactive until slice 7.** Score written items (human or confirm AI-assist) and finalise a result. No slice 5 API or screen uses this code. Dev Reviewer seed includes it. |
 
-AI-assist **suggestion** in slice 6 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code.
+AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
+
+### Seeded but inactive
+
+`sessions.live.run` and `attempts.review` are in the permission catalog and in Development seed bundles, and they are **inactive** until later slices:
+
+| Code | Seeded on | Inactive until |
+|------|-----------|----------------|
+| `sessions.live.run` | Dev Recruiter | Slice 6 (live start, pause, monitor) |
+| `attempts.review` | Dev Reviewer | Slice 7 (human / AI-assist review) |
+
+Granting either code in slice 5 does not unlock a workflow. A role that includes them still cannot run a live session or finalise a review. See [slice 5 MVP boundary](slice-5-mvp.md).
 
 ---
 
@@ -96,17 +109,17 @@ AI-assist **suggestion** in slice 6 still requires `attempts.review` to confirm.
 | `filters.write` | Manage own saved filters | Create/edit/delete personal saved filters |
 | `filters.share` | Share saved filters | Share public-inside-company or with specific people |
 
-Applying unsaved criteria on `GET /api/openings`, `GET /api/quizzes`, or `GET /api/templates` needs only the matching `*.read` permission (quiz get-by-id still allows `quizzes.write`). Saved-filter CRUD is **live** on `/api/filters` (architecture §15.5). Angular list screens host `app-saved-filters` (playbook: `docs/components/angular/SavedFilters.md`).
+Applying unsaved criteria on `GET /api/openings`, `GET /api/quizzes`, or `GET /api/templates` needs only the matching `*.read` permission (quiz get-by-id still allows `quizzes.write`). Saved-filter CRUD is **live** on `/api/filters` (architecture §15.5). Angular list screens host `app-saved-filters` (playbook: `docs/components/angular/SavedFilters.md`). **Slice 5 does not add** `target: assignments` (architecture §16.10).
 
 ---
 
 ## Candidate session (not a composable employee role)
 
-Auth issues a JWT bound to an assignment (and attempt). The API authorizes with **resource scope** plus a narrow session capability, for example:
+Auth issues a JWT bound to an assignment (and attempt when created). The API authorizes with **resource scope** (`assignment_id` claim) plus this catalog code. Paths: `POST /api/auth/magic-link/consume`; candidate `POST /api/assignments/{id}/attempts`, `GET /api/assignments/{id}/attempts/current`, `PUT .../current/answers`, `POST .../current/submit` (architecture §16.3–16.4, ADR 0008). Angular landing: `/attempt?token=` **outside** the employee shell (`CandidateSession` in-memory; not employee `TokenStore`). No candidate password.
 
 | Code | Display name | Notes |
 |------|----------------|--------|
-| `candidate.attempt.participate` | Take and submit own attempt | Only on the bound assignment. Not shown as a checkable box on the employee role editor (or shown read-only / excluded from seed roles). |
+| `candidate.attempt.participate` | Take and submit own attempt | Only on the bound assignment. Not shown as a checkable box on the employee role editor (or shown read-only / excluded from seed roles). **Never** present on employee login JWTs. |
 
 Do not implement as `[Authorize(Roles = "Candidate")]`.
 

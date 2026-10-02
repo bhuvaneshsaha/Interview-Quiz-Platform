@@ -13,10 +13,14 @@
     <Project Path="src/Modules/Catalog/InterviewQuiz.Catalog.Infrastructure/InterviewQuiz.Catalog.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Delivery/">
-    <Project Path="src/Modules/Delivery/InterviewQuiz.Delivery/InterviewQuiz.Delivery.csproj" />
+    <Project Path="src/Modules/Delivery/InterviewQuiz.Delivery.Application/InterviewQuiz.Delivery.Application.csproj" />
+    <Project Path="src/Modules/Delivery/InterviewQuiz.Delivery.Domain/InterviewQuiz.Delivery.Domain.csproj" />
+    <Project Path="src/Modules/Delivery/InterviewQuiz.Delivery.Infrastructure/InterviewQuiz.Delivery.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Evaluation/">
-    <Project Path="src/Modules/Evaluation/InterviewQuiz.Evaluation/InterviewQuiz.Evaluation.csproj" />
+    <Project Path="src/Modules/Evaluation/InterviewQuiz.Evaluation.Application/InterviewQuiz.Evaluation.Application.csproj" />
+    <Project Path="src/Modules/Evaluation/InterviewQuiz.Evaluation.Domain/InterviewQuiz.Evaluation.Domain.csproj" />
+    <Project Path="src/Modules/Evaluation/InterviewQuiz.Evaluation.Infrastructure/InterviewQuiz.Evaluation.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Openings/">
     <Project Path="src/Modules/Openings/InterviewQuiz.Openings.Application/InterviewQuiz.Openings.Application.csproj" />
@@ -29,6 +33,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/InterviewQuiz.Access.UnitTests/InterviewQuiz.Access.UnitTests.csproj" />
     <Project Path="tests/InterviewQuiz.Catalog.UnitTests/InterviewQuiz.Catalog.UnitTests.csproj" />
+    <Project Path="tests/InterviewQuiz.Delivery.UnitTests/InterviewQuiz.Delivery.UnitTests.csproj" />
+    <Project Path="tests/InterviewQuiz.Evaluation.UnitTests/InterviewQuiz.Evaluation.UnitTests.csproj" />
     <Project Path="tests/InterviewQuiz.Host.IntegrationTests/InterviewQuiz.Host.IntegrationTests.csproj" />
     <Project Path="tests/InterviewQuiz.Openings.UnitTests/InterviewQuiz.Openings.UnitTests.csproj" />
     <Project Path="tests/InterviewQuiz.Search.UnitTests/InterviewQuiz.Search.UnitTests.csproj" />

@@ -183,6 +183,9 @@ public sealed class AuthServiceTests
         public Task<IdentityCreateResult> CreateAsync(ApplicationUser user, string password)
             => throw new NotSupportedException();
 
+        public Task<IdentityCreateResult> CreateWithoutPasswordAsync(ApplicationUser user)
+            => throw new NotSupportedException();
+
         public Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 

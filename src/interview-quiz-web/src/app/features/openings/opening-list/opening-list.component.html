@@ -18,7 +18,9 @@
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && openings().length === 0"
-  emptyMessage="No openings match this filter."
+  [emptyMessage]="emptyMessage()"
+  [emptyActionLabel]="emptyActionLabel()"
+  [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading openings."
 >
   <table class="data-table">

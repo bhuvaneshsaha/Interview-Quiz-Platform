@@ -6,6 +6,7 @@ import { AuthService } from '../auth/auth.service';
 import { TokenStore } from '../auth/token-store.service';
 import { TokenResponse } from '../api/contracts';
 import { authInterceptor } from './auth.interceptor';
+import { CandidateSession } from '../auth/candidate-session.service';
 
 describe('authInterceptor', () => {
   let http: HttpClient;
@@ -13,6 +14,7 @@ describe('authInterceptor', () => {
   let tokens: TokenStore;
   let refreshImpl: () => Observable<TokenResponse>;
   let logoutCalls = 0;
+  let refreshCalls = 0;
 
   const rotated: TokenResponse = {
     accessToken: 'access-2',
@@ -33,6 +35,7 @@ describe('authInterceptor', () => {
   beforeEach(() => {
     sessionStorage.clear();
     logoutCalls = 0;
+    refreshCalls = 0;
     refreshImpl = () => of(rotated);
     TestBed.configureTestingModule({
       providers: [
@@ -41,7 +44,10 @@ describe('authInterceptor', () => {
         {
           provide: AuthService,
           useValue: {
-            refreshTokens: () => refreshImpl(),
+            refreshTokens: () => {
+              refreshCalls += 1;
+              return refreshImpl();
+            },
             logout: () => {
               logoutCalls += 1;
             },
@@ -57,6 +63,7 @@ describe('authInterceptor', () => {
   afterEach(() => {
     httpMock.verify();
     sessionStorage.clear();
+    TestBed.inject(CandidateSession).leaveAttempt();
   });
 
   it('attaches the in-memory access token as Bearer', () => {
@@ -112,5 +119,70 @@ describe('authInterceptor', () => {
       .flush({ title: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
     expect(logoutCalls).toBe(1);
     expect(failed).toBe(true);
+  });
+
+  it('does not attach Authorization to magic-link consume even when an employee session exists', () => {
+    tokens.setSession(initial);
+    http.post('/api/auth/magic-link/consume', { token: 'opaque' }).subscribe();
+    const consume = httpMock.expectOne('/api/auth/magic-link/consume');
+    expect(consume.request.headers.has('Authorization')).toBe(false);
+    consume.flush({
+      accessToken: 'candidate-1',
+      accessTokenExpiresAt: '2099-01-01T00:00:00Z',
+      tokenType: 'Bearer',
+      assignmentId: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+    });
+  });
+
+  it('sends the candidate bearer on attempt APIs from the attempt app, not the employee token', () => {
+    tokens.setSession(initial);
+    const candidate = TestBed.inject(CandidateSession);
+    candidate.enterAttempt();
+    candidate.setSession({
+      accessToken: 'candidate-1',
+      accessTokenExpiresAt: '2099-01-01T00:00:00Z',
+      tokenType: 'Bearer',
+      assignmentId: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+    });
+
+    http.post('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts', {}).subscribe();
+    const start = httpMock.expectOne(
+      '/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts',
+    );
+    expect(start.request.headers.get('Authorization')).toBe('Bearer candidate-1');
+    start.flush({});
+
+    http.get('/api/openings').subscribe();
+    const openings = httpMock.expectOne('/api/openings');
+    expect(openings.request.headers.get('Authorization')).toBe('Bearer access-1');
+    openings.flush([]);
+    candidate.leaveAttempt();
+  });
+
+  it('does not run employee refresh on a candidate 401', () => {
+    tokens.setSession(initial);
+    const candidate = TestBed.inject(CandidateSession);
+    candidate.enterAttempt();
+    candidate.setSession({
+      accessToken: 'candidate-1',
+      accessTokenExpiresAt: '2099-01-01T00:00:00Z',
+      tokenType: 'Bearer',
+      assignmentId: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+    });
+
+    let failed = false;
+    http.get('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts/current').subscribe({
+      error: () => {
+        failed = true;
+      },
+    });
+    httpMock
+      .expectOne('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts/current')
+      .flush({ title: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    expect(refreshCalls).toBe(0);
+    expect(logoutCalls).toBe(0);
+    expect(failed).toBe(true);
+    expect(tokens.accessToken()).toBe('access-1');
+    candidate.leaveAttempt();
   });
 });

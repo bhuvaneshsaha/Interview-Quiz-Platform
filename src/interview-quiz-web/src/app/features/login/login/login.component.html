@@ -1,6 +1,6 @@
 <main class="login-page">
   <h1>Sign in</h1>
-  <p>Employee email and password. Candidate magic-link sign-in is not in this slice.</p>
+  <p>Employee email and password. Candidates use an invite link (<code>/attempt</code>), not this form.</p>
 
   @if (error()) {
     <p #errorBox class="status status-error" role="alert" tabindex="-1">{{ error() }}</p>

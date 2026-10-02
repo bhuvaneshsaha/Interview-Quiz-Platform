@@ -24,8 +24,40 @@ public sealed class JwtAccessTokenIssuer : IJwtAccessTokenIssuer
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentNullException.ThrowIfNull(permissions);
 
+        return Create(userId, email, permissions, extraClaims: [], _options.AccessTokenMinutes);
+    }
+
+    public IssuedAccessToken IssueCandidate(string userId, string email, Guid assignmentId, Guid? attemptId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        var extra = new List<Claim>
+        {
+            new(PermissionClaims.AssignmentId, assignmentId.ToString("D"))
+        };
+        if (attemptId is { } id)
+        {
+            extra.Add(new Claim(PermissionClaims.AttemptId, id.ToString("D")));
+        }
+
+        return Create(
+            userId,
+            email,
+            [PermissionCodes.Candidate.AttemptParticipate],
+            extra,
+            _options.CandidateAccessTokenMinutes);
+    }
+
+    private IssuedAccessToken Create(
+        string userId,
+        string email,
+        IEnumerable<string> permissions,
+        IReadOnlyList<Claim> extraClaims,
+        int lifetimeMinutes)
+    {
         var now = _clock.UtcNow;
-        var expires = now.AddMinutes(_options.AccessTokenMinutes);
+        var expires = now.AddMinutes(lifetimeMinutes);
 
         var claims = new List<Claim>
         {
@@ -43,6 +75,8 @@ public sealed class JwtAccessTokenIssuer : IJwtAccessTokenIssuer
                 claims.Add(new Claim(PermissionClaims.Permission, permission));
             }
         }
+
+        claims.AddRange(extraClaims);
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

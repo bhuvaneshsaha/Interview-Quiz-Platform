@@ -1,0 +1,246 @@
+<a class="skip-link" href="#attempt-main">Skip to content</a>
+<app-offline-banner context="attempt" />
+<header class="attempt-header">
+  <p class="attempt-title">Interview Quiz</p>
+  <p class="attempt-tagline">Candidate attempt</p>
+</header>
+<main id="attempt-main" class="attempt-main">
+  <h1>Quiz attempt</h1>
+
+  <app-page-status
+    [loading]="loading()"
+    [error]="error()"
+    [correlationId]="correlationId()"
+    loadingMessage="Opening your quiz."
+  >
+    @if (bannerError()) {
+      <p class="status status-error" role="alert">{{ bannerError() }}</p>
+    }
+    @if (attempt(); as current) {
+      <p class="meta">
+        {{ current.questions.length }} questions
+        @if (!submitted()) {
+          ·
+          <span
+            class="timer"
+            role="timer"
+            [attr.aria-label]="'Time remaining ' + remainingLabel()"
+            [class.timer-warn]="timerUrgency() === 'warn'"
+            [class.timer-urgent]="timerUrgency() === 'urgent'"
+          >
+            Time remaining {{ remainingLabel() }}
+            @if (timerUrgency() === 'warn') {
+              <span class="timer-note">Less than 5 minutes.</span>
+            } @else if (timerUrgency() === 'urgent') {
+              <span class="timer-note">Less than 1 minute.</span>
+            }
+          </span>
+          <span class="visually-hidden" aria-live="polite">{{ timerAnnouncement() }}</span>
+        }
+        @if (saving()) {
+          · Saving answers…
+        }
+      </p>
+
+      @if (submitSummary(); as summary) {
+        <section class="results-banner" aria-live="polite">
+          <h2>Submitted</h2>
+          @if (autoSubmitted()) {
+            <p>Time ran out. Your quiz was submitted automatically, and you can't change your answers.</p>
+          }
+          <p>
+            Auto-scored {{ summary.autoPointsAwarded }} of {{ summary.autoPointsAvailable }} automatic
+            points ({{ summary.totalPointsAvailable }} total available). Result:
+            {{ resultStatusLabel(summary.resultStatus) }}.
+          </p>
+        </section>
+      }
+
+      <ol class="questions">
+        @for (question of current.questions; track question.id; let i = $index) {
+          <li class="question">
+            <h2>
+              {{ i + 1 }}. {{ typeLabel(question) }}
+              <span class="points">({{ question.points }} pts)</span>
+            </h2>
+            <p class="stem">{{ question.stem }}</p>
+
+            @if (submitted()) {
+              @if (resultFor(question.id); as result) {
+                <p class="item-result" [class.is-unsettled]="result.status === 'unsettled'">
+                  {{ resultLabel(result) }}
+                </p>
+              }
+            }
+
+            <fieldset [disabled]="submitted()">
+              <legend class="visually-hidden">Answer</legend>
+
+              @switch (question.type) {
+                @case ('multipleChoiceSingle') {
+                  @for (option of options(question); track option.id) {
+                    <label class="choice">
+                      <input
+                        type="radio"
+                        [name]="'q-' + question.id"
+                        [checked]="optionIdOf(answer(question.id)) === option.id"
+                        (change)="setSingle(question, option.id)"
+                      />
+                      {{ option.text }}
+                    </label>
+                  }
+                }
+                @case ('multipleChoiceMulti') {
+                  @for (option of options(question); track option.id) {
+                    <label class="choice">
+                      <input
+                        type="checkbox"
+                        [checked]="optionIdsOf(answer(question.id)).includes(option.id)"
+                        (change)="toggleMulti(question, option.id, $event)"
+                      />
+                      {{ option.text }}
+                    </label>
+                  }
+                }
+                @case ('trueFalse') {
+                  <label class="choice">
+                    <input
+                      type="radio"
+                      [name]="'tf-' + question.id"
+                      [checked]="boolValueOf(answer(question.id)) === true"
+                      (change)="setTrueFalse(question, true)"
+                    />
+                    True
+                  </label>
+                  <label class="choice">
+                    <input
+                      type="radio"
+                      [name]="'tf-' + question.id"
+                      [checked]="boolValueOf(answer(question.id)) === false"
+                      (change)="setTrueFalse(question, false)"
+                    />
+                    False
+                  </label>
+                }
+                @case ('shortText') {
+                  <label class="field-inline" [attr.for]="'text-' + question.id">Answer</label>
+                  <input
+                    [id]="'text-' + question.id"
+                    type="text"
+                    [ngModel]="textOf(answer(question.id))"
+                    (ngModelChange)="setText(question, $event)"
+                  />
+                }
+                @case ('longText') {
+                  <label class="field-inline" [attr.for]="'long-' + question.id">Answer</label>
+                  @if (longTextGuidance(question)) {
+                    <p class="hint">{{ longTextGuidance(question) }}</p>
+                  }
+                  <textarea
+                    [id]="'long-' + question.id"
+                    rows="6"
+                    [attr.maxlength]="longTextMaxLength(question)"
+                    [ngModel]="textOf(answer(question.id))"
+                    (ngModelChange)="setText(question, $event)"
+                  ></textarea>
+                }
+                @case ('dragDropSharedBank') {
+                  @for (slot of sharedSlots(question); track slot.id) {
+                    <div class="field">
+                      <label [attr.for]="'shared-' + question.id + '-' + slot.id">{{ slot.label }}</label>
+                      <select
+                        [id]="'shared-' + question.id + '-' + slot.id"
+                        [ngModel]="slotItemId(answer(question.id), slot.id)"
+                        (ngModelChange)="setSharedSlot(question, slot.id, $event)"
+                      >
+                        <option value="">Select an item</option>
+                        @for (item of bankItems(question); track item.id) {
+                          <option [value]="item.id">{{ item.text }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+                }
+                @case ('dragDropPerSlot') {
+                  @for (slot of perSlots(question); track slot.id) {
+                    <div class="field">
+                      <label [attr.for]="'per-' + question.id + '-' + slot.id">{{ slot.label }}</label>
+                      <select
+                        [id]="'per-' + question.id + '-' + slot.id"
+                        [ngModel]="slotOptionId(answer(question.id), slot.id)"
+                        (ngModelChange)="setPerSlot(question, slot.id, $event)"
+                      >
+                        <option value="">Select an option</option>
+                        @for (option of slot.options; track option.id) {
+                          <option [value]="option.id">{{ option.text }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+                }
+                @case ('ordering') {
+                  <ol class="order-list">
+                    @for (id of orderedIds(question); track id; let index = $index) {
+                      <li>
+                        <span>{{ orderingItemText(question, id) }}</span>
+                        <button
+                          type="button"
+                          class="button button-quiet"
+                          [disabled]="index === 0"
+                          (click)="moveOrder(question, index, -1)"
+                        >
+                          Move up
+                        </button>
+                        <button
+                          type="button"
+                          class="button button-quiet"
+                          [disabled]="index === orderedIds(question).length - 1"
+                          (click)="moveOrder(question, index, 1)"
+                        >
+                          Move down
+                        </button>
+                      </li>
+                    }
+                  </ol>
+                }
+                @default {
+                  <p class="hint">This question type cannot be answered in this client.</p>
+                }
+              }
+            </fieldset>
+          </li>
+        }
+      </ol>
+
+      @if (!submitted()) {
+        <button type="button" class="button" [disabled]="submitting()" (click)="requestSubmit()">
+          {{ submitting() ? 'Submitting…' : 'Submit quiz' }}
+        </button>
+      }
+    }
+  </app-page-status>
+</main>
+
+@if (confirmSubmit()) {
+  <div class="dialog-backdrop" (click)="cancelSubmit()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="submit-confirm-title"
+      aria-describedby="submit-confirm-body"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelSubmit()"
+    >
+      <h2 id="submit-confirm-title">Submit quiz?</h2>
+      <p id="submit-confirm-body">You won't be able to change answers.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" autofocus (click)="cancelSubmit()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-submit" (click)="confirmAndSubmit()">
+          Submit quiz
+        </button>
+      </div>
+    </div>
+  </div>
+}

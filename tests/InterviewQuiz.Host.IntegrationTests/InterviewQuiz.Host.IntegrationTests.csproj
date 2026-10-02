@@ -21,12 +21,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\InterviewQuiz.Host\InterviewQuiz.Host.csproj" />
+    <ProjectReference Include="..\..\src\InterviewQuiz.Kernel\InterviewQuiz.Kernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Access\InterviewQuiz.Access\InterviewQuiz.Access.csproj" />
     <ProjectReference Include="..\..\src\Modules\Openings\InterviewQuiz.Openings.Infrastructure\InterviewQuiz.Openings.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Openings\InterviewQuiz.Openings.Application\InterviewQuiz.Openings.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\InterviewQuiz.Catalog.Application\InterviewQuiz.Catalog.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\InterviewQuiz.Catalog.Infrastructure\InterviewQuiz.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Search\InterviewQuiz.Search\InterviewQuiz.Search.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Delivery\InterviewQuiz.Delivery.Application\InterviewQuiz.Delivery.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Delivery\InterviewQuiz.Delivery.Infrastructure\InterviewQuiz.Delivery.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Evaluation\InterviewQuiz.Evaluation.Application\InterviewQuiz.Evaluation.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Evaluation\InterviewQuiz.Evaluation.Infrastructure\InterviewQuiz.Evaluation.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
