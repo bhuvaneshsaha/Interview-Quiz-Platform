@@ -12,3 +12,11 @@
   color: var(--color-muted);
   font-size: 0.875rem;
 }
+
+.status-empty p {
+  margin: 0;
+}
+
+.status-empty .button {
+  margin-top: 0.75rem;
+}

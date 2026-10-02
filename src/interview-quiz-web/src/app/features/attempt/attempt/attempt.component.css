@@ -26,6 +26,27 @@
   margin: 0 0 1rem;
 }
 
+.timer-warn,
+.timer-urgent {
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.timer-warn {
+  color: #6b3f00;
+  background: #fff4d6;
+}
+
+.timer-urgent {
+  color: var(--color-danger);
+  background: #fde8e8;
+}
+
+.timer-note {
+  margin-left: 0.35rem;
+}
+
 .questions {
   list-style: none;
   padding: 0;

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AssignmentSummaryResponse, OpeningResponse } from '../../../core/api/contracts';
@@ -7,6 +7,7 @@ import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
+import { statusLabel } from '../../../shared/labels/status-labels';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { isUuid } from '../../quizzes/quiz-form.mapper';
 
@@ -23,6 +24,16 @@ export class AssignmentList implements OnInit {
 
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
+  readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.AssignmentsWrite));
+  readonly filtered = computed(
+    () => this.appliedOpeningId().trim().length > 0 || this.appliedKeyword().trim().length > 0,
+  );
+  readonly emptyMessage = computed(() =>
+    this.filtered() ? 'No assignments match this filter.' : 'No assignments yet.',
+  );
+  readonly emptyActionLabel = computed(() => (this.canWrite() ? 'Create assignment' : null));
+  readonly emptyActionLink = computed(() => (this.canWrite() ? '/assignments/new' : null));
+  readonly statusLabel = statusLabel;
   readonly openingFilter = new FormControl('', { nonNullable: true });
   readonly keyword = new FormControl('', { nonNullable: true });
 
@@ -97,23 +108,6 @@ export class AssignmentList implements OnInit {
   formatUpdated(value: string): string {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-  }
-
-  statusLabel(status: string): string {
-    switch (status) {
-      case 'notStarted':
-        return 'Not started';
-      case 'inProgress':
-        return 'In progress';
-      case 'submitted':
-        return 'Submitted';
-      case 'pendingReview':
-        return 'Pending review';
-      case 'completed':
-        return 'Completed';
-      default:
-        return status;
-    }
   }
 
   modeLabel(mode: string): string {

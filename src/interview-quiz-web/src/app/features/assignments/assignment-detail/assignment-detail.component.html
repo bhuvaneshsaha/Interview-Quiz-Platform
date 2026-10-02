@@ -53,19 +53,55 @@
         type="button"
         class="button"
         [disabled]="inviting()"
-        (click)="invite()"
+        (click)="requestInvite()"
       >
-        {{ inviting() ? 'Issuing invite…' : 'Issue invite link' }}
+        {{ inviting() ? 'Issuing invite…' : inviteUrl() ? 'Re-issue invite link' : 'Issue invite link' }}
       </button>
+    }
+
+    @if (inviteError()) {
+      <p class="status status-error" role="alert">{{ inviteError() }}</p>
     }
 
     @if (inviteUrl(); as url) {
       <div class="field invite-field">
+        @if (inviteReissued()) {
+          <p class="hint" role="status">New invite link issued. The previous link no longer works.</p>
+        }
         <label for="detail-invite-url">Invite link</label>
         <input id="detail-invite-url" data-testid="invite-url" type="text" readonly [value]="url" />
         <button type="button" class="button button-quiet" (click)="copyInvite(url)">
           {{ copied() ? 'Copied' : 'Copy invite link' }}
         </button>
+        @if (copyError()) {
+          <p class="status status-error" role="alert">{{ copyError() }}</p>
+        }
+      </div>
+    }
+
+    @if (confirmRotate()) {
+      <div class="dialog-backdrop" (click)="cancelRotate()">
+        <div
+          class="dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="rotate-invite-title"
+          aria-describedby="rotate-invite-body"
+          tabindex="-1"
+          (click)="$event.stopPropagation()"
+          (keydown.escape)="cancelRotate()"
+        >
+          <h2 id="rotate-invite-title">Re-issue invite link?</h2>
+          <p id="rotate-invite-body">
+            The current invite link will stop working. The candidate needs the new link to start.
+          </p>
+          <div class="dialog-actions">
+            <button type="button" class="button button-quiet" autofocus (click)="cancelRotate()">Cancel</button>
+            <button type="button" class="button" data-testid="confirm-rotate" (click)="confirmRotateInvite()">
+              Re-issue link
+            </button>
+          </div>
+        </div>
       </div>
     }
 
@@ -91,7 +127,7 @@
               @for (attempt of attempts(); track attempt.id) {
                 <tr>
                   <th scope="row">{{ statusLabel(attempt.status) }}</th>
-                  <td>{{ attempt.resultStatus }}</td>
+                  <td>{{ resultStatusLabel(attempt.resultStatus) }}</td>
                   <td>{{ attempt.autoPointsAwarded }} / {{ attempt.autoPointsAvailable }}</td>
                   <td>{{ formatDate(attempt.startedAtUtc) }}</td>
                   <td>{{ formatDate(attempt.submittedAtUtc) }}</td>

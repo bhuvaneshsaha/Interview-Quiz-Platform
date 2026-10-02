@@ -11,6 +11,15 @@
   margin-right: 1rem;
 }
 
+.choice-disabled,
+.coming-soon {
+  color: var(--color-muted);
+}
+
+.coming-soon {
+  font-size: 0.85rem;
+}
+
 .hint {
   color: var(--color-muted);
   margin: 0 0 0.75rem;

@@ -15,6 +15,7 @@ import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
+import { statusLabel } from '../../../shared/labels/status-labels';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { isUuid } from '../../quizzes/quiz-form.mapper';
 
@@ -45,6 +46,8 @@ export class AssignmentForm implements OnInit {
   readonly quizzes = signal<QuizResponse[]>([]);
   readonly created = signal<AssignmentResponse | null>(null);
   readonly copied = signal(false);
+  readonly copyError = signal<string | null>(null);
+  readonly statusLabel = statusLabel;
   private previousOpeningId = '';
 
   readonly form = this.fb.nonNullable.group({
@@ -90,6 +93,7 @@ export class AssignmentForm implements OnInit {
   submit(): void {
     this.error.set(null);
     this.copied.set(false);
+    this.copyError.set(null);
     if (!this.canWrite) {
       return;
     }
@@ -131,11 +135,13 @@ export class AssignmentForm implements OnInit {
   }
 
   async copyInvite(url: string): Promise<void> {
+    this.copyError.set(null);
     try {
       await navigator.clipboard.writeText(url);
       this.copied.set(true);
     } catch {
       this.copied.set(false);
+      this.copyError.set('Could not copy the invite link. Select the link and copy it manually.');
     }
   }
 

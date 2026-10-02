@@ -27,8 +27,10 @@ const sample: AssignmentSummaryResponse = {
 describe('AssignmentList', () => {
   let fixture: ComponentFixture<AssignmentList>;
   let permissions: PermissionService;
+  let listItems: AssignmentSummaryResponse[];
 
   beforeEach(async () => {
+    listItems = [sample];
     await TestBed.configureTestingModule({
       imports: [AssignmentList],
       providers: [
@@ -36,7 +38,7 @@ describe('AssignmentList', () => {
         {
           provide: AssignmentsApi,
           useValue: {
-            list: () => of({ items: [sample], page: 1, pageSize: 20, totalCount: 1 }),
+            list: () => of({ items: listItems, page: 1, pageSize: 20, totalCount: listItems.length }),
           },
         },
         {
@@ -68,5 +70,46 @@ describe('AssignmentList', () => {
     fixture.detectChanges();
     const create = fixture.nativeElement.querySelector('a[href="/assignments/new"]');
     expect(create?.textContent).toContain('Create assignment');
+  });
+
+  it('uses a first-run empty state with a create link when write is granted', async () => {
+    listItems = [];
+    permissions.set([PermissionCodes.AssignmentsRead, PermissionCodes.AssignmentsWrite]);
+    fixture = TestBed.createComponent(AssignmentList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const empty = fixture.nativeElement.querySelector('.status-empty') as HTMLElement;
+    expect(empty.textContent).toContain('No assignments yet.');
+    expect(empty.textContent).not.toContain('No assignments match this filter.');
+    expect(empty.querySelector('a')?.textContent).toContain('Create assignment');
+  });
+
+  it('uses filtered empty copy when a keyword is applied', async () => {
+    listItems = [];
+    permissions.set([PermissionCodes.AssignmentsRead, PermissionCodes.AssignmentsWrite]);
+    fixture = TestBed.createComponent(AssignmentList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.keyword.setValue('nobody@example.com');
+    fixture.componentInstance.submitFilter();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const empty = fixture.nativeElement.querySelector('.status-empty') as HTMLElement;
+    expect(empty.textContent).toContain('No assignments match this filter.');
+    expect(empty.textContent).not.toContain('No assignments yet.');
+    expect(empty.querySelector('a')?.textContent).toContain('Create assignment');
+  });
+
+  it('omits the empty-state create link without assignments.write', async () => {
+    listItems = [];
+    permissions.set([PermissionCodes.AssignmentsRead]);
+    fixture = TestBed.createComponent(AssignmentList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const empty = fixture.nativeElement.querySelector('.status-empty') as HTMLElement;
+    expect(empty.textContent).toContain('No assignments yet.');
+    expect(empty.querySelector('a')).toBeNull();
   });
 });

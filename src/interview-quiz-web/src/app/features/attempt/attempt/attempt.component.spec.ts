@@ -44,10 +44,14 @@ describe('Attempt', () => {
   let fixture: ComponentFixture<Attempt>;
   let consumeCalls: string[];
   let startCalls: string[];
+  let submitCalls: string[];
+  let startedAttempt: CandidateAttemptResponse;
 
   beforeEach(async () => {
     consumeCalls = [];
     startCalls = [];
+    submitCalls = [];
+    startedAttempt = attempt;
     await TestBed.configureTestingModule({
       imports: [Attempt],
       providers: [
@@ -72,11 +76,12 @@ describe('Attempt', () => {
           useValue: {
             start: (id: string) => {
               startCalls.push(id);
-              return of(attempt);
+              return of(startedAttempt);
             },
             saveAnswers: () => of(attempt),
-            submit: () =>
-              of({
+            submit: (id: string) => {
+              submitCalls.push(id);
+              return of({
                 ...attempt,
                 status: 'submitted',
                 resultStatus: 'complete',
@@ -84,7 +89,8 @@ describe('Attempt', () => {
                 autoPointsAvailable: 1,
                 totalPointsAvailable: 1,
                 itemResults: [],
-              }),
+              });
+            },
           },
         },
       ],
@@ -110,5 +116,74 @@ describe('Attempt', () => {
     expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('Quiz attempt');
     expect(fixture.nativeElement.textContent).toContain('A quiz belongs to exactly one opening.');
     expect(TestBed.inject(CandidateSession).accessToken()).toBe('candidate-1');
+  });
+
+  it('confirms manual submit and humanizes the result status', async () => {
+    fixture = TestBed.createComponent(Attempt);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const submitButton = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Submit quiz',
+    ) as HTMLButtonElement;
+    submitButton.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('[role="alertdialog"]') as HTMLElement;
+    expect(dialog.textContent).toContain("You won't be able to change answers");
+    expect(submitCalls).toEqual([]);
+
+    const cancel = [...dialog.querySelectorAll('button')].find((button: HTMLButtonElement) =>
+      button.textContent?.includes('Cancel'),
+    ) as HTMLButtonElement;
+    cancel.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(submitCalls).toEqual([]);
+
+    submitButton.click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="confirm-submit"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(submitCalls).toEqual([assignmentId]);
+    expect(fixture.nativeElement.textContent).toContain('Result: Complete');
+    expect(fixture.nativeElement.textContent).not.toContain('Time ran out');
+  });
+
+  it('styles the timer and announces once under five minutes', async () => {
+    startedAttempt = {
+      ...attempt,
+      dueAtUtc: new Date(Date.now() + 90_000).toISOString(),
+      remainingSeconds: 90,
+    };
+    fixture = TestBed.createComponent(Attempt);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const timer = fixture.nativeElement.querySelector('[role="timer"]') as HTMLElement;
+    expect(timer.classList.contains('timer-warn')).toBe(true);
+    expect(timer.textContent).toContain('Less than 5 minutes.');
+    const live = fixture.nativeElement.querySelector('[aria-live="polite"]') as HTMLElement;
+    expect(live.textContent).toContain('Less than 5 minutes remaining.');
+  });
+
+  it('explains automatic submit when time runs out', async () => {
+    fixture = TestBed.createComponent(Attempt);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.componentInstance.submit('timeout');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(submitCalls).toEqual([assignmentId]);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Time ran out');
+    expect(fixture.nativeElement.textContent).toContain("you can't change your answers");
   });
 });

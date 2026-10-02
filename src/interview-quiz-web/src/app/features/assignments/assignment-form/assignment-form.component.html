@@ -13,7 +13,14 @@
     <div class="field">
       @if (canReadOpenings) {
         <label for="openingId">Opening</label>
-        <select id="openingId" formControlName="openingId">
+        <select
+          id="openingId"
+          formControlName="openingId"
+          [attr.aria-invalid]="form.controls.openingId.touched && form.controls.openingId.invalid"
+          [attr.aria-describedby]="
+            form.controls.openingId.touched && form.controls.openingId.invalid ? 'opening-error' : null
+          "
+        >
           <option value="">Select an opening</option>
           @for (opening of openings(); track opening.id) {
             <option [value]="opening.id">{{ opening.title }}</option>
@@ -21,7 +28,16 @@
         </select>
       } @else {
         <label for="openingId">Opening id</label>
-        <input id="openingId" type="text" formControlName="openingId" autocomplete="off" />
+        <input
+          id="openingId"
+          type="text"
+          formControlName="openingId"
+          autocomplete="off"
+          [attr.aria-invalid]="form.controls.openingId.touched && form.controls.openingId.invalid"
+          [attr.aria-describedby]="
+            form.controls.openingId.touched && form.controls.openingId.invalid ? 'opening-error' : null
+          "
+        />
       }
       @if (form.controls.openingId.touched && form.controls.openingId.invalid) {
         <p class="field-error" id="opening-error">Opening is required.</p>
@@ -31,7 +47,12 @@
     <div class="field">
       @if (canReadQuizzes) {
         <label for="quizId">Quiz</label>
-        <select id="quizId" formControlName="quizId">
+        <select
+          id="quizId"
+          formControlName="quizId"
+          [attr.aria-invalid]="form.controls.quizId.touched && form.controls.quizId.invalid"
+          [attr.aria-describedby]="form.controls.quizId.touched && form.controls.quizId.invalid ? 'quiz-error' : null"
+        >
           <option value="">Select a quiz</option>
           @for (quiz of quizzes(); track quiz.id) {
             <option [value]="quiz.id">{{ quiz.title }}</option>
@@ -39,10 +60,17 @@
         </select>
       } @else {
         <label for="quizId">Quiz id</label>
-        <input id="quizId" type="text" formControlName="quizId" autocomplete="off" />
+        <input
+          id="quizId"
+          type="text"
+          formControlName="quizId"
+          autocomplete="off"
+          [attr.aria-invalid]="form.controls.quizId.touched && form.controls.quizId.invalid"
+          [attr.aria-describedby]="form.controls.quizId.touched && form.controls.quizId.invalid ? 'quiz-error' : null"
+        />
       }
       @if (form.controls.quizId.touched && form.controls.quizId.invalid) {
-        <p class="field-error">Quiz is required and must belong to the opening.</p>
+        <p id="quiz-error" class="field-error">Quiz is required and must belong to the opening.</p>
       }
     </div>
 
@@ -54,9 +82,14 @@
         formControlName="candidateEmail"
         autocomplete="email"
         [attr.aria-invalid]="form.controls.candidateEmail.touched && form.controls.candidateEmail.invalid"
+        [attr.aria-describedby]="
+          form.controls.candidateEmail.touched && form.controls.candidateEmail.invalid
+            ? 'candidate-email-error'
+            : null
+        "
       />
       @if (form.controls.candidateEmail.touched && form.controls.candidateEmail.invalid) {
-        <p class="field-error">Enter a valid email address.</p>
+        <p id="candidate-email-error" class="field-error">Enter a valid email address.</p>
       }
     </div>
 
@@ -66,18 +99,12 @@
         <input type="radio" formControlName="mode" value="async" />
         Async
       </label>
-      <label class="choice">
-        <input type="radio" formControlName="mode" value="live" />
+      <label class="choice choice-disabled">
+        <input type="radio" name="assignment-mode-live" value="live" disabled />
         Live
+        <span class="coming-soon">Coming soon</span>
       </label>
     </fieldset>
-
-    @if (isLive) {
-      <p class="hint" role="note">
-        Live invite links and candidate start are in slice 6. You can save a live assignment now, but
-        there is no invite URL and the candidate cannot start yet.
-      </p>
-    }
 
     @if (!isLive) {
       <div class="field">
@@ -88,16 +115,37 @@
           min="1"
           max="480"
           formControlName="overallDurationMinutes"
+          [attr.aria-invalid]="
+            form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
+          "
+          [attr.aria-describedby]="
+            form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
+              ? 'duration-error'
+              : null
+          "
         />
         @if (form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid) {
-          <p class="field-error">Duration is required for async assignments (1–480 minutes).</p>
+          <p id="duration-error" class="field-error">Duration is required for async assignments (1–480 minutes).</p>
         }
       </div>
     }
 
     <div class="field">
       <label for="attemptLimit">Attempt limit</label>
-      <input id="attemptLimit" type="number" min="1" max="20" formControlName="attemptLimit" />
+      <input
+        id="attemptLimit"
+        type="number"
+        min="1"
+        max="20"
+        formControlName="attemptLimit"
+        [attr.aria-invalid]="form.controls.attemptLimit.touched && form.controls.attemptLimit.invalid"
+        [attr.aria-describedby]="
+          form.controls.attemptLimit.touched && form.controls.attemptLimit.invalid ? 'attempt-limit-error' : null
+        "
+      />
+      @if (form.controls.attemptLimit.touched && form.controls.attemptLimit.invalid) {
+        <p id="attempt-limit-error" class="field-error">Attempt limit must be between 1 and 20.</p>
+      }
     </div>
 
     <button *hasPermission="codes.AssignmentsWrite" type="submit" class="button" [disabled]="saving()">
@@ -109,7 +157,7 @@
     <section class="created" aria-live="polite">
       <h2>Assignment created</h2>
       <p>
-        Status {{ assignment.status }} · snapshot {{ assignment.snapshotTitle }} ({{
+        Status {{ statusLabel(assignment.status) }} · snapshot {{ assignment.snapshotTitle }} ({{
           assignment.snapshotQuestionCount
         }}
         questions).
@@ -122,6 +170,9 @@
         <button type="button" class="button button-quiet" (click)="copyInvite(assignment.inviteUrl)">
           {{ copied() ? 'Copied' : 'Copy invite link' }}
         </button>
+        @if (copyError()) {
+          <p class="status status-error" role="alert">{{ copyError() }}</p>
+        }
       } @else if (assignment.mode === 'live') {
         <p class="hint">Live invite and attempt start are in slice 6. No invite link for this assignment.</p>
       }

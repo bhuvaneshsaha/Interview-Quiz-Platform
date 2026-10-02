@@ -141,4 +141,46 @@ describe('AssignmentForm', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="invite-url"]')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('slice 6');
   });
+
+  it('keeps Live mode disabled until slice 6', async () => {
+    fixture = TestBed.createComponent(AssignmentForm);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const live = fixture.nativeElement.querySelector('input[value="live"]') as HTMLInputElement;
+    expect(live.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Coming soon');
+  });
+
+  it('describes invalid fields the same way as login', async () => {
+    fixture = TestBed.createComponent(AssignmentForm);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.submit();
+    fixture.detectChanges();
+
+    const email = fixture.nativeElement.querySelector('#candidateEmail') as HTMLInputElement;
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(email.getAttribute('aria-describedby')).toBe('candidate-email-error');
+    expect(fixture.nativeElement.querySelector('#candidate-email-error')).not.toBeNull();
+
+    const opening = fixture.nativeElement.querySelector('#openingId') as HTMLSelectElement;
+    expect(opening.getAttribute('aria-invalid')).toBe('true');
+    expect(opening.getAttribute('aria-describedby')).toBe('opening-error');
+  });
+
+  it('shows an alert when the invite link cannot be copied', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+    });
+    await fillAndSubmit('async');
+    const copy = [...fixture.nativeElement.querySelectorAll('button')].find((button: HTMLButtonElement) =>
+      button.textContent?.includes('Copy invite link'),
+    ) as HTMLButtonElement;
+    copy.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('Could not copy the invite link');
+  });
 });

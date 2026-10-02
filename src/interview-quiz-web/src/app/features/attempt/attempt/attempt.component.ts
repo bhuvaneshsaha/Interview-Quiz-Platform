@@ -16,6 +16,7 @@ import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
+import { resultStatusLabel } from '../../../shared/labels/status-labels';
 import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.component';
 import { QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
 import {
@@ -36,6 +37,7 @@ import {
   slotOptionId,
   textOf,
 } from './candidate-answer.util';
+import { nextTimerAnnouncement, timerUrgency, TimerAnnouncementState } from './timer-urgency';
 
 @Component({
   selector: 'app-attempt',
@@ -52,8 +54,10 @@ export class Attempt implements OnInit {
   private readonly saves = new Subject<void>();
   private timerId: ReturnType<typeof setInterval> | null = null;
   private autoSubmitStarted = false;
+  private timerAnnounced: TimerAnnouncementState = { five: false, one: false };
 
   readonly typeLabels = QUESTION_TYPE_LABELS;
+  readonly resultStatusLabel = resultStatusLabel;
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly submitting = signal(false);
@@ -64,6 +68,9 @@ export class Attempt implements OnInit {
   readonly answers = signal<Record<string, AnswerValue | undefined>>({});
   readonly itemResults = signal<CandidateItemResult[]>([]);
   readonly submitSummary = signal<CandidateSubmitResponse | null>(null);
+  readonly confirmSubmit = signal(false);
+  readonly autoSubmitted = signal(false);
+  readonly timerAnnouncement = signal('');
   readonly now = signal(Date.now());
 
   readonly remainingSeconds = computed(() => {
@@ -82,6 +89,13 @@ export class Attempt implements OnInit {
   readonly submitted = computed(() => {
     const attempt = this.attempt();
     return attempt?.status === 'submitted' || this.submitSummary() !== null;
+  });
+
+  readonly timerUrgency = computed(() => {
+    if (this.submitted() || this.submitting()) {
+      return 'none' as const;
+    }
+    return timerUrgency(this.remainingSeconds());
   });
 
   constructor() {
@@ -218,10 +232,31 @@ export class Attempt implements OnInit {
     this.patchAnswer(question.id, { itemIds: ids });
   }
 
-  submit(): void {
+  requestSubmit(): void {
     const attempt = this.attempt();
     if (!attempt || this.submitted() || this.submitting()) {
       return;
+    }
+    this.confirmSubmit.set(true);
+  }
+
+  cancelSubmit(): void {
+    this.confirmSubmit.set(false);
+  }
+
+  confirmAndSubmit(): void {
+    this.confirmSubmit.set(false);
+    this.submit('manual');
+  }
+
+  submit(source: 'manual' | 'timeout' = 'manual'): void {
+    const attempt = this.attempt();
+    if (!attempt || this.submitted() || this.submitting()) {
+      return;
+    }
+    this.confirmSubmit.set(false);
+    if (source === 'timeout') {
+      this.autoSubmitted.set(true);
     }
     this.submitting.set(true);
     this.bannerError.set(null);
@@ -281,10 +316,13 @@ export class Attempt implements OnInit {
       this.candidate.clear();
       return;
     }
-    this.startTimer();
     if (this.remainingSeconds() <= 0) {
-      this.submit();
+      this.autoSubmitStarted = true;
+      this.submit('timeout');
+      return;
     }
+    this.startTimer();
+    this.noteTimerThreshold();
   }
 
   private patchAnswer(questionId: string, value: AnswerValue): void {
@@ -346,11 +384,20 @@ export class Attempt implements OnInit {
     this.now.set(Date.now());
     this.timerId = setInterval(() => {
       this.now.set(Date.now());
+      this.noteTimerThreshold();
       if (!this.autoSubmitStarted && this.remainingSeconds() <= 0 && !this.submitted()) {
         this.autoSubmitStarted = true;
-        this.submit();
+        this.submit('timeout');
       }
     }, 1000);
+  }
+
+  private noteTimerThreshold(): void {
+    const next = nextTimerAnnouncement(this.remainingSeconds(), this.timerAnnounced);
+    this.timerAnnounced = next.state;
+    if (next.message) {
+      this.timerAnnouncement.set(next.message);
+    }
   }
 
   private stopTimer(): void {

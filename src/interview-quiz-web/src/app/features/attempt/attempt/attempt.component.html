@@ -1,5 +1,5 @@
 <a class="skip-link" href="#attempt-main">Skip to content</a>
-<app-offline-banner />
+<app-offline-banner context="attempt" />
 <header class="attempt-header">
   <p class="attempt-title">Interview Quiz</p>
   <p class="attempt-tagline">Candidate attempt</p>
@@ -20,7 +20,22 @@
       <p class="meta">
         {{ current.questions.length }} questions
         @if (!submitted()) {
-          · <span role="timer" aria-label="Time remaining">Time remaining {{ remainingLabel() }}</span>
+          ·
+          <span
+            class="timer"
+            role="timer"
+            [attr.aria-label]="'Time remaining ' + remainingLabel()"
+            [class.timer-warn]="timerUrgency() === 'warn'"
+            [class.timer-urgent]="timerUrgency() === 'urgent'"
+          >
+            Time remaining {{ remainingLabel() }}
+            @if (timerUrgency() === 'warn') {
+              <span class="timer-note">Less than 5 minutes.</span>
+            } @else if (timerUrgency() === 'urgent') {
+              <span class="timer-note">Less than 1 minute.</span>
+            }
+          </span>
+          <span class="visually-hidden" aria-live="polite">{{ timerAnnouncement() }}</span>
         }
         @if (saving()) {
           · Saving answers…
@@ -30,10 +45,13 @@
       @if (submitSummary(); as summary) {
         <section class="results-banner" aria-live="polite">
           <h2>Submitted</h2>
+          @if (autoSubmitted()) {
+            <p>Time ran out. Your quiz was submitted automatically, and you can't change your answers.</p>
+          }
           <p>
             Auto-scored {{ summary.autoPointsAwarded }} of {{ summary.autoPointsAvailable }} automatic
             points ({{ summary.totalPointsAvailable }} total available). Result:
-            {{ summary.resultStatus }}.
+            {{ resultStatusLabel(summary.resultStatus) }}.
           </p>
         </section>
       }
@@ -195,10 +213,34 @@
       </ol>
 
       @if (!submitted()) {
-        <button type="button" class="button" [disabled]="submitting()" (click)="submit()">
+        <button type="button" class="button" [disabled]="submitting()" (click)="requestSubmit()">
           {{ submitting() ? 'Submitting…' : 'Submit quiz' }}
         </button>
       }
     }
   </app-page-status>
 </main>
+
+@if (confirmSubmit()) {
+  <div class="dialog-backdrop" (click)="cancelSubmit()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="submit-confirm-title"
+      aria-describedby="submit-confirm-body"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelSubmit()"
+    >
+      <h2 id="submit-confirm-title">Submit quiz?</h2>
+      <p id="submit-confirm-body">You won't be able to change answers.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" autofocus (click)="cancelSubmit()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-submit" (click)="confirmAndSubmit()">
+          Submit quiz
+        </button>
+      </div>
+    </div>
+  </div>
+}

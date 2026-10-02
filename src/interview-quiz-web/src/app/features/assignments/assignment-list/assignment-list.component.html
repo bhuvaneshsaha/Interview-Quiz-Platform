@@ -37,7 +37,9 @@
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && assignments().length === 0"
-  emptyMessage="No assignments match this filter."
+  [emptyMessage]="emptyMessage()"
+  [emptyActionLabel]="emptyActionLabel()"
+  [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading assignments."
 >
   <table class="data-table">
