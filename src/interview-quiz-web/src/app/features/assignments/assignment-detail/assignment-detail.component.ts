@@ -9,6 +9,7 @@ import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
+import { INVITE_LIFETIME_NOTE } from '../invite-lifetime';
 import { resultStatusLabel, statusLabel } from '../../../shared/labels/status-labels';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 
@@ -45,6 +46,7 @@ export class AssignmentDetail implements OnInit {
   readonly copyError = signal<string | null>(null);
   readonly statusLabel = statusLabel;
   readonly resultStatusLabel = resultStatusLabel;
+  readonly inviteLifetimeNote = INVITE_LIFETIME_NOTE;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

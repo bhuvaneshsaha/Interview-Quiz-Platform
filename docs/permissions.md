@@ -72,7 +72,7 @@ These codes are **not** the drag-drop question type `dragDropSharedBank` (items 
 |------|----------------|------------|
 | `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id`. **No** SavedFilters on the list. |
 | `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/{id}/invite`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
-| `sessions.live.run` | Run live sessions | Start, pause, and monitor a live attempt (**slice 6** — no slice 5 path) |
+| `sessions.live.run` | Run live sessions | **Seeded but inactive until slice 6.** Start, pause, and monitor a live attempt. No slice 5 API or screen uses this code. Dev Recruiter seed includes it. |
 
 Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes.write`. **Dev Recruiter seed already includes** `assignments.read` / `assignments.write` / `sessions.live.run`. **Dev Template author seed does not** — authors cannot assign unless an operator grants the codes. Candidate JWTs never include `assignments.write`.
 
@@ -85,9 +85,20 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 | Code | Display name | Capability |
 |------|----------------|------------|
 | `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
-| `attempts.review` | Review attempts | Score written items (human or confirm AI-assist); finalise result. **Slice 7** — no slice 5 path. Dev Reviewer seed has this. |
+| `attempts.review` | Review attempts | **Seeded but inactive until slice 7.** Score written items (human or confirm AI-assist) and finalise a result. No slice 5 API or screen uses this code. Dev Reviewer seed includes it. |
 
 AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
+
+### Seeded but inactive
+
+`sessions.live.run` and `attempts.review` are in the permission catalog and in Development seed bundles, and they are **inactive** until later slices:
+
+| Code | Seeded on | Inactive until |
+|------|-----------|----------------|
+| `sessions.live.run` | Dev Recruiter | Slice 6 (live start, pause, monitor) |
+| `attempts.review` | Dev Reviewer | Slice 7 (human / AI-assist review) |
+
+Granting either code in slice 5 does not unlock a workflow. A role that includes them still cannot run a live session or finalise a review. See [slice 5 MVP boundary](slice-5-mvp.md).
 
 ---
 

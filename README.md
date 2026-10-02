@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, Entra ID, and SMTP are **not** in this pass.
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, Entra ID, and SMTP are **not** in this pass. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Prerequisites
 

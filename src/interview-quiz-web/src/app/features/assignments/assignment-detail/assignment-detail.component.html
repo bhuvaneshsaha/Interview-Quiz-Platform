@@ -68,6 +68,7 @@
         @if (inviteReissued()) {
           <p class="hint" role="status">New invite link issued. The previous link no longer works.</p>
         }
+        <p class="hint">{{ inviteLifetimeNote }}</p>
         <label for="detail-invite-url">Invite link</label>
         <input id="detail-invite-url" data-testid="invite-url" type="text" readonly [value]="url" />
         <button type="button" class="button button-quiet" (click)="copyInvite(url)">
@@ -121,6 +122,7 @@
                 <th scope="col">Auto score</th>
                 <th scope="col">Started</th>
                 <th scope="col">Submitted</th>
+                <th scope="col">Detail</th>
               </tr>
             </thead>
             <tbody>
@@ -131,6 +133,9 @@
                   <td>{{ attempt.autoPointsAwarded }} / {{ attempt.autoPointsAvailable }}</td>
                   <td>{{ formatDate(attempt.startedAtUtc) }}</td>
                   <td>{{ formatDate(attempt.submittedAtUtc) }}</td>
+                  <td>
+                    <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id]">View</a>
+                  </td>
                 </tr>
               }
             </tbody>

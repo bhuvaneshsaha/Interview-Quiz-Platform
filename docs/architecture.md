@@ -329,6 +329,7 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager; **no** SavedFilters) |
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
+| `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail: stem, candidate answer, auto points or awaiting human review. No answer keys |
 
 **Candidate (not the employee shell; implemented):** `/attempt?token=` — consume magic-link (ADR 0008). Isolated in-memory `CandidateSession` (not employee `TokenStore`). Auth still owns branded employee-vs-candidate entry UX; this is the invite landing path.
 
@@ -887,7 +888,7 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 
 ### 16.11 Angular (implemented)
 
-Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control). Invite button calls `POST .../invite`. Results panel if `attempts.read`. Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live mode is stored on create; invite/attempt for live is **not** executed (slice 6).
+Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id`, `/assignments/:assignmentId/attempts/:attemptId` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control) plus the note that the link works until submit or a new link, and that an expired candidate session can reopen it. Invite button calls `POST .../invite`. Results panel if `attempts.read`; each row opens `GET /api/attempts/{id}` (stem, answer, points or “Awaiting human review”; no keys). Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live mode is stored on create; invite/attempt for live is **not** executed (slice 6). Boundary one-pager: [slice-5-mvp.md](slice-5-mvp.md).
 
 Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → start/save/submit with isolated in-memory `CandidateSession` (not `TokenStore`). Online-only.
 

@@ -21,6 +21,27 @@ export function resultStatusLabel(status: string | null | undefined): string {
   return labelFrom(status, RESULT_STATUS_LABELS);
 }
 
+/**
+ * Per-question outcome. Unsettled items wait for slice 7 review and are not shown as a zero.
+ * Pass `points` to include the question total (`1 / 2 points`).
+ */
+export function itemResultLabel(
+  status: string | null | undefined,
+  pointsAwarded: number | null | undefined,
+  points?: number | null,
+): string {
+  if (status === 'unsettled') {
+    return 'Awaiting human review';
+  }
+  if (pointsAwarded === null || pointsAwarded === undefined) {
+    return 'Scored';
+  }
+  if (points === null || points === undefined) {
+    return `Scored: ${pointsAwarded}`;
+  }
+  return `${pointsAwarded} / ${points} points`;
+}
+
 function labelFrom(status: string | null | undefined, known: Record<string, string>): string {
   if (!status) {
     return '—';

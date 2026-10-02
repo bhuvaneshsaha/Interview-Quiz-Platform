@@ -128,6 +128,8 @@ describe('AssignmentForm', () => {
     const invite = fixture.nativeElement.querySelector('[data-testid="invite-url"]') as HTMLInputElement;
     expect(invite).not.toBeNull();
     expect(invite.value).toContain('/attempt?token=opaque');
+    expect(fixture.nativeElement.textContent).toContain('until the candidate submits');
+    expect(fixture.nativeElement.textContent).toContain('sign-in session expires');
   });
 
   it('hides invite copy for live create', async () => {

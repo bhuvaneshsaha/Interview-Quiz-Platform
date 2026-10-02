@@ -98,6 +98,11 @@ describe('AssignmentDetail', () => {
     await render();
     expect(fixture.nativeElement.textContent).toContain('Incomplete');
     expect(fixture.nativeElement.textContent).not.toContain('incomplete');
+    expect(
+      fixture.nativeElement.querySelector(
+        `a[href="/assignments/${assignment.id}/attempts/attempt-1"]`,
+      ),
+    ).not.toBeNull();
 
     issueButton().click();
     await fixture.whenStable();
@@ -105,6 +110,8 @@ describe('AssignmentDetail', () => {
 
     const firstUrl = inviteInput().value;
     expect(firstUrl).toContain('token=invite-1');
+    expect(fixture.nativeElement.textContent).toContain('until the candidate submits');
+    expect(fixture.nativeElement.textContent).toContain('sign-in session expires');
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
     expect(inviteCalls).toBe(1);
 

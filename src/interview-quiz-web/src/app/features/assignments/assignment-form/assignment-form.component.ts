@@ -15,6 +15,7 @@ import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
+import { INVITE_LIFETIME_NOTE } from '../invite-lifetime';
 import { statusLabel } from '../../../shared/labels/status-labels';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { isUuid } from '../../quizzes/quiz-form.mapper';
@@ -48,6 +49,7 @@ export class AssignmentForm implements OnInit {
   readonly copied = signal(false);
   readonly copyError = signal<string | null>(null);
   readonly statusLabel = statusLabel;
+  readonly inviteLifetimeNote = INVITE_LIFETIME_NOTE;
   private previousOpeningId = '';
 
   readonly form = this.fb.nonNullable.group({

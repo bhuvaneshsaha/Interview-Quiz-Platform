@@ -49,8 +49,9 @@ Do not put JWT signing keys, connection strings, or dummy passwords into environ
 | `/questions/new` | `questions.write` | Create bank question |
 | `/questions/:id` | `questions.read` or `questions.write` | View / edit bank question; archive/unarchive with write; read-only without write |
 | `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager). **No** SavedFilters |
-| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit). Async 201 shows `inviteUrl` (`data-testid="invite-url"`). Live has no invite copy (slice 6) |
+| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit). Async 201 shows `inviteUrl` (`data-testid="invite-url"`) and the note that the link works until submit or a new link, and that an expired sign-in session can reopen it. Live has no invite copy (slice 6) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, issue invite (`assignments.write`, async not submitted), results table if `attempts.read` |
+| `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail from a results row: stem, candidate answer, points or “Awaiting human review”. No answer keys |
 | `/attempt?token=` | none (outside employee shell) | Candidate magic-link: POST consume, start/save/submit. Isolated candidate access token |
 
 Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`, **no** `questions.*`) can browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read`) can clone a version into a quiz (opening picker needs `openings.read`, otherwise an opening id field). After clone the client navigates to `/quizzes/{id}`. Publish as template is hidden without `templates.write` and is not shown on create-new.

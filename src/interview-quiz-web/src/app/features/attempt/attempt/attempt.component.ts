@@ -16,7 +16,7 @@ import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
-import { resultStatusLabel } from '../../../shared/labels/status-labels';
+import { itemResultLabel, resultStatusLabel } from '../../../shared/labels/status-labels';
 import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.component';
 import { QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
 import {
@@ -173,13 +173,7 @@ export class Attempt implements OnInit {
     if (!result) {
       return '';
     }
-    if (result.status === 'unsettled') {
-      return 'Unsettled — waiting for review';
-    }
-    if (result.pointsAwarded === null || result.pointsAwarded === undefined) {
-      return 'Scored';
-    }
-    return `Scored: ${result.pointsAwarded}`;
+    return itemResultLabel(result.status, result.pointsAwarded);
   }
 
   setSingle(question: CandidateQuestion, optionId: string): void {

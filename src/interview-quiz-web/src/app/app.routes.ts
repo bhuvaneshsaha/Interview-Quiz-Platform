@@ -152,6 +152,16 @@ export const routes: Routes = [
         title: 'Create assignment',
       },
       {
+        path: 'assignments/:assignmentId/attempts/:attemptId',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AttemptsRead },
+        loadComponent: () =>
+          import('./features/assignments/attempt-detail/attempt-detail.component').then(
+            (m) => m.AttemptDetail,
+          ),
+        title: 'Attempt',
+      },
+      {
         path: 'assignments/:id',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.AssignmentsRead },

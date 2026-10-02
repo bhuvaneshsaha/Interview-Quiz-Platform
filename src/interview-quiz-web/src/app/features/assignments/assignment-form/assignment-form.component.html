@@ -164,6 +164,7 @@
       </p>
       @if (assignment.mode === 'async' && assignment.inviteUrl) {
         <div class="field">
+          <p class="hint">{{ inviteLifetimeNote }}</p>
           <label for="invite-url">Invite link</label>
           <input id="invite-url" data-testid="invite-url" type="text" readonly [value]="assignment.inviteUrl" />
         </div>
