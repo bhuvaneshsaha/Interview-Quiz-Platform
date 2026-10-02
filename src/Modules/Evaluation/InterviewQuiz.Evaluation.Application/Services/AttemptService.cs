@@ -51,8 +51,9 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
         var inProgress = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
         if (inProgress is not null)
         {
+            var expiredInPlace = inProgress.IsDue(_clock);
             inProgress = await AutoSubmitIfDueAsync(inProgress, header, cancellationToken);
-            if (!inProgress.IsSubmitted)
+            if (!inProgress.IsSubmitted || expiredInPlace)
             {
                 return (MapCandidate(inProgress, header.Snapshot), false);
             }

@@ -41,6 +41,7 @@ public static class CandidateQuestionRedactor
                 break;
             case QuestionType.DragDropSharedBank:
                 StripSharedSlots(obj["slots"] as JsonArray);
+                StripDistractorFlags(obj["bank"] as JsonArray);
                 break;
             case QuestionType.DragDropPerSlot:
                 StripPerSlotOptions(obj["slots"] as JsonArray);
@@ -123,6 +124,19 @@ public static class CandidateQuestionRedactor
         foreach (var slot in slots.OfType<JsonObject>())
         {
             slot.Remove("correctItemId");
+        }
+    }
+
+    private static void StripDistractorFlags(JsonArray? bank)
+    {
+        if (bank is null)
+        {
+            return;
+        }
+
+        foreach (var item in bank.OfType<JsonObject>())
+        {
+            item.Remove("isDistractor");
         }
     }
 
