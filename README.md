@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, **Reporting v1**, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 will be released as v0.2.0. Human review, AI drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch, plus live sessions, **Reporting v1**, and **human review** of unsettled attempts: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score/review, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 shipped as v0.2.0. AI suggestion drafts, AI authoring drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Releases
 
@@ -394,8 +394,10 @@ curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e50
 | `POST` | `/api/assignments/{id}/attempts/current/submit` | `candidate.attempt.participate` + `assignment_id` claim |
 | `GET` | `/api/assignments/{id}/attempts` | `attempts.read` |
 | `GET` | `/api/attempts/{id}` | `attempts.read` |
+| `GET` | `/api/attempts/{id}/review` | `attempts.review` |
+| `POST` | `/api/attempts/{id}/items/{itemId}/review` | `attempts.review` |
 
-Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. No `GET /api/attempts` without an assignment. No `attempts.review` endpoints.
+Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. `attempts.read` does not return answer keys or review comments. A reviewer with `attempts.review` opens `/assignments/{assignmentId}/attempts/{attemptId}/review`, scores each `humanOnly` or `aiAssist` item from 0 through that item’s points, and may leave a comment of up to 2000 characters. Auto items cannot be re-scored. When every item is settled, the attempt stores `finalPointsAwarded` and the assignment moves from `pendingReview` to `completed`. Dev Reviewer (`reviewer.dev@example.com` / `Dev.Reviewer!1`) has this permission in Development. There is no AI suggestion on this path.
 
 Not in this slice: live start/pause REST, human review, AI drafts, Entra. Invite email is in [Invite email](#invite-email).
 
@@ -483,7 +485,7 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 
 ## Reporting v1
 
-`reports.read` opens company-wide reports. The host composes them from Delivery and Evaluation public readers. There is no reporting schema. Pass rate is 70% of available auto points. Unsettled human or AI points stay out of that denominator until slice 7 final scores exist. The default window is assignments created in the last 90 days. CSV export is UTF-8 with no answer keys and refuses more than 10,000 rows. Discrimination (top quartile minus bottom quartile) is hidden when fewer than 30 settled auto responses exist. Live time subtracts `TotalPausedSeconds` once. Async time does not. Each report has its own saved-filter target. There is no template-origin filter and no `assignments` saved-filter target. Dev Recruiter and Super Admin can open Reporting. Dev Reviewer cannot. Notes for the v0.2.0 release are under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+`reports.read` opens company-wide reports. The host composes them from Delivery and Evaluation public readers. There is no reporting schema. Pass rate is 70%. When an attempt has a final score, pass is `finalPointsAwarded / totalPointsAvailable`. Until that score exists, pass stays `autoPointsAwarded / autoPointsAvailable`, and unsettled human or AI points are not treated as zero. The score histogram and candidate rank stay on auto points. The default window is assignments created in the last 90 days. CSV export is UTF-8 with no answer keys and refuses more than 10,000 rows. Discrimination (top quartile minus bottom quartile) is hidden when fewer than 30 settled auto responses exist. Live time subtracts `TotalPausedSeconds` once. Async time does not. Each report has its own saved-filter target. There is no template-origin filter and no `assignments` saved-filter target. Dev Recruiter and Super Admin can open Reporting. Dev Reviewer cannot. Notes for the v0.2.0 release are under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
 
 ## Tests
 

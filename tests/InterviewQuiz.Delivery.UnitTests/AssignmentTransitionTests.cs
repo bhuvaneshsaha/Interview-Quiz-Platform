@@ -16,7 +16,7 @@ public sealed class AssignmentTransitionTests
     [InlineData(AssignmentStatus.InProgress, AssignmentStatus.PendingReview, true)]
     [InlineData(AssignmentStatus.NotStarted, AssignmentStatus.Completed, true)]
     [InlineData(AssignmentStatus.InProgress, AssignmentStatus.Completed, true)]
-    [InlineData(AssignmentStatus.PendingReview, AssignmentStatus.Completed, false)]
+    [InlineData(AssignmentStatus.PendingReview, AssignmentStatus.Completed, true)]
     [InlineData(AssignmentStatus.Completed, AssignmentStatus.PendingReview, false)]
     [InlineData(AssignmentStatus.PendingReview, AssignmentStatus.InProgress, false)]
     [InlineData(AssignmentStatus.Completed, AssignmentStatus.InProgress, false)]
@@ -81,6 +81,21 @@ public sealed class AssignmentTransitionTests
     }
 
     [Fact]
+    public void Complete_review_moves_pendingReview_to_completed_once()
+    {
+        var assignment = Create();
+        assignment.MarkAttemptSubmitted("incomplete", _clock);
+
+        assignment.CompleteReview(_clock);
+        Assert.Equal(AssignmentStatus.Completed, assignment.Status);
+
+        var version = assignment.RowVersion;
+        assignment.CompleteReview(_clock);
+        Assert.Equal(AssignmentStatus.Completed, assignment.Status);
+        Assert.Equal(version, assignment.RowVersion);
+        Assert.False(assignment.IsInvitable);
+    }
+
     public void Start_from_pendingReview_is_rejected()
     {
         var assignment = Create();

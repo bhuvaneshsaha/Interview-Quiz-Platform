@@ -30,6 +30,7 @@ export class AssignmentDetail implements OnInit {
   readonly codes = PermissionCodes;
   readonly canWrite = this.permissions.hasPermission(PermissionCodes.AssignmentsWrite);
   readonly canReadAttempts = this.permissions.hasPermission(PermissionCodes.AttemptsRead);
+  readonly canReview = this.permissions.hasPermission(PermissionCodes.AttemptsReview);
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);

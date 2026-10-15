@@ -40,6 +40,7 @@ public sealed class ReportAttemptReader : IReportAttemptReader
                     attempt.AutoPointsAwarded,
                     attempt.AutoPointsAvailable,
                     attempt.TotalPointsAvailable,
+                    attempt.FinalPointsAwarded,
                     Items = attempt.ItemResults.Select(item => new
                     {
                         item.QuestionId,
@@ -80,6 +81,7 @@ public sealed class ReportAttemptReader : IReportAttemptReader
                     row.AutoPointsAwarded,
                     row.AutoPointsAvailable,
                     row.TotalPointsAvailable,
+                    row.FinalPointsAwarded,
                     items.Count(item => item.Status == "unsettled"),
                     items);
             }));

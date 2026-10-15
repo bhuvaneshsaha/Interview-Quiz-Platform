@@ -254,6 +254,21 @@ public sealed class AssignmentService :
             Camel(assignment.Status));
     }
 
+    public async Task NotifyReviewCompleted(
+        Guid assignmentId,
+        Guid attemptId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await _assignments.GetAsync(assignmentId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Assignment), assignmentId);
+        assignment.CompleteReview(_clock);
+        await _assignments.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Assignment {AssignmentId} completed from review of attempt {AttemptId}",
+            assignmentId,
+            attemptId);
+    }
+
     internal static AssignmentResponse MapResponse(Assignment assignment)
         => new()
         {

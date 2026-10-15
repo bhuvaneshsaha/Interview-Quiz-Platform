@@ -2,6 +2,8 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AttemptResultResponse, QuestionType } from '../../../core/api/contracts';
 import { AttemptsApi } from '../../../core/api/attempts-api.service';
+import { PermissionCodes } from '../../../core/permissions/permission-codes';
+import { PermissionService } from '../../../core/permissions/permission.service';
 import { QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
 import { formatCandidateAnswer } from '../format-candidate-answer';
 import { itemResultLabel, resultStatusLabel, statusLabel } from '../../../shared/labels/status-labels';
@@ -16,6 +18,9 @@ import { PageStatus } from '../../../shared/page-status/page-status.component';
 export class AttemptDetail implements OnInit {
   private readonly api = inject(AttemptsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly permissions = inject(PermissionService);
+
+  readonly canReview = this.permissions.hasPermission(PermissionCodes.AttemptsReview);
 
   readonly statusLabel = statusLabel;
   readonly resultStatusLabel = resultStatusLabel;

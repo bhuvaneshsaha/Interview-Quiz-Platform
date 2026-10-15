@@ -47,6 +47,10 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("DueAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("FinalPointsAwarded")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<Guid>("OpeningId")
                         .HasColumnType("uuid");
 
@@ -132,6 +136,17 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("PointsAwarded")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("ReviewComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<string>("ScoringMode")
                         .IsRequired()

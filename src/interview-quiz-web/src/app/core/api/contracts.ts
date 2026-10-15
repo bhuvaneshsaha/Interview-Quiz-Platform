@@ -798,6 +798,7 @@ export interface AttemptSummaryResponse {
   autoPointsAwarded: number;
   autoPointsAvailable: number;
   totalPointsAvailable: number;
+  finalPointsAwarded?: number | null;
   quizRowVersion?: number;
 }
 
@@ -817,6 +818,23 @@ export interface AttemptResultItem {
 
 export interface AttemptResultResponse extends AttemptSummaryResponse {
   items: AttemptResultItem[];
+}
+
+export interface ReviewItemRequest {
+  pointsAwarded: number;
+  comment?: string | null;
+}
+
+export interface AttemptReviewItem extends AttemptResultItem {
+  answerKey?: unknown;
+  reviewable: boolean;
+  reviewedByUserId?: string | null;
+  reviewedAtUtc?: string | null;
+  reviewComment?: string | null;
+}
+
+export interface AttemptReviewResponse extends AttemptSummaryResponse {
+  items: AttemptReviewItem[];
 }
 
 export interface ReportBucket {
@@ -867,6 +885,8 @@ export interface ScoreReportRow {
   autoPointsAwarded: number;
   autoPointsAvailable: number;
   totalPointsAvailable: number;
+  finalPointsAwarded?: number | null;
+  scoreBasis?: 'auto' | 'final' | string;
   unsettledCount: number;
   passed?: boolean | null;
   snapshotId: string;

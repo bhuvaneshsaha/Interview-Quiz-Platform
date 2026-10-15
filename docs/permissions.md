@@ -86,20 +86,20 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 |------|----------------|------------|
 | `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
 | `reports.read` | View reports | Reporting v1. Company-wide `GET /api/reports/*` and CSV export. Angular `/reports` and `/reports/:reportKey`. Dev Recruiter seed includes it. Super Admin receives it from `PermissionCodes.All`. Dev Reviewer does **not**. |
-| `attempts.review` | Review attempts | **Seeded but inactive until slice 7.** Score written items (human or confirm AI-assist) and finalise a result. No slice 5 API or screen uses this code. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. |
+| `attempts.review` | Review attempts | Score `humanOnly` and `aiAssist` items and finalise a result. `GET /api/attempts/{id}/review` and `POST /api/attempts/{id}/items/{itemId}/review`. Angular `/assignments/:assignmentId/attempts/:attemptId/review`. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. Answer keys are on this payload only. |
 
-AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
+AI suggestion drafts are not implemented. Generating authoring drafts is `ai.draft.use`, not this code. Auto-score does not use `attempts.review`.
 
-### Seeded permissions that are not all active
+### Seeded permissions
 
-`sessions.live.run` is active for live host actions ([ADR 0010](adr/0010-live-quiz-sessions.md)). `attempts.review` stays seeded and **inactive** until slice 7:
+`sessions.live.run` is active for live host actions ([ADR 0010](adr/0010-live-quiz-sessions.md)). `attempts.review` is active for human scoring. AI suggestion drafts are not part of that screen.
 
 | Code | Seeded on | Status |
 |------|-----------|--------|
 | `sessions.live.run` | Dev Recruiter | Active. Start, pause, resume, end. |
-| `attempts.review` | Dev Reviewer | Inactive until slice 7 (human / AI-assist review) |
+| `attempts.review` | Dev Reviewer | Active. Human scores for `humanOnly` and `aiAssist` items, including the answer key. |
 
-Granting `attempts.review` does not unlock a review workflow. See [slice 5 MVP boundary](slice-5-mvp.md).
+See [slice 5 MVP boundary](slice-5-mvp.md) for what slice 5 itself did not run.
 
 ---
 

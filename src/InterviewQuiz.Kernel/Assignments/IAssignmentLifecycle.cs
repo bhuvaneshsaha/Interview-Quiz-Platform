@@ -13,6 +13,11 @@ public interface IAssignmentLifecycle
         Guid attemptId,
         string resultStatus,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Last unsettled item was scored. Moves <c>pendingReview</c> to <c>completed</c>.
+    /// </summary>
+    Task NotifyReviewCompleted(Guid assignmentId, Guid attemptId, CancellationToken cancellationToken);
 }
 
 public static class AttemptResultStatuses

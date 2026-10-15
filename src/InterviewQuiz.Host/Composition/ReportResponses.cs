@@ -65,6 +65,10 @@ public sealed class ScoreReportRow
     public decimal AutoPointsAwarded { get; init; }
     public decimal AutoPointsAvailable { get; init; }
     public decimal TotalPointsAvailable { get; init; }
+    public decimal? FinalPointsAwarded { get; init; }
+
+    /// <summary><c>final</c> when a final score exists; otherwise <c>auto</c>.</summary>
+    public string ScoreBasis { get; init; } = "auto";
     public int UnsettledCount { get; init; }
     public bool? Passed { get; init; }
     public Guid SnapshotId { get; init; }

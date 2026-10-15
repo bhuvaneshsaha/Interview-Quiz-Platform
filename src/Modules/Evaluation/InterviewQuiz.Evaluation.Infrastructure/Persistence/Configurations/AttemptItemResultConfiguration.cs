@@ -17,6 +17,9 @@ public sealed class AttemptItemResultConfiguration : IEntityTypeConfiguration<At
         builder.Property(e => e.ScoringMode).HasMaxLength(32).IsRequired();
         builder.Property(e => e.Points).IsRequired();
         builder.Property(e => e.PointsAwarded).HasPrecision(18, 4);
+        builder.Property(e => e.ReviewedByUserId).HasMaxLength(450);
+        builder.Property(e => e.ReviewedAtUtc);
+        builder.Property(e => e.ReviewComment).HasMaxLength(Attempt.ReviewCommentMaxLength);
         builder.Property(e => e.Status)
             .HasConversion(CamelCaseEnumConverter.For<ItemScoreStatus>())
             .HasMaxLength(32)

@@ -23,6 +23,7 @@ public sealed class AttemptConfiguration : IEntityTypeConfiguration<Attempt>
         builder.Property(e => e.AutoPointsAwarded).HasPrecision(18, 4);
         builder.Property(e => e.AutoPointsAvailable).HasPrecision(18, 4);
         builder.Property(e => e.TotalPointsAvailable).HasPrecision(18, 4);
+        builder.Property(e => e.FinalPointsAwarded).HasPrecision(18, 4);
 
         builder.Property(e => e.Status)
             .HasConversion(CamelCaseEnumConverter.For<AttemptStatus>())
