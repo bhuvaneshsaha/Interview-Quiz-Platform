@@ -67,7 +67,7 @@ const quiz = {
 const preview = {
   title: quiz.title,
   openingName: opening.title,
-  questionCount: 1,
+  questionCount: 3,
   suggestedDurationMinutes: 10,
   rowVersion: quiz.rowVersion,
   questions: [
@@ -80,6 +80,42 @@ const preview = {
         options: [
           { id: 'opt-200', text: '200 OK' },
           { id: 'opt-201', text: '201 Created' },
+        ],
+      },
+      sourceQuestionId: null,
+    },
+    {
+      id: 'q-shared',
+      sortOrder: 1,
+      type: 'dragDropSharedBank',
+      stem: 'Match each HTTP method to what it typically does.',
+      body: {
+        slots: [
+          { id: 'slot-get', label: 'GET' },
+          { id: 'slot-post', label: 'POST' },
+        ],
+        bank: [
+          { id: 'item-read', text: 'Read a resource' },
+          { id: 'item-create', text: 'Create a resource' },
+        ],
+      },
+      sourceQuestionId: null,
+    },
+    {
+      id: 'q-per-slot',
+      sortOrder: 2,
+      type: 'dragDropPerSlot',
+      stem: 'Match each status code.',
+      body: {
+        slots: [
+          {
+            id: 'slot-401',
+            label: '401',
+            options: [
+              { id: 'opt-unauth', text: 'Unauthenticated' },
+              { id: 'opt-forbid', text: 'Forbidden' },
+            ],
+          },
         ],
       },
       sourceQuestionId: null,
@@ -244,6 +280,30 @@ test('candidate preview records nothing', async ({ page }) => {
   expect(calls.attemptWrites).toBe(0);
   expect(calls.quizWrites).toBe(0);
   await page.screenshot({ path: screenshotPath('after-candidate-preview.png'), fullPage: true });
+});
+
+test('candidate preview answers slot questions from dropdowns', async ({ page }) => {
+  await installStaffApi(page);
+  await signIn(page, `/quizzes/${quizId}`);
+
+  await page.getByRole('button', { name: 'Preview as candidate' }).click();
+  await page.getByRole('button', { name: 'Start quiz' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Candidate preview')).toBeVisible();
+  await expect(page.getByText('Choose an item for each slot.')).toBeVisible();
+  await expect(page.getByLabel('GET')).toBeVisible();
+  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
+  await expect(page.getByText('Drop an item here')).toHaveCount(0);
+  await page.getByLabel('GET').selectOption({ label: 'Read a resource' });
+  await expect(page.getByLabel('GET')).toHaveValue('item-read');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('Choose an option for each slot.')).toBeVisible();
+  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
+  await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
+  await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
+  await page.screenshot({ path: screenshotPath('after-preview-slot-dropdowns.png'), fullPage: true });
 });
 
 test('unsaved quiz edits preview from the current form', async ({ page }) => {

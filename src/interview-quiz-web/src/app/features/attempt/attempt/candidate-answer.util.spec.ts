@@ -91,7 +91,11 @@ describe('candidate answer utils', () => {
     };
     expect(hints.multipleChoiceMulti).toBe('Select all that apply.');
     expect(hints.longText).toBe('Mention module boundaries.');
+    expect(hints.dragDropSharedBank).toBe('Choose an item for each slot.');
+    expect(hints.dragDropPerSlot).toBe('Choose an option for each slot.');
+    expect(`${hints.dragDropSharedBank} ${hints.dragDropPerSlot}`).not.toMatch(/drag/i);
     expect(hints.ordering).toContain('Move up');
+    expect(hints.ordering).toContain('Move down');
     expect(Object.values(hints).join(' ')).not.toMatch(/pts|Multiple choice|Drag and drop/);
   });
 

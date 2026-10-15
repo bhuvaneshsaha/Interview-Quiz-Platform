@@ -275,45 +275,9 @@
                   ></textarea>
                 }
                 @case ('dragDropSharedBank') {
-                  <div
-                    class="drag-bank"
-                    cdkDropList
-                    [id]="bankListId(question)"
-                    [cdkDropListConnectedTo]="sharedConnections(question)"
-                    [cdkDropListData]="unassignedBank(question)"
-                    (cdkDropListDropped)="dropShared(question, $event, null)"
-                  >
-                    <p class="drag-caption">Items</p>
-                    @for (item of unassignedBank(question); track item.id) {
-                      <div class="drag-chip" cdkDrag [cdkDragData]="item.id" [cdkDragDisabled]="submitted()">
-                        {{ item.text }}
-                      </div>
-                    } @empty {
-                      <p class="hint">All items are placed.</p>
-                    }
-                  </div>
                   @for (slot of sharedSlots(question); track slot.id) {
                     <div class="field">
-                      <p class="slot-label" [id]="'shared-label-' + question.id + '-' + slot.id">{{ slot.label }}</p>
-                      <div
-                        class="slot-drop"
-                        cdkDropList
-                        [id]="slotListId(question, slot.id)"
-                        [cdkDropListConnectedTo]="sharedConnections(question)"
-                        [attr.aria-labelledby]="'shared-label-' + question.id + '-' + slot.id"
-                        (cdkDropListDropped)="dropShared(question, $event, slot.id)"
-                      >
-                        @if (assignedBankItem(question, slot.id); as placed) {
-                          <div class="drag-chip" cdkDrag [cdkDragData]="placed.id" [cdkDragDisabled]="submitted()">
-                            {{ placed.text }}
-                          </div>
-                        } @else {
-                          <p class="hint">Drop an item here</p>
-                        }
-                      </div>
-                      <label class="keyboard-label" [attr.for]="'shared-' + question.id + '-' + slot.id">
-                        Choose {{ slot.label }}
-                      </label>
+                      <label [attr.for]="'shared-' + question.id + '-' + slot.id">{{ slot.label }}</label>
                       <select
                         [id]="'shared-' + question.id + '-' + slot.id"
                         [ngModel]="slotItemId(answer(question.id), slot.id)"
@@ -330,37 +294,7 @@
                 @case ('dragDropPerSlot') {
                   @for (slot of perSlots(question); track slot.id) {
                     <div class="field">
-                      <p class="slot-label" [id]="'per-label-' + question.id + '-' + slot.id">{{ slot.label }}</p>
-                      <ul
-                        class="drag-bank"
-                        cdkDropList
-                        cdkDropListSortingDisabled
-                        [id]="perOptionListId(question, slot.id)"
-                        [cdkDropListConnectedTo]="[perSlotDropId(question, slot.id)]"
-                      >
-                        @for (option of slot.options; track option.id) {
-                          <li class="drag-chip" cdkDrag [cdkDragData]="option.id" [cdkDragDisabled]="submitted()">
-                            {{ option.text }}
-                          </li>
-                        }
-                      </ul>
-                      <div
-                        class="slot-drop"
-                        cdkDropList
-                        [id]="perSlotDropId(question, slot.id)"
-                        [cdkDropListConnectedTo]="[perOptionListId(question, slot.id)]"
-                        [attr.aria-labelledby]="'per-label-' + question.id + '-' + slot.id"
-                        (cdkDropListDropped)="dropPerSlot(question, slot.id, $event)"
-                      >
-                        @if (chosenPerSlotText(question, slot.id); as chosen) {
-                          <p class="placed">{{ chosen }}</p>
-                        } @else {
-                          <p class="hint">Drop an option here</p>
-                        }
-                      </div>
-                      <label class="keyboard-label" [attr.for]="'per-' + question.id + '-' + slot.id">
-                        Choose {{ slot.label }}
-                      </label>
+                      <label [attr.for]="'per-' + question.id + '-' + slot.id">{{ slot.label }}</label>
                       <select
                         [id]="'per-' + question.id + '-' + slot.id"
                         [ngModel]="slotOptionId(answer(question.id), slot.id)"

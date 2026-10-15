@@ -5,10 +5,13 @@ import { ApiError } from '../../../core/http/api-error';
 import {
   CandidateAttemptPreview,
   CandidateAttemptResponse,
+  CandidateQuestion,
+  CandidateQuizPreviewResponse,
   CandidateTokenResponse,
 } from '../../../core/api/contracts';
 import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
+import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
 import { Attempt } from './attempt.component';
 
@@ -68,6 +71,44 @@ const attempt: CandidateAttemptResponse = {
   answers: [],
 };
 
+const sharedQuestion: CandidateQuestion = {
+  id: 'q-shared',
+  sortOrder: 0,
+  type: 'dragDropSharedBank',
+  stem: 'Match each HTTP method to what it typically does.',
+  body: {
+    slots: [
+      { id: 'slot-get', label: 'GET' },
+      { id: 'slot-post', label: 'POST' },
+    ],
+    bank: [
+      { id: 'item-read', text: 'Read a resource' },
+      { id: 'item-create', text: 'Create a resource' },
+    ],
+  },
+  sourceQuestionId: null,
+};
+
+const perSlotQuestion: CandidateQuestion = {
+  id: 'q-per-slot',
+  sortOrder: 1,
+  type: 'dragDropPerSlot',
+  stem: 'Match each status code.',
+  body: {
+    slots: [
+      {
+        id: 'slot-401',
+        label: '401',
+        options: [
+          { id: 'opt-unauth', text: 'Unauthenticated' },
+          { id: 'opt-forbid', text: 'Forbidden' },
+        ],
+      },
+    ],
+  },
+  sourceQuestionId: null,
+};
+
 describe('Attempt', () => {
   let fixture: ComponentFixture<Attempt>;
   let consumeCalls: string[];
@@ -79,6 +120,12 @@ describe('Attempt', () => {
   let previewResponse: CandidateAttemptPreview;
   let consumeError: ApiError | null;
   let currentImpl: (id: string) => Observable<CandidateAttemptResponse>;
+  let routeSnapshot: {
+    queryParamMap: ReturnType<typeof convertToParamMap>;
+    paramMap: ReturnType<typeof convertToParamMap>;
+    data: Record<string, unknown>;
+  };
+  let authorPreview: CandidateQuizPreviewResponse;
 
   beforeEach(async () => {
     consumeCalls = [];
@@ -89,6 +136,19 @@ describe('Attempt', () => {
     startedAttempt = attempt;
     previewResponse = previewWelcome;
     consumeError = null;
+    routeSnapshot = {
+      queryParamMap: convertToParamMap({ token: 'opaque-token' }),
+      paramMap: convertToParamMap({ id: 'quiz-1' }),
+      data: {},
+    };
+    authorPreview = {
+      title: 'Backend interview — working copy',
+      openingName: 'Senior backend engineer',
+      questionCount: 2,
+      suggestedDurationMinutes: 30,
+      rowVersion: 1,
+      questions: [sharedQuestion, perSlotQuestion],
+    };
     currentImpl = (id: string) => {
       currentCalls.push(id);
       return of(startedAttempt);
@@ -99,8 +159,12 @@ describe('Attempt', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
+          useValue: { snapshot: routeSnapshot },
+        },
+        {
+          provide: QuizzesApi,
           useValue: {
-            snapshot: { queryParamMap: convertToParamMap({ token: 'opaque-token' }) },
+            preview: () => of(authorPreview),
           },
         },
         {
@@ -160,6 +224,22 @@ describe('Attempt', () => {
     fixture = TestBed.createComponent(Attempt);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  function expectDropdownOnlySlots(root: HTMLElement): void {
+    expect(root.querySelector('select')).not.toBeNull();
+    expect(root.querySelector('[cdkDropList], [cdkDrag], .cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toBeNull();
+    expect(root.textContent).not.toContain('Drop an item here');
+    expect(root.textContent).not.toContain('Drop an option here');
+    expect(root.textContent).not.toContain('slot-get');
+    expect(root.textContent).not.toContain('item-read');
+    expect(root.textContent).not.toContain('opt-unauth');
+  }
+
+  function chooseOption(select: HTMLSelectElement, value: string): void {
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
   }
 
@@ -232,6 +312,79 @@ describe('Attempt', () => {
       (button: HTMLButtonElement) => button.textContent?.trim() === 'Next',
     ) as HTMLButtonElement;
     expect(nextAfter.disabled).toBe(true);
+  });
+
+  it('answers shared-bank and per-slot questions from dropdowns only', async () => {
+    previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
+    startedAttempt = {
+      ...attempt,
+      questions: [sharedQuestion, perSlotQuestion],
+    };
+    await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Choose an item for each slot.');
+    expect(root.textContent).toContain('Match each HTTP method to what it typically does.');
+    expectDropdownOnlySlots(root);
+    const sharedSelects = [...root.querySelectorAll('select')] as HTMLSelectElement[];
+    expect(sharedSelects.map((select) => select.id)).toEqual([
+      'shared-q-shared-slot-get',
+      'shared-q-shared-slot-post',
+    ]);
+    expect(sharedSelects[0].options[1].text).toBe('Read a resource');
+
+    chooseOption(sharedSelects[0], 'item-read');
+    chooseOption(sharedSelects[1], 'item-create');
+    expect(fixture.componentInstance.answers()['q-shared']).toEqual({
+      slots: [
+        { slotId: 'slot-get', itemId: 'item-read' },
+        { slotId: 'slot-post', itemId: 'item-create' },
+      ],
+    });
+
+    const next = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Next',
+    ) as HTMLButtonElement;
+    next.click();
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Choose an option for each slot.');
+    expectDropdownOnlySlots(root);
+    const perSelect = root.querySelector('#per-q-per-slot-slot-401') as HTMLSelectElement;
+    expect(perSelect).not.toBeNull();
+    expect([...perSelect.options].map((option) => option.text)).toEqual([
+      'Select an option',
+      'Unauthenticated',
+      'Forbidden',
+    ]);
+    chooseOption(perSelect, 'opt-unauth');
+    expect(fixture.componentInstance.answers()['q-per-slot']).toEqual({
+      slots: [{ slotId: 'slot-401', optionId: 'opt-unauth' }],
+    });
+  });
+
+  it('uses the same dropdowns in candidate preview', async () => {
+    routeSnapshot.data['previewKind'] = 'quiz';
+    await render();
+
+    expect(consumeCalls).toEqual([]);
+    expect(fixture.nativeElement.textContent).toContain('Candidate preview');
+    expect(fixture.nativeElement.textContent).toContain('Preview, not recorded');
+    (fixture.nativeElement.querySelector('button.button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Choose an item for each slot.');
+    expectDropdownOnlySlots(root);
+    const select = root.querySelector('#shared-q-shared-slot-get') as HTMLSelectElement;
+    chooseOption(select, 'item-read');
+    expect(fixture.componentInstance.answers()['q-shared']).toEqual({
+      slots: [
+        { slotId: 'slot-get', itemId: 'item-read' },
+        { slotId: 'slot-post', itemId: '' },
+      ],
+    });
   });
 
   it('ends an in-progress attempt when the invite is revoked', async () => {
