@@ -53,6 +53,14 @@ public sealed class IdentityUserDirectory : IIdentityUserDirectory
             : IdentityCreateResult.Fail(result.Errors.Select(error => error.Description));
     }
 
+    public async Task<IdentityCreateResult> CreateWithoutPasswordAsync(ApplicationUser user)
+    {
+        var result = await _users.CreateAsync(user);
+        return result.Succeeded
+            ? IdentityCreateResult.Ok()
+            : IdentityCreateResult.Fail(result.Errors.Select(error => error.Description));
+    }
+
     public async Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var result = await _users.UpdateAsync(user);

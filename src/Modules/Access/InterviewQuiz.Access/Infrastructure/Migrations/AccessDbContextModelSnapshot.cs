@@ -116,6 +116,39 @@ namespace InterviewQuiz.Access.Infrastructure.Migrations
                     b.ToTable("identity_users", "access");
                 });
 
+            modelBuilder.Entity("InterviewQuiz.Access.Domain.MagicLinkInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_magic_link_invites_assignment_current")
+                        .HasFilter("\"RevokedAt\" IS NULL");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("magic_link_invites", "access");
+                });
+
             modelBuilder.Entity("InterviewQuiz.Access.Domain.Permission", b =>
                 {
                     b.Property<string>("Code")

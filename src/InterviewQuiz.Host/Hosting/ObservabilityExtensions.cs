@@ -1,4 +1,7 @@
+using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Catalog.Application.Services;
+using InterviewQuiz.Delivery.Application.Services;
+using InterviewQuiz.Evaluation.Application.Services;
 using InterviewQuiz.Openings.Application.Services;
 using InterviewQuiz.Search.Application.Services;
 using OpenTelemetry.Metrics;
@@ -28,7 +31,10 @@ public static class ObservabilityExtensions
                     .AddSource(QuizService.ActivitySource.Name)
                     .AddSource(TemplateService.ActivitySource.Name)
                     .AddSource(BankQuestionService.ActivitySource.Name)
-                    .AddSource(FilterService.ActivitySource.Name);
+                    .AddSource(FilterService.ActivitySource.Name)
+                    .AddSource(MagicLinkService.ActivitySource.Name)
+                    .AddSource(AssignmentService.ActivitySource.Name)
+                    .AddSource(AttemptService.ActivitySource.Name);
 
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))
                 {

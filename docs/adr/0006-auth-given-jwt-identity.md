@@ -25,4 +25,5 @@ Permission codes: `docs/permissions.md`.
 - .NET modules assume `[Authorize]` + permission policy placeholders until Auth wires them. Angular does not check role names and does not invent a parallel authZ model.
 - PWA/service worker must not cache login, refresh, tokens, or `/me` (ADR 0004).
 - Security threat-models magic-link theft, JWT storage, and Entra callback — not this ADR.
+- Slice 5 **locks the magic-link protocol** in [ADR 0008](0008-magic-link-reusable-until-submit.md) and `docs/architecture.md` §16.3. This ADR’s “given” list is unchanged.
 - Adding Entra must not introduce a cloud hosting dependency (ADR 0001); it is an outbound IdP call from the on-prem host.

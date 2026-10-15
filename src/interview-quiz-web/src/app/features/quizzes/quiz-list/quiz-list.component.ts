@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ListCriteria, OpeningResponse, QuizListCriteria, QuizResponse } from '../../../core/api/contracts';
@@ -28,6 +28,11 @@ export class QuizList implements OnInit {
 
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
+  readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.QuizzesWrite));
+  readonly filtered = computed(() => Object.keys(this.appliedCriteria()).length > 0);
+  readonly emptyMessage = computed(() => (this.filtered() ? 'No quizzes match this filter.' : 'No quizzes yet.'));
+  readonly emptyActionLabel = computed(() => (this.canWrite() ? 'Create quiz' : null));
+  readonly emptyActionLink = computed(() => (this.canWrite() ? '/quizzes/new' : null));
   readonly openingFilter = new FormControl('', { nonNullable: true });
   readonly keyword = new FormControl('', { nonNullable: true });
   readonly experienceMin = new FormControl('', { nonNullable: true });

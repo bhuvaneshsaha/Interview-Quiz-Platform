@@ -18,6 +18,8 @@ public interface IIdentityUserDirectory
 
     Task<IdentityCreateResult> CreateAsync(ApplicationUser user, string password);
 
+    Task<IdentityCreateResult> CreateWithoutPasswordAsync(ApplicationUser user);
+
     Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken);
 
     Task<int> CountAsync(CancellationToken cancellationToken);

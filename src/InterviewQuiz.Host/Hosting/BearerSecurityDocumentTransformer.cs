@@ -12,7 +12,8 @@ public sealed class BearerSecurityDocumentTransformer : IOpenApiDocumentTransfor
     {
         document.Info.Description =
             "Modular Monolith host. Employee login is email/password via POST /api/auth/login (JWT bearer). " +
-            "Candidate magic-link and Entra ID are not in this slice.";
+            "Candidates exchange a magic-link invite at POST /api/auth/magic-link/consume. " +
+            "Entra ID is not in this slice.";
 
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
@@ -22,7 +23,9 @@ public sealed class BearerSecurityDocumentTransformer : IOpenApiDocumentTransfor
             Scheme = "bearer",
             BearerFormat = "JWT",
             In = ParameterLocation.Header,
-            Description = "Access token from POST /api/auth/login or POST /api/auth/refresh."
+            Description =
+                "Employee access token from POST /api/auth/login or POST /api/auth/refresh. " +
+                "Candidate access token from POST /api/auth/magic-link/consume."
         };
 
         document.Security ??= new List<OpenApiSecurityRequirement>();
