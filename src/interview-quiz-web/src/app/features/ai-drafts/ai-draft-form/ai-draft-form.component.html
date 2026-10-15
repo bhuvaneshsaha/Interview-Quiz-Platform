@@ -1,0 +1,91 @@
+<h1>AI draft</h1>
+<p>
+  Generate a quiz draft from an opening. You can paste a resume and company rules. The result is a
+  draft until you edit the questions and save it as a quiz. Saving does not assign the quiz.
+</p>
+
+<form class="stack" [formGroup]="source" (ngSubmit)="generate()">
+  <label class="field">
+    Opening
+    <select formControlName="openingId" data-testid="ai-draft-opening">
+      <option value="">Select an opening</option>
+      @for (opening of openings(); track opening.id) {
+        <option [value]="opening.id">{{ opening.title }}</option>
+      }
+    </select>
+  </label>
+  <label class="field">
+    Resume (optional)
+    <textarea formControlName="resumeText" rows="6" data-testid="ai-draft-resume"></textarea>
+  </label>
+  <label class="field">
+    Rules (optional)
+    <textarea formControlName="rulesText" rows="3" data-testid="ai-draft-rules"></textarea>
+  </label>
+  <button type="submit" class="button" data-testid="ai-draft-generate" [disabled]="loading()">
+    Generate draft
+  </button>
+</form>
+
+@if (draft(); as current) {
+  <form class="stack" [formGroup]="editor" (ngSubmit)="save()">
+    <p class="draft-note" data-testid="ai-draft-not-assigned">
+      Saving creates a quiz on this opening. It is not assigned to anyone.
+    </p>
+    <p class="draft-note">Model {{ current.model }}. Edit at least one question before saving.</p>
+    <label class="field">
+      Title
+      <input formControlName="title" data-testid="ai-draft-title" />
+    </label>
+    <label class="field">
+      Description
+      <textarea formControlName="description" rows="2" data-testid="ai-draft-description"></textarea>
+    </label>
+    <label class="field">
+      Expected experience (years)
+      <input type="number" formControlName="expectedExperienceYears" min="0" max="80" />
+    </label>
+    <fieldset class="questions-fieldset">
+      <legend>Questions</legend>
+      <div formArrayName="questions">
+        @for (question of questions.controls; track $index) {
+          <div class="field" [formGroupName]="$index">
+            <label>
+              Question {{ $index + 1 }}
+              <textarea
+                class="question-stem"
+                formControlName="stem"
+                rows="3"
+                [attr.data-testid]="'ai-draft-stem-' + $index"
+              ></textarea>
+            </label>
+          </div>
+        }
+      </div>
+    </fieldset>
+    <button
+      type="submit"
+      class="button"
+      data-testid="ai-draft-save"
+      *hasPermission="codes.QuizzesWrite"
+      [disabled]="loading()"
+    >
+      Save as quiz
+    </button>
+  </form>
+}
+
+@if (savedQuizId(); as quizId) {
+  <p data-testid="ai-draft-saved">Quiz saved. It is not assigned.</p>
+  <a [routerLink]="['/quizzes', quizId]">Open quiz</a>
+}
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Working on the draft."
+/>
+@if (error()) {
+  <p class="status status-error" data-testid="ai-draft-error">{{ error() }}</p>
+}

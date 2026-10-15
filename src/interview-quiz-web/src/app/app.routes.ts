@@ -82,6 +82,16 @@ export const routes: Routes = [
         title: 'Opening',
       },
       {
+        path: 'ai-drafts/new',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AiDraftUse },
+        loadComponent: () =>
+          import('./features/ai-drafts/ai-draft-form/ai-draft-form.component').then(
+            (m) => m.AiDraftForm,
+          ),
+        title: 'AI draft',
+      },
+      {
         path: 'quizzes',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.QuizzesRead },

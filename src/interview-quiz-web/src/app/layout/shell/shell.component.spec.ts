@@ -47,6 +47,17 @@ describe('Shell', () => {
     expect(fixture.nativeElement.querySelector('a[href="/assignments"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/reports"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/quizzes"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/ai-drafts/new"]')).toBeNull();
+  });
+
+  it('shows AI draft nav when ai.draft.use is granted', async () => {
+    permissions.set([PermissionCodes.AiDraftUse]);
+    fixture = TestBed.createComponent(Shell);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('a[href="/ai-drafts/new"]')?.textContent).toContain(
+      'AI draft',
+    );
   });
 
   it('shows Assignments nav when assignments.read is granted', async () => {

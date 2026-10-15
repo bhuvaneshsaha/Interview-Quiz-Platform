@@ -1,0 +1,15 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.draft-note {
+  margin: 0 0 0.75rem;
+}
+
+.question-stem {
+  width: 100%;
+  min-height: 4.5rem;
+}

@@ -1,6 +1,6 @@
 # Interview Quiz Platform — Architecture
 
-Status: v1 architecture record — slices **1–7 implemented**, including human review and AI suggestion drafts (live sessions: [ADR 0010](adr/0010-live-quiz-sessions.md)).  
+Status: v1 architecture record — slices **1–8 implemented**, including human review, AI suggestion drafts, and AI authoring drafts (live sessions: [ADR 0010](adr/0010-live-quiz-sessions.md)). Company AI rule-set CRUD is still later.  
 Platform skill: `enterprise-architecture-onprem.md`  
 Client shape: **Angular SPA + installable PWA, online-first** (no Ionic / Capacitor)  
 AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link (protocol in ADR 0008 + §16.3, **implemented**); Entra ID later as external login. Auth owns issuance, storage, and protocol **within that lock**.  
@@ -38,7 +38,7 @@ Master defaults are **accepted**; Architecture does not override them:
 | Company AI rules | Versioned JSON: global layer + required fields per question type. Concrete schema deferred to the AI slice. |
 | Async attempts | One attempt unless the assignment override allows another. |
 | Tenancy | Single internal company. |
-| AI runtime | Last slice (now **slice 8**). Operator-configured **OpenAI-compatible HTTP** endpoint (self-hosted or otherwise). Not Azure OpenAI. First slices have **no LLM**. |
+| AI runtime | Operator-configured **OpenAI-compatible HTTP** endpoint (self-hosted or otherwise). Not Azure OpenAI. Slice 7 suggestions and slice 8 authoring drafts share `Ai:Provider`. Development and tests use a deterministic fake. |
 | AuthN | JWT + Identity store + magic-link + Entra-later is a **given**. Architecture does not design Cookie vs JWT. |
 | CQRS | **No.** Application services in each module. Never MediatR. See ADR 0005. |
 | Data | One PostgreSQL database, module-owned schemas, until a split is justified. See ADR 0003. |
@@ -81,10 +81,11 @@ flowchart LR
     Logs[Log files / OSS stack]
   end
 
-  subgraph later [Later — not first slices]
+  subgraph later [Later]
     Entra[Entra ID<br/>employee external login]
-    LLM[OpenAI-compatible HTTP]
   end
+
+  LLM[OpenAI-compatible HTTP]
 
   Recruiter --> RP
   Author --> RP
@@ -98,7 +99,7 @@ flowchart LR
   API --> OTel
   API --> Logs
   SPA -.->|errors + correlation id<br/>no PII / tokens| API
-  API -.->|slice 8| LLM
+  API -->|suggestions and authoring drafts| LLM
   API -.->|employees later| Entra
 ```
 
@@ -194,10 +195,11 @@ Slice 3 **implemented** (paths, DTOs, permissions in §15): `POST /api/quizzes/{
 
 Slice 4 **implemented** (REST, camelCase JSON): table `catalog.bank_questions`; `GET|POST /api/questions`, `GET|PUT /api/questions/{id}`, archive/unarchive, `POST /api/quizzes/{quizId}/include-questions`; registered `IQuestionBankReader`; Dev Template author seed includes `questions.read` / `questions.write`. Angular: `/questions`, `/questions/new`, `/questions/:id`; quiz editor include panel.
 
+Slice 8 **implemented** ([§18](#18-slice-8-ai-authoring-drafts-implemented)): `POST /api/ai-drafts` and `GET /api/ai-drafts/{id}` (`ai.draft.use`); `POST /api/ai-drafts/{id}/accept` (`ai.draft.use` and `quizzes.write`). The draft is never auto-assigned. Accept requires a question edit and creates a quiz on the draft’s opening.
+
 Later (not this pass):
 
-- `GET|POST|PUT /api/ai-rule-sets` (`ai.rules.manage`) — schema in AI slice
-- Slice 8: `POST /api/ai-drafts` (`ai.draft.use`); draft is never auto-assigned
+- `GET|POST|PUT /api/ai-rule-sets` (`ai.rules.manage`) — versioned company rule sets. Drafts take optional `rulesText` instead.
 
 **In-process:**
 
@@ -325,6 +327,7 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/quizzes` | `quizzes.read` | Quiz list |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
 | `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz |
+| `/ai-drafts/new` | `ai.draft.use` | AI authoring draft. Save as quiz also needs `quizzes.write` |
 | `/templates` | `templates.read` | Template library list/search |
 | `/templates/:id` | `templates.read` | Template detail + versions |
 | `/questions` | `questions.read` | Question bank list |
@@ -442,9 +445,9 @@ Vertical slices. Each slice is not done until the collaboration skill DoD holds 
 | **5 Assignments** | **Implemented** | Candidate assignment, snapshot, async timed link, auto-score, basic results, Angular employee + `/attempt` | Delivery, Evaluation (submit + auto-score), Access (magic-link), Angular |
 | **6 Live mode** | Implemented | Start/pause/monitor on the **same** assignment model. REST polling. [ADR 0010](adr/0010-live-quiz-sessions.md) | Delivery |
 | **7 Review** | **Implemented** | Human marking of `humanOnly` and `aiAssist` items, auditable AI suggestion drafts, final score, `pendingReview` → `completed` | Evaluation |
-| **8 AI draft** | Later | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
+| **8 AI draft** | **Implemented** | Pasted resume + opening + optional rules text + optional template version → draft → human question edit → quiz. No assignment. Rule-set CRUD still later | Catalog (operator LLM HTTP shared with slice 7) |
 
-No LLM in slices 1–6. Slice 7 AI-assist calls the operator’s OpenAI-compatible endpoint when `Ai:Provider` is `OpenAiCompatible` and the base URL, model, and API key are set. Development and tests use a deterministic fake. If that configuration is missing, suggestions are off and human review still works. Slice 8 is the first **authoring** LLM path.
+No LLM in slices 1–6. Slice 7 suggestions and slice 8 authoring drafts call the operator’s OpenAI-compatible endpoint when `Ai:Provider` is `OpenAiCompatible` and the base URL, model, and API key are set. Development and tests use a deterministic fake. If that configuration is missing, both features are off. Human review and manual quiz authoring still work.
 
 ---
 
@@ -469,7 +472,7 @@ Permission catalog: [`docs/permissions.md`](permissions.md). Slice 5 REST: §16.
 
 Slices **1–5** are implemented. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank. ADR 0008 records the magic-link (implemented).
 
-Still later: AI authoring draft (slice 8), production runbook, self-hosted CI (DevOps). Human review, AI suggestion drafts, and live mode are implemented ([§17](#17-slice-7-human-review-implemented), [ADR 0010](adr/0010-live-quiz-sessions.md)). Entra and SMTP are out of slice 5.
+Still later: company AI rule-set CRUD (`ai.rules.manage`), production runbook, self-hosted CI (DevOps). Human review, AI suggestion drafts, AI authoring drafts, and live mode are implemented ([§17](#17-slice-7-human-review-implemented), [§18](#18-slice-8-ai-authoring-drafts-implemented), [ADR 0010](adr/0010-live-quiz-sessions.md)). Entra and SMTP are out of slice 5.
 
 ---
 
@@ -894,7 +897,7 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 
 - SignalR for live sessions (v1 polls REST; see [ADR 0010](adr/0010-live-quiz-sessions.md))
 - Human review UI / `attempts.review` POST; AI-assist drafts (slice 7)
-- AI authoring drafts (slice 8)
+- AI authoring drafts (slice 8; implemented later, see [§18](#18-slice-8-ai-authoring-drafts-implemented))
 - Entra
 - Email/SMTP provider
 - Saved-filter `target: assignments` (and no new Search criteria shape)
@@ -966,6 +969,36 @@ Rules:
 Angular: the review route is in §6. Suggest score is shown for `aiAssist` items only when `aiSuggestionsEnabled` is true. The results page links to review only when the user has `attempts.review`. Dev Reviewer seed already has that code.
 
 Reporting pass/fail follows §4.5.1.
+
+---
+
+## 18. Slice 8 AI authoring drafts (implemented)
+
+A person with `ai.draft.use` asks for a quiz draft. The model output is stored as a draft. It becomes a quiz only after that person edits the questions and accepts it. Accept also requires `quizzes.write`. Catalog does not create an assignment.
+
+| Method | Path | Permission | Result |
+|--------|------|------------|--------|
+| `POST` | `/api/ai-drafts` | `ai.draft.use` | `AiDraftResponse` 201 |
+| `GET` | `/api/ai-drafts/{id}` | `ai.draft.use` | `AiDraftResponse` 200, creator only |
+| `POST` | `/api/ai-drafts/{id}/accept` | `ai.draft.use` and `quizzes.write` | `AiDraftAcceptResponse` 201 |
+
+`POST /api/ai-drafts` body: `openingId` (required), optional `resumeText` (paste, max 8000), optional `rulesText` (max 4000), optional `templateId` and `templateVersionId` (both or neither). There is no resume file upload and no `GET|POST|PUT /api/ai-rule-sets`.
+
+Rules:
+
+- Unknown opening is **400** `Opening does not exist.`
+- One of template id or version id without the other is **400** `Template id and version id are both required.` A missing version is **404**.
+- AI off (`Ai:Provider` not `Fake`, and not a fully configured `OpenAiCompatible`) is **400** `AI drafts are not configured.` No row is written.
+- Invalid model output is **400** `AI draft could not be produced.` No row is written.
+- The stored question JSON is the validated canonical form, kept as text so the edit check is stable. At most 40 questions.
+- Accept copies the draft’s opening id. Title, description, experience years, and questions come from the caller.
+- Accept is **400** `Edit the draft before saving it as a quiz.` when the canonical question list still matches the generated questions. A title-only change does not count.
+- A second accept is **409** `This draft was already saved as a quiz.`
+- Another user, including one with `ai.draft.use`, gets **404** on get and accept. The resume is not listed.
+- Logs and the `ai.draft.create` / `ai.draft.accept` activities record draft, opening, quiz, and model ids. They do not record the resume, the rules, the stems, or the API key.
+- The provider switch is the slice 7 switch. `Fake` returns two questions (a true/false check and a written answer) plus any `TEMPLATE_QUESTION` lines from the prompt. Model name `fake`.
+
+Angular `/ai-drafts/new` is behind `ai.draft.use`. The nav item is hidden without that code. Save as quiz is hidden without `quizzes.write`. The screen says the quiz is not assigned.
 
 ---
 

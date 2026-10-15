@@ -43,6 +43,7 @@ Do not put JWT signing keys, connection strings, or dummy passwords into environ
 | `/quizzes` | `quizzes.read` | Quiz list (opening, keyword, experience, saved filters) |
 | `/quizzes/new` | `quizzes.write` | Create quiz |
 | `/quizzes/:id` | `quizzes.read` or `quizzes.write` | View / edit quiz; `templates.write` can publish as template; include from bank when `quizzes.write` **and** `questions.read` on an existing saved quiz |
+| `/ai-drafts/new` | `ai.draft.use` | Generate an AI quiz draft from an opening, optional resume, and optional rules. Save as quiz requires `quizzes.write` and a question edit. The quiz is not assigned |
 | `/templates` | `templates.read` | Template list (keyword, experience, tags, saved filters) |
 | `/templates/:id` | `templates.read` | Template detail, versions, read-only questions |
 | `/questions` | `questions.read` | Question bank list (keyword, type, experience, tags; archived-only toggle only with `questions.write`). **No** SavedFilters |
