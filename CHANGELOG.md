@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
 ### Added
 
-- Reporting v1 (`reports.read`): company-wide funnel, score distribution and 70% auto-score pass rate, time taken, per-question difficulty and discrimination, candidate comparison, and pending-review age. Chip filters and one saved-filter target per report. CSV export is UTF-8, has no answer keys, and stops at 10,000 rows. Dev Recruiter and Super Admin can open it; Dev Reviewer cannot. This will be released as v0.2.0 (#35).
+- Reporting v1 (`reports.read`): company-wide funnel, score distribution and 70% auto-score pass rate, time taken, per-question difficulty and discrimination, candidate comparison, and pending-review age. Chip filters and one saved-filter target per report. CSV export is UTF-8, has no answer keys, and stops at 10,000 rows. Dev Recruiter and Super Admin can open it; Dev Reviewer cannot (#51).
 
 ## [0.1.1] - 2026-10-15
 
@@ -41,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/releases/tag/v0.1.0
