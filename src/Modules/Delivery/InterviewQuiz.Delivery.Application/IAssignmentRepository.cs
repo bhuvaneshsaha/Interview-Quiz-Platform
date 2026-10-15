@@ -12,6 +12,7 @@ public interface IAssignmentRepository
 
     Task<PagedResult<Assignment>> ListAsync(
         Guid? openingId,
+        Guid? quizId,
         string? keyword,
         PageRequest page,
         CancellationToken cancellationToken);

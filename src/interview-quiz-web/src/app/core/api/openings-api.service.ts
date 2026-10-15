@@ -7,6 +7,7 @@ import {
   OpeningFieldDefinitionResponse,
   OpeningListCriteria,
   OpeningResponse,
+  OpeningSummaryResponse,
   PagedResult,
   ReplaceOpeningFieldDefinitionsRequest,
   UpdateOpeningRequest,
@@ -30,6 +31,10 @@ export class OpeningsApi {
 
   get(id: string): Observable<OpeningResponse> {
     return this.http.get<OpeningResponse>(`/api/openings/${id}`);
+  }
+
+  summary(id: string): Observable<OpeningSummaryResponse> {
+    return this.http.get<OpeningSummaryResponse>(`/api/openings/${id}/summary`);
   }
 
   create(body: CreateOpeningRequest): Observable<OpeningResponse> {

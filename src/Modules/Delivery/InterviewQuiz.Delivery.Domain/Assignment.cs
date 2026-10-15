@@ -42,9 +42,38 @@ public sealed class Assignment
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public int RowVersion { get; private set; }
 
-    public bool IsTerminal => Status is AssignmentStatus.Submitted
-        or AssignmentStatus.PendingReview
-        or AssignmentStatus.Completed;
+    public const string InvalidResultStatusMessage = "Result status is invalid.";
+
+    public bool IsTerminal => Status is AssignmentStatus.PendingReview or AssignmentStatus.Completed;
+
+    /// <summary>
+    /// Legal moves: notStarted → inProgress; notStarted|inProgress → pendingReview (incomplete)
+    /// or completed (complete). Start while inProgress is a no-op. Terminal states do not move.
+    /// </summary>
+    public static bool CanTransition(AssignmentStatus from, AssignmentStatus to)
+        => (from, to) switch
+        {
+            (AssignmentStatus.NotStarted, AssignmentStatus.InProgress) => true,
+            (AssignmentStatus.InProgress, AssignmentStatus.InProgress) => true,
+            (AssignmentStatus.NotStarted, AssignmentStatus.PendingReview) => true,
+            (AssignmentStatus.InProgress, AssignmentStatus.PendingReview) => true,
+            (AssignmentStatus.NotStarted, AssignmentStatus.Completed) => true,
+            (AssignmentStatus.InProgress, AssignmentStatus.Completed) => true,
+            _ => false
+        };
+
+    public static string TransitionDeniedMessage(AssignmentStatus from, AssignmentStatus to)
+        => $"Assignment cannot move from {ToWire(from)} to {ToWire(to)}.";
+
+    public static string ToWire(AssignmentStatus status)
+        => status switch
+        {
+            AssignmentStatus.NotStarted => "notStarted",
+            AssignmentStatus.InProgress => "inProgress",
+            AssignmentStatus.PendingReview => "pendingReview",
+            AssignmentStatus.Completed => "completed",
+            _ => throw new DomainException("Assignment status is invalid.")
+        };
 
     public bool IsInvitable => Mode == AssignmentMode.Async && !IsTerminal;
 
@@ -108,36 +137,36 @@ public sealed class Assignment
 
     public void MarkAttemptStarted(IClock clock)
     {
-        if (IsTerminal)
-        {
-            throw new ConcurrencyException("Assignment is no longer in progress.");
-        }
-
         if (Status == AssignmentStatus.InProgress)
         {
             return;
         }
 
+        EnsureTransition(AssignmentStatus.InProgress);
         Status = AssignmentStatus.InProgress;
         Touch(clock);
     }
 
     public void MarkAttemptSubmitted(string resultStatus, IClock clock)
     {
-        if (string.Equals(resultStatus, "complete", StringComparison.OrdinalIgnoreCase))
+        var target = resultStatus?.Trim().ToLowerInvariant() switch
         {
-            Status = AssignmentStatus.Completed;
-        }
-        else if (string.Equals(resultStatus, "incomplete", StringComparison.OrdinalIgnoreCase))
-        {
-            Status = AssignmentStatus.PendingReview;
-        }
-        else
-        {
-            throw new DomainException("Result status is invalid.");
-        }
+            "complete" => AssignmentStatus.Completed,
+            "incomplete" => AssignmentStatus.PendingReview,
+            _ => throw new DomainException(InvalidResultStatusMessage)
+        };
 
+        EnsureTransition(target);
+        Status = target;
         Touch(clock);
+    }
+
+    private void EnsureTransition(AssignmentStatus to)
+    {
+        if (!CanTransition(Status, to))
+        {
+            throw new ConcurrencyException(TransitionDeniedMessage(Status, to));
+        }
     }
 
     public void EnsureInvitable()

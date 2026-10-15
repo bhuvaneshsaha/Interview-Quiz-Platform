@@ -30,6 +30,7 @@ public static class CatalogModule
         services.AddScoped<ITemplateRepository, TemplateRepository>();
         services.AddScoped<IBankQuestionRepository, BankQuestionRepository>();
         services.AddScoped<IQuestionBankReader, QuestionBankReader>();
+        services.AddScoped<IOpeningQuizReader, OpeningQuizReader>();
         services.AddScoped<QuizService>();
         services.AddScoped<IQuizService>(sp => sp.GetRequiredService<QuizService>());
         services.AddScoped<IQuizSnapshotReader>(sp => sp.GetRequiredService<QuizService>());

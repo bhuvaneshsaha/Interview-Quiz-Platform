@@ -92,6 +92,16 @@ export const routes: Routes = [
         title: 'Templates',
       },
       {
+        path: 'templates/:id/edit',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.TemplatesWrite },
+        loadComponent: () =>
+          import('./features/templates/template-editor/template-editor.component').then(
+            (m) => m.TemplateEditor,
+          ),
+        title: 'Edit template',
+      },
+      {
         path: 'templates/:id',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.TemplatesRead },

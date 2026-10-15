@@ -10,4 +10,13 @@ public sealed class ApplicationUser : IdentityUser
     public bool IsDisabled { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Bootstrap Super Admin has no password until the one-time setup token is consumed.
+    /// </summary>
+    public bool MustSetPassword { get; set; }
+
+    public string? BootstrapTokenHash { get; set; }
+
+    public DateTimeOffset? BootstrapTokenExpiresAt { get; set; }
 }

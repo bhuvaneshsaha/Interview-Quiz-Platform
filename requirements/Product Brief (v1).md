@@ -160,7 +160,7 @@ Mode is a property of the assignment, not a separate product. Scoring, tags, ope
 * Long text / written scenario — AI-assist or human-only (not auto by default)
 * Drag and drop — shared answer bank — Auto-score. One bank of items (plus author-chosen distractors) dragged into slots in the stem. This is a **question type**, not the company question-bank library (see §6.4)
 * Drag and drop — per-slot options — Auto-score. Each slot has its own option set (plus author-chosen distractors)
-* Ordering / sequence — Auto-score. Candidate reorders a list. Credit mode per question: Partial credit or All-or-nothing (same modes as multi-select; default partial formula TBD — recommended adjacent-pair)
+* Ordering / sequence — Auto-score. Candidate reorders a list. Credit mode per question: Partial credit or All-or-nothing. Partial credit is positional adjacent-pair: same items, and a hit only when positions i and i+1 match the key. That is stricter than a casual “order matters.”
 
 Mobile: aim to support drag interactions on mobile in v1 (tap-to-place fallback if native drag is costly). Defer only if remaining effort is still large.
 
@@ -316,7 +316,6 @@ v1 succeeds when:
 
 * Exact auth routing: one branded entry that routes employee SSO vs candidate magic link / password (app DB users first; Entra later)
 * Retention restore: shared vs separate policies for resumes / attempts / quiz content; who can restore from archive
-* Ordering partial-credit formula (recommended default: adjacent-pair)
 * Concrete company AI rule schema / versioning details
 * Whether publishing a cloned quiz may fork a **new** template lineage (v1 / slice 3 default: new version of the origin template)
 

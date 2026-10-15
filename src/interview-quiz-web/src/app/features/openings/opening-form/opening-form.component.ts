@@ -1,7 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CreateOpeningRequest, OpeningResponse, UpdateOpeningRequest } from '../../../core/api/contracts';
+import {
+  CreateOpeningRequest,
+  OpeningResponse,
+  OpeningSummaryResponse,
+  UpdateOpeningRequest,
+} from '../../../core/api/contracts';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
@@ -28,6 +33,9 @@ export class OpeningForm implements OnInit {
   readonly correlationId = signal<string | null>(null);
   readonly isNew = signal(true);
   readonly canWrite = this.permissions.hasPermission(PermissionCodes.OpeningsWrite);
+  readonly canReadQuizzes = this.permissions.hasPermission(PermissionCodes.QuizzesRead);
+  readonly canReadAssignments = this.permissions.hasPermission(PermissionCodes.AssignmentsRead);
+  readonly summary = signal<OpeningSummaryResponse | null>(null);
 
   private openingId: string | null = null;
   private rowVersion = 0;
@@ -68,6 +76,7 @@ export class OpeningForm implements OnInit {
       next: (opening) => {
         this.patch(opening);
         this.loading.set(false);
+        this.loadSummary(id);
         if (!this.canWrite) {
           this.form.disable();
         }
@@ -78,6 +87,31 @@ export class OpeningForm implements OnInit {
         this.correlationId.set(mapped.correlationId);
         this.loading.set(false);
       },
+    });
+  }
+
+  countQuery(quizId?: string): { openingId: string; quizId?: string } {
+    return {
+      openingId: this.openingId ?? '',
+      ...(quizId ? { quizId } : {}),
+    };
+  }
+
+  formatUpdated(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  }
+
+  private loadSummary(id: string): void {
+    if (!this.canReadQuizzes && !this.canReadAssignments) {
+      return;
+    }
+    this.api.summary(id).subscribe({
+      next: (summary) => this.summary.set(summary),
+      error: () => this.summary.set(null),
     });
   }
 

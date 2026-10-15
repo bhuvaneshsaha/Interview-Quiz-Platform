@@ -8,6 +8,8 @@ public sealed class TemplateVersionSummaryResponse
     public required string Title { get; init; }
     public required Guid PublishedFromQuizId { get; init; }
     public required DateTimeOffset PublishedAtUtc { get; init; }
+    public required string PublishedByUserId { get; init; }
+    public required string ChangeNote { get; init; }
     public required int QuestionCount { get; init; }
 }
 
@@ -19,6 +21,8 @@ public sealed class TemplateVersionResponse
     public required string Title { get; init; }
     public required Guid PublishedFromQuizId { get; init; }
     public required DateTimeOffset PublishedAtUtc { get; init; }
+    public required string PublishedByUserId { get; init; }
+    public required string ChangeNote { get; init; }
     public required int QuestionCount { get; init; }
     public required string Description { get; init; }
     public required int ExpectedExperienceYears { get; init; }

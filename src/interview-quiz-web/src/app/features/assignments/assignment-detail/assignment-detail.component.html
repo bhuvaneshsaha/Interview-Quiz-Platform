@@ -114,7 +114,7 @@
         } @else if (attempts().length === 0) {
           <p class="hint">No attempts yet.</p>
         } @else {
-          <table class="data-table">
+          <table class="data-table data-table-cards">
             <thead>
               <tr>
                 <th scope="col">Status</th>
@@ -128,12 +128,12 @@
             <tbody>
               @for (attempt of attempts(); track attempt.id) {
                 <tr>
-                  <th scope="row">{{ statusLabel(attempt.status) }}</th>
-                  <td>{{ resultStatusLabel(attempt.resultStatus) }}</td>
-                  <td>{{ attempt.autoPointsAwarded }} / {{ attempt.autoPointsAvailable }}</td>
-                  <td>{{ formatDate(attempt.startedAtUtc) }}</td>
-                  <td>{{ formatDate(attempt.submittedAtUtc) }}</td>
-                  <td>
+                  <th scope="row" data-label="Status">{{ statusLabel(attempt.status) }}</th>
+                  <td data-label="Result">{{ resultStatusLabel(attempt.resultStatus) }}</td>
+                  <td data-label="Auto score">{{ attempt.autoPointsAwarded }} / {{ attempt.autoPointsAvailable }}</td>
+                  <td data-label="Started">{{ formatDate(attempt.startedAtUtc) }}</td>
+                  <td data-label="Submitted">{{ formatDate(attempt.submittedAtUtc) }}</td>
+                  <td data-label="Detail">
                     <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id]">View</a>
                   </td>
                 </tr>

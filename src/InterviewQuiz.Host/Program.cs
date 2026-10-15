@@ -12,6 +12,7 @@ using InterviewQuiz.Delivery.Infrastructure.Persistence;
 using InterviewQuiz.Delivery.Infrastructure.Seeding;
 using InterviewQuiz.Evaluation.Infrastructure;
 using InterviewQuiz.Evaluation.Infrastructure.Persistence;
+using InterviewQuiz.Host.Composition;
 using InterviewQuiz.Host.Hosting;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Infrastructure;
@@ -55,6 +56,7 @@ try
     builder.Services.AddDeliveryModule(builder.Configuration);
     builder.Services.AddEvaluationModule(builder.Configuration);
     builder.Services.AddSearchModule(builder.Configuration);
+    builder.Services.AddScoped<OpeningSummaryComposer>();
 
     builder.Services.AddControllers().AddJsonOptions(options =>
     {

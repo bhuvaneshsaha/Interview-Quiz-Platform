@@ -19,6 +19,10 @@
     }
   </div>
   <div class="field">
+    <label for="quiz-filter">Quiz id</label>
+    <input id="quiz-filter" type="text" [formControl]="quizFilter" autocomplete="off" />
+  </div>
+  <div class="field">
     <label for="assignment-keyword">Keyword</label>
     <input
       id="assignment-keyword"
@@ -42,7 +46,7 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading assignments."
 >
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th scope="col">Candidate</th>
@@ -56,14 +60,14 @@
     <tbody>
       @for (assignment of assignments(); track assignment.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Candidate">
             <a [routerLink]="['/assignments', assignment.id]">{{ assignment.candidateEmail }}</a>
           </th>
-          <td>{{ assignment.snapshotTitle }}</td>
-          <td>{{ openingTitle(assignment.openingId) }}</td>
-          <td>{{ modeLabel(assignment.mode) }}</td>
-          <td>{{ statusLabel(assignment.status) }}</td>
-          <td>{{ formatUpdated(assignment.updatedAtUtc) }}</td>
+          <td data-label="Quiz">{{ assignment.snapshotTitle }}</td>
+          <td data-label="Opening">{{ openingTitle(assignment.openingId) }}</td>
+          <td data-label="Mode">{{ modeLabel(assignment.mode) }}</td>
+          <td data-label="Status">{{ statusLabel(assignment.status) }}</td>
+          <td data-label="Updated">{{ formatUpdated(assignment.updatedAtUtc) }}</td>
         </tr>
       }
     </tbody>

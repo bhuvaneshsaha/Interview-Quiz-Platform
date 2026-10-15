@@ -136,6 +136,91 @@ select:focus-visible {
   vertical-align: top;
 }
 
+img,
+video,
+svg,
+input,
+select,
+textarea,
+button,
+.button {
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .shell-header,
+  .attempt-header {
+    padding: 0.75rem;
+  }
+
+  .shell-brand {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .shell-nav {
+    flex-basis: 100%;
+  }
+
+  .shell-main,
+  .attempt-main {
+    padding: 0.75rem 0.75rem 2rem;
+  }
+
+  .page-heading .button,
+  .shell-header .button {
+    width: 100%;
+  }
+
+  .filter-row .field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .data-table-cards {
+    display: block;
+  }
+
+  .data-table-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .data-table-cards tbody,
+  .data-table-cards tr,
+  .data-table-cards td,
+  .data-table-cards th {
+    display: block;
+    width: auto;
+  }
+
+  .data-table-cards tr {
+    margin: 0 0 0.75rem;
+    padding: 0.35rem 0.7rem 0.6rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+  }
+
+  .data-table-cards td,
+  .data-table-cards th {
+    border: 0;
+    padding: 0.35rem 0;
+  }
+
+  .data-table-cards td::before,
+  .data-table-cards th::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

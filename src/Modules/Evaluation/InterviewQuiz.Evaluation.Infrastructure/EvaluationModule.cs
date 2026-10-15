@@ -28,6 +28,7 @@ public static class EvaluationModule
         });
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
+        services.AddScoped<IAssignmentAttemptReader, AssignmentAttemptReader>();
         services.AddScoped<AttemptService>();
         services.AddScoped<IAttemptService>(sp => sp.GetRequiredService<AttemptService>());
         services.AddScoped<ICandidateAttemptIdLookup>(sp => sp.GetRequiredService<AttemptService>());

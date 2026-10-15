@@ -335,8 +335,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     }
 
     private static bool IsClosed(string status)
-        => status.Equals("submitted", StringComparison.OrdinalIgnoreCase)
-           || status.Equals("pendingReview", StringComparison.OrdinalIgnoreCase)
+        => status.Equals("pendingReview", StringComparison.OrdinalIgnoreCase)
            || status.Equals("completed", StringComparison.OrdinalIgnoreCase);
 
     private CandidateAttemptResponse MapCandidate(Attempt attempt, QuizSnapshotDto snapshot)

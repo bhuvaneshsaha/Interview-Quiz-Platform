@@ -27,6 +27,18 @@ public interface ITemplateService
         Guid versionId,
         CancellationToken cancellationToken);
 
+    Task<TemplateResponse> UpdateMetadataAsync(
+        Guid id,
+        UpdateTemplateMetadataRequest request,
+        string editedByUserId,
+        CancellationToken cancellationToken);
+
+    Task<TemplateResponse> SaveContentAsync(
+        Guid id,
+        SaveTemplateContentRequest request,
+        string editedByUserId,
+        CancellationToken cancellationToken);
+
     Task<QuizResponse> CloneAsync(
         Guid templateId,
         Guid versionId,

@@ -1,1 +1,11 @@
-/* Role list uses shared table styles. */
+.system-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: #fff4d6;
+  color: #6b3f00;
+  font-size: 0.75rem;
+  font-weight: 650;
+  vertical-align: middle;
+}

@@ -11,6 +11,7 @@ public sealed class Template
 
     public Guid Id { get; private set; }
     public Guid OriginQuizId { get; private set; }
+    public uint RowVersion { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -26,13 +27,23 @@ public sealed class Template
         {
             Id = id ?? Guid.NewGuid(),
             OriginQuizId = originQuizId,
+            RowVersion = 1,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
     }
 
+    public void EnsureRowVersion(uint expected)
+    {
+        if (RowVersion != expected)
+        {
+            throw new ConcurrencyException("Template was modified by another request. Reload and retry.");
+        }
+    }
+
     public void Touch(IClock clock)
     {
         UpdatedAtUtc = clock.UtcNow;
+        RowVersion++;
     }
 }

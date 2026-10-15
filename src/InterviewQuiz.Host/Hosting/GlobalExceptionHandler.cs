@@ -26,6 +26,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         {
             EntityNotFoundException => (StatusCodes.Status404NotFound, "Not Found", exception.Message),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
+            ConflictException => (StatusCodes.Status409Conflict, "Conflict", exception.Message),
             ConcurrencyException => (StatusCodes.Status409Conflict, "Conflict", exception.Message),
             DomainException => (StatusCodes.Status400BadRequest, "Bad Request", exception.Message),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict",

@@ -17,6 +17,16 @@ public sealed class EffectivePermissionReader : IEffectivePermissionReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
+        var isSuperAdmin = await _db.UserRoles
+            .AsNoTracking()
+            .AnyAsync(
+                assignment => assignment.UserId == userId && assignment.RoleId == SuperAdminRole.Id,
+                cancellationToken);
+        if (isSuperAdmin)
+        {
+            return SuperAdminPermissionSet.Codes();
+        }
+
         return await _db.UserRoles
             .AsNoTracking()
             .Where(assignment => assignment.UserId == userId)

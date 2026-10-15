@@ -31,9 +31,19 @@ public interface IRoleAdminService
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
-    Task AssignUserAsync(Guid roleId, string userId, CancellationToken cancellationToken);
+    Task AssignUserAsync(
+        Guid roleId,
+        string userId,
+        string actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken);
 
-    Task UnassignUserAsync(Guid roleId, string userId, CancellationToken cancellationToken);
+    Task UnassignUserAsync(
+        Guid roleId,
+        string userId,
+        string actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken);
 }
 
 public interface IUserAdminService

@@ -23,6 +23,7 @@ public sealed class AssignmentRepository : IAssignmentRepository
 
     public async Task<PagedResult<Assignment>> ListAsync(
         Guid? openingId,
+        Guid? quizId,
         string? keyword,
         PageRequest page,
         CancellationToken cancellationToken)
@@ -32,6 +33,11 @@ public sealed class AssignmentRepository : IAssignmentRepository
         if (openingId is { } opening && opening != Guid.Empty)
         {
             query = query.Where(a => a.OpeningId == opening);
+        }
+
+        if (quizId is { } quiz && quiz != Guid.Empty)
+        {
+            query = query.Where(a => a.QuizId == quiz);
         }
 
         if (!string.IsNullOrWhiteSpace(keyword))

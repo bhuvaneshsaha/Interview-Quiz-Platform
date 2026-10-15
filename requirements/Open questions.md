@@ -8,9 +8,6 @@ Still open
 * Retention restore details
   * Locked direction: default 5 years (configurable); after retention, archive (do not hard-delete / lose data).
   * Still to nail: whether resumes, attempts, and quiz content share one policy; who can restore from archive.
-* Ordering partial-credit formula
-  * Locked: same credit modes as multi-select (Partial credit | All-or-nothing), per question, with company default.
-  * Still to nail: exact partial formula for sequences (recommended default: adjacent-pair scoring).
 * Company AI rule schema (full shape)
   * Locked direction: required fields per question type for consistent system prompts, plus a global layer (topics, difficulty, banned content, language).
   * Still to nail: concrete schema / versioning details.
@@ -20,6 +17,7 @@ Decided (moved into Product Brief)
 * AI-assist scores are stored as auditable drafts (suggestion + confirmer + timestamps).
 * ATS / HRIS integration: not required for v1; long-term management vision only.
 * Multi-select (and ordering) credit modes: Partial credit and All-or-nothing; author chooses per question; company default.
+* Ordering partial credit is positional adjacent-pair. The candidate must submit the same items (same count, no duplicates). All-or-nothing scores only the full sequence. Partial credit counts a hit only when positions i and i+1 both match the key. Neighbors that sit in the wrong place do not score. That is stricter than a casual “order matters.” Implemented by `ScoreOrdering`.
 * Drag interactions modeled as two question types: Shared answer bank, and Per-slot options.
 * Distractor count: decided by the question author.
 * Mobile drag-and-drop: aim for v1; use tap-to-place fallback if native drag is too costly; only defer full mobile DnD to v2 if still insufficient.

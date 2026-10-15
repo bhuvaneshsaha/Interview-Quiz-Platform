@@ -25,6 +25,7 @@ export class RoleEditor implements OnInit {
   readonly isNew = signal(true);
   readonly catalog = signal<PermissionResponse[]>([]);
   readonly selected = signal<ReadonlySet<string>>(new Set());
+  readonly isSystem = signal(false);
 
   readonly modules = computed(() => {
     const groups = new Map<string, PermissionResponse[]>();
@@ -71,6 +72,9 @@ export class RoleEditor implements OnInit {
   }
 
   toggle(code: string, event: Event): void {
+    if (this.isSystem()) {
+      return;
+    }
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
@@ -89,6 +93,9 @@ export class RoleEditor implements OnInit {
   }
 
   submit(): void {
+    if (this.isSystem()) {
+      return;
+    }
     this.error.set(null);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -116,7 +123,7 @@ export class RoleEditor implements OnInit {
   }
 
   deleteRole(): void {
-    if (!this.roleId) {
+    if (!this.roleId || this.isSystem()) {
       return;
     }
     this.saving.set(true);
@@ -130,11 +137,15 @@ export class RoleEditor implements OnInit {
   }
 
   private patch(role: RoleResponse): void {
+    this.isSystem.set(role.isSystem);
     this.form.patchValue({
       name: role.name,
       description: role.description ?? '',
     });
     this.selected.set(new Set(role.permissionCodes));
+    if (role.isSystem) {
+      this.form.disable();
+    }
   }
 
   private fail(err: unknown): void {

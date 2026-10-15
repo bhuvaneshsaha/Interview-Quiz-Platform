@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   OpeningResponse,
@@ -22,6 +22,7 @@ import { isUuid, QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
   styleUrl: './template-detail.component.css',
 })
 export class TemplateDetail implements OnInit {
+  private readonly fb = inject(FormBuilder);
   private readonly api = inject(TemplatesApi);
   private readonly openingsApi = inject(OpeningsApi);
   private readonly route = inject(ActivatedRoute);
@@ -33,6 +34,15 @@ export class TemplateDetail implements OnInit {
   readonly canClone =
     this.permissions.hasPermission(PermissionCodes.QuizzesWrite) &&
     this.permissions.hasPermission(PermissionCodes.TemplatesRead);
+  readonly canWrite = this.permissions.hasPermission(PermissionCodes.TemplatesWrite);
+
+  readonly metadata = this.fb.nonNullable.group({
+    title: ['', [Validators.required, Validators.maxLength(200)]],
+    description: [''],
+    expectedExperienceYears: [0, [Validators.required, Validators.min(0), Validators.max(80)]],
+    changeNote: ['', [Validators.required, Validators.maxLength(500)]],
+    tags: this.fb.array<FormGroup>([]),
+  });
 
   readonly openingId = new FormControl('', { nonNullable: true });
   readonly cloneTitle = new FormControl('', { nonNullable: true });
@@ -41,6 +51,8 @@ export class TemplateDetail implements OnInit {
   readonly versionsLoading = signal(false);
   readonly questionsLoading = signal(false);
   readonly cloning = signal(false);
+  readonly saving = signal(false);
+  readonly saveError = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly correlationId = signal<string | null>(null);
   readonly cloneError = signal<string | null>(null);
@@ -54,6 +66,26 @@ export class TemplateDetail implements OnInit {
   readonly openings = signal<OpeningResponse[]>([]);
 
   private templateId: string | null = null;
+
+  private tagGroup(key = '', value = ''): FormGroup {
+    return this.fb.nonNullable.group({
+      key: [key],
+      value: [value],
+    });
+  }
+
+  private patchMetadata(template: TemplateResponse): void {
+    this.metadata.patchValue({
+      title: template.title,
+      description: template.description,
+      expectedExperienceYears: template.expectedExperienceYears,
+      changeNote: '',
+    });
+    this.tags.clear();
+    for (const [key, value] of Object.entries(template.tags)) {
+      this.tags.push(this.tagGroup(key, value));
+    }
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -74,6 +106,7 @@ export class TemplateDetail implements OnInit {
     this.api.get(id).subscribe({
       next: (template) => {
         this.template.set(template);
+        this.patchMetadata(template);
         this.loading.set(false);
         this.loadVersions();
         this.loadVersionQuestions(template.latestVersionId);
@@ -163,6 +196,61 @@ export class TemplateDetail implements OnInit {
           this.cloneError.set(mapped.message);
           this.cloneCorrelationId.set(mapped.correlationId);
           this.cloning.set(false);
+        },
+      });
+  }
+
+  get tags(): FormArray<FormGroup> {
+    return this.metadata.controls.tags;
+  }
+
+  addTag(): void {
+    this.tags.push(this.tagGroup());
+  }
+
+  removeTag(index: number): void {
+    this.tags.removeAt(index);
+  }
+
+  saveMetadata(): void {
+    this.saveError.set(null);
+    if (!this.canWrite || !this.templateId || !this.template()) {
+      return;
+    }
+    if (this.metadata.invalid) {
+      this.metadata.markAllAsTouched();
+      return;
+    }
+    const value = this.metadata.getRawValue();
+    const tags: Record<string, string> = {};
+    for (const tag of value.tags) {
+      const key = String(tag['key'] ?? '').trim();
+      if (key) {
+        tags[key] = String(tag['value'] ?? '').trim();
+      }
+    }
+    this.saving.set(true);
+    this.api
+      .updateMetadata(this.templateId, {
+        title: value.title.trim(),
+        description: value.description.trim(),
+        expectedExperienceYears: value.expectedExperienceYears,
+        tags,
+        rowVersion: this.template()!.rowVersion,
+        changeNote: value.changeNote.trim(),
+      })
+      .subscribe({
+        next: (template) => {
+          this.template.set(template);
+          this.patchMetadata(template);
+          this.saving.set(false);
+          this.loadVersions();
+          this.loadVersionQuestions(template.latestVersionId);
+        },
+        error: (err: unknown) => {
+          const mapped = PageStatus.fromError(err);
+          this.saveError.set(mapped.message);
+          this.saving.set(false);
         },
       });
   }

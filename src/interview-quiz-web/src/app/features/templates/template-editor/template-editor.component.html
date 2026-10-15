@@ -1,0 +1,87 @@
+<div class="page-heading">
+  <h1>Edit template</h1>
+  <a [routerLink]="['/templates', template()?.id]">Back to template</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading template editor."
+>
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <p class="hint">
+      Save creates version {{ (template()?.latestVersionNumber ?? 0) + 1 }}. Questions are copied
+      with new ids. Earlier versions, quizzes cloned from them, and assignment snapshots do not
+      change.
+    </p>
+    <div class="field">
+      <label for="edit-title">Title</label>
+      <input id="edit-title" type="text" formControlName="title" maxlength="200" />
+    </div>
+    <div class="field">
+      <label for="edit-description">Description</label>
+      <textarea id="edit-description" rows="3" formControlName="description"></textarea>
+    </div>
+    <div class="field">
+      <label for="edit-experience">Expected experience (years)</label>
+      <input id="edit-experience" type="number" formControlName="expectedExperienceYears" min="0" max="80" />
+    </div>
+    <div class="field">
+      <label for="edit-note">Change note</label>
+      <input id="edit-note" type="text" formControlName="changeNote" maxlength="500" />
+    </div>
+
+    <h2>Questions</h2>
+    @if (questions.length === 0) {
+      <p>This version has no questions. Saving keeps it empty.</p>
+    }
+    <div formArrayName="questions">
+      @for (question of questions.controls; track $index) {
+        <fieldset class="question" [formGroupName]="$index">
+          <legend>Question {{ $index + 1 }}</legend>
+          <p class="hint">{{ draftsType($index) }}</p>
+          <div class="field">
+            <label [attr.for]="'stem-' + $index">Stem</label>
+            <textarea [id]="'stem-' + $index" rows="3" formControlName="stem"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label [attr.for]="'points-' + $index">Points</label>
+              <input [id]="'points-' + $index" type="number" formControlName="points" min="1" />
+            </div>
+            <div class="field">
+              <label [attr.for]="'scoring-' + $index">Scoring</label>
+              <select [id]="'scoring-' + $index" formControlName="scoringMode">
+                @for (mode of scoringModes; track mode) {
+                  <option [value]="mode">{{ scoringLabels[mode] }}</option>
+                }
+              </select>
+            </div>
+            @if (requiresCreditMode(draftsType($index))) {
+              <div class="field">
+                <label [attr.for]="'credit-' + $index">Credit mode</label>
+                <select [id]="'credit-' + $index" formControlName="creditMode">
+                  @for (mode of creditModes; track mode) {
+                    <option [value]="mode">{{ creditLabels[mode] }}</option>
+                  }
+                </select>
+                @if (draftsType($index) === 'ordering') {
+                  <p class="hint">
+                    Partial credit counts a hit only when positions i and i+1 match the keyed pair.
+                    The answer must be the same items. A neighboring pair in the wrong place does not
+                    score. That is stricter than a loose “order matters.”
+                  </p>
+                }
+              </div>
+            }
+          </div>
+        </fieldset>
+      }
+    </div>
+
+    <button type="submit" class="button" [disabled]="saving()">
+      {{ saving() ? 'Saving…' : 'Save new version' }}
+    </button>
+  </form>
+</app-page-status>

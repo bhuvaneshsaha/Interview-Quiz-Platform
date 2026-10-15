@@ -167,6 +167,13 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OriginQuizId")
                         .HasColumnType("uuid");
 
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("row_version");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -185,6 +192,13 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ChangeNote")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasDefaultValue("");
 
                     b.Property<string>("Description")
                         .IsRequired()

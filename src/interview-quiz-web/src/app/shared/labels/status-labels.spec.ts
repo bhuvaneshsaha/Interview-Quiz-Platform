@@ -1,12 +1,15 @@
-import { itemResultLabel, resultStatusLabel, statusLabel } from './status-labels';
+import { ASSIGNMENT_STATUS_LABELS, itemResultLabel, resultStatusLabel, statusLabel } from './status-labels';
 
 describe('status labels', () => {
   it('humanizes assignment and attempt statuses', () => {
+    expect(Object.keys(ASSIGNMENT_STATUS_LABELS).sort()).toEqual(
+      ['completed', 'inProgress', 'notStarted', 'pendingReview'].sort(),
+    );
     expect(statusLabel('notStarted')).toBe('Not started');
     expect(statusLabel('inProgress')).toBe('In progress');
-    expect(statusLabel('submitted')).toBe('Submitted');
     expect(statusLabel('pendingReview')).toBe('Pending review');
     expect(statusLabel('completed')).toBe('Completed');
+    expect(statusLabel('submitted')).toBe('Submitted');
   });
 
   it('humanizes result statuses', () => {

@@ -12,6 +12,7 @@ public sealed class AccessRoleConfiguration : IEntityTypeConfiguration<AccessRol
         builder.HasKey(role => role.Id);
         builder.Property(role => role.Name).HasMaxLength(128).IsRequired();
         builder.Property(role => role.Description).HasMaxLength(512);
+        builder.Property(role => role.IsSystem).IsRequired().HasDefaultValue(false);
         builder.HasIndex(role => role.Name).IsUnique();
 
         builder.HasMany(role => role.Permissions)

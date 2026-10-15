@@ -7,6 +7,7 @@ namespace InterviewQuiz.Catalog.Domain;
 public sealed class TemplateVersion
 {
     public const int PublishedByUserIdMaxLength = 256;
+    public const int ChangeNoteMaxLength = 500;
 
     private TemplateVersion()
     {
@@ -22,6 +23,7 @@ public sealed class TemplateVersion
     public Guid PublishedFromQuizId { get; private set; }
     public DateTimeOffset PublishedAtUtc { get; private set; }
     public string PublishedByUserId { get; private set; } = null!;
+    public string ChangeNote { get; private set; } = "";
     public List<Question> Questions { get; private set; } = [];
 
     public static TemplateVersion FromQuiz(
@@ -31,7 +33,8 @@ public sealed class TemplateVersion
         string publishedByUserId,
         IClock clock,
         Guid? id = null,
-        IReadOnlyList<Question>? questions = null)
+        IReadOnlyList<Question>? questions = null,
+        string? changeNote = null)
     {
         var copies = questions
             ?? quiz.Questions
@@ -51,7 +54,8 @@ public sealed class TemplateVersion
             publishedByUserId,
             copies,
             clock,
-            id);
+            id,
+            changeNote);
     }
 
     public static TemplateVersion Create(
@@ -65,7 +69,8 @@ public sealed class TemplateVersion
         string publishedByUserId,
         IReadOnlyList<Question> questions,
         IClock clock,
-        Guid? id = null)
+        Guid? id = null,
+        string? changeNote = null)
     {
         if (templateId == Guid.Empty)
         {
@@ -122,8 +127,25 @@ public sealed class TemplateVersion
             PublishedFromQuizId = publishedFromQuizId,
             PublishedAtUtc = clock.UtcNow,
             PublishedByUserId = trimmedPublisher,
+            ChangeNote = NormalizeChangeNote(changeNote),
             Questions = list
         };
+    }
+
+    private static string NormalizeChangeNote(string? changeNote)
+    {
+        if (string.IsNullOrWhiteSpace(changeNote))
+        {
+            return "";
+        }
+
+        var trimmed = changeNote.Trim();
+        if (trimmed.Length > ChangeNoteMaxLength)
+        {
+            throw new DomainException($"Change note cannot exceed {ChangeNoteMaxLength} characters.");
+        }
+
+        return trimmed;
     }
 
     private static string RequireText(string value, string name, int maxLength)

@@ -19,6 +19,7 @@ const sampleTemplate: TemplateResponse = {
   originQuizId: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001',
   createdAtUtc: '2026-01-01T00:00:00Z',
   updatedAtUtc: '2026-01-01T00:00:00Z',
+  rowVersion: 1,
 };
 
 const sampleVersion: TemplateVersionResponse = {
@@ -28,6 +29,8 @@ const sampleVersion: TemplateVersionResponse = {
   title: sampleTemplate.title,
   publishedFromQuizId: sampleTemplate.originQuizId,
   publishedAtUtc: '2026-01-01T00:00:00Z',
+  publishedByUserId: 'author-1',
+  changeNote: 'Published from quiz',
   questionCount: 1,
   description: sampleTemplate.description,
   expectedExperienceYears: 5,
@@ -106,7 +109,17 @@ describe('TemplateDetail', () => {
   it('hides clone without quizzes.write (templates.read only)', async () => {
     await setup([PermissionCodes.TemplatesRead]);
     expect(fixture.nativeElement.querySelector('[data-testid="clone-template"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/templates/' + sampleTemplate.id + '/edit"]')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Backend interview template');
+    expect(fixture.nativeElement.textContent).toContain('author-1');
+    expect(fixture.nativeElement.textContent).toContain('Published from quiz');
+  });
+
+  it('shows Edit template when templates.write is granted', async () => {
+    await setup([PermissionCodes.TemplatesRead, PermissionCodes.TemplatesWrite]);
+    const edit = fixture.nativeElement.querySelector('a[href="/templates/' + sampleTemplate.id + '/edit"]');
+    expect(edit).toBeTruthy();
+    expect(edit?.textContent).toContain('Edit template');
   });
 
   it('shows clone when both quizzes.write and templates.read are granted', async () => {

@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AssignmentSummaryResponse, OpeningResponse } from '../../../core/api/contracts';
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
@@ -18,6 +18,7 @@ import { isUuid } from '../../quizzes/quiz-form.mapper';
   styleUrl: './assignment-list.component.css',
 })
 export class AssignmentList implements OnInit {
+  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(AssignmentsApi);
   private readonly openingsApi = inject(OpeningsApi);
   private readonly permissions = inject(PermissionService);
@@ -26,7 +27,10 @@ export class AssignmentList implements OnInit {
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
   readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.AssignmentsWrite));
   readonly filtered = computed(
-    () => this.appliedOpeningId().trim().length > 0 || this.appliedKeyword().trim().length > 0,
+    () =>
+      this.appliedOpeningId().trim().length > 0 ||
+      this.appliedQuizId().trim().length > 0 ||
+      this.appliedKeyword().trim().length > 0,
   );
   readonly emptyMessage = computed(() =>
     this.filtered() ? 'No assignments match this filter.' : 'No assignments yet.',
@@ -35,6 +39,7 @@ export class AssignmentList implements OnInit {
   readonly emptyActionLink = computed(() => (this.canWrite() ? '/assignments/new' : null));
   readonly statusLabel = statusLabel;
   readonly openingFilter = new FormControl('', { nonNullable: true });
+  readonly quizFilter = new FormControl('', { nonNullable: true });
   readonly keyword = new FormControl('', { nonNullable: true });
 
   readonly loading = signal(true);
@@ -46,9 +51,20 @@ export class AssignmentList implements OnInit {
   readonly totalCount = signal(0);
   readonly pageSize = 20;
   readonly appliedOpeningId = signal('');
+  readonly appliedQuizId = signal('');
   readonly appliedKeyword = signal('');
 
   ngOnInit(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const openingId = params.get('openingId') ?? '';
+    const quizId = params.get('quizId') ?? '';
+    const keyword = params.get('keyword') ?? '';
+    this.openingFilter.setValue(openingId);
+    this.quizFilter.setValue(quizId);
+    this.keyword.setValue(keyword);
+    this.appliedOpeningId.set(openingId);
+    this.appliedQuizId.set(quizId);
+    this.appliedKeyword.set(keyword);
     if (this.canReadOpenings) {
       this.openingsApi.list(1, 100).subscribe({
         next: (result) => this.openings.set(result.items),
@@ -65,7 +81,14 @@ export class AssignmentList implements OnInit {
       this.correlationId.set(null);
       return;
     }
+    const rawQuiz = this.quizFilter.value.trim();
+    if (rawQuiz && !isUuid(rawQuiz)) {
+      this.error.set('Quiz filter must be a valid quiz id.');
+      this.correlationId.set(null);
+      return;
+    }
     this.appliedOpeningId.set(rawOpening);
+    this.appliedQuizId.set(rawQuiz);
     this.appliedKeyword.set(this.keyword.value.trim());
     this.load(1);
   }
@@ -74,8 +97,15 @@ export class AssignmentList implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     const openingId = this.appliedOpeningId();
+    const quizId = this.appliedQuizId();
     if (openingId && !isUuid(openingId)) {
       this.error.set('Opening filter must be a valid opening id.');
+      this.correlationId.set(null);
+      this.loading.set(false);
+      return;
+    }
+    if (quizId && !isUuid(quizId)) {
+      this.error.set('Quiz filter must be a valid quiz id.');
       this.correlationId.set(null);
       this.loading.set(false);
       return;
@@ -83,6 +113,7 @@ export class AssignmentList implements OnInit {
     this.api
       .list(page, this.pageSize, {
         openingId: openingId || undefined,
+        quizId: quizId || undefined,
         keyword: this.appliedKeyword() || undefined,
       })
       .subscribe({

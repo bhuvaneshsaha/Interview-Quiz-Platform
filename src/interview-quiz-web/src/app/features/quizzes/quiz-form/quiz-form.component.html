@@ -360,6 +360,13 @@
                 @if (errorFor('questions.' + i + '.creditMode'); as message) {
                   <p [id]="'err-q-' + i + '-credit'" class="field-error">{{ message }}</p>
                 }
+                @if (questionType(i) === 'ordering') {
+                  <p class="hint">
+                    Partial credit counts a hit only when positions i and i+1 match the keyed pair.
+                    The answer must be the same items. A neighboring pair in the wrong place does not
+                    score. That is stricter than a loose “order matters.”
+                  </p>
+                }
               </div>
             }
           </div>
