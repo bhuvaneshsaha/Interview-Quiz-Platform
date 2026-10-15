@@ -31,6 +31,11 @@ public sealed class AttemptReviewItemDto
     public string? ReviewedByUserId { get; init; }
     public DateTimeOffset? ReviewedAtUtc { get; init; }
     public string? ReviewComment { get; init; }
+    public decimal? SuggestedPoints { get; init; }
+    public string? SuggestionFeedback { get; init; }
+    public string? SuggestedByUserId { get; init; }
+    public DateTimeOffset? SuggestedAtUtc { get; init; }
+    public string? SuggestionModel { get; init; }
 }
 
 public sealed class AttemptReviewResponse
@@ -47,6 +52,7 @@ public sealed class AttemptReviewResponse
     public decimal AutoPointsAvailable { get; init; }
     public decimal TotalPointsAvailable { get; init; }
     public decimal? FinalPointsAwarded { get; init; }
+    public bool AiSuggestionsEnabled { get; init; }
     public long QuizRowVersion { get; init; }
     public IReadOnlyList<AttemptReviewItemDto> Items { get; init; } = [];
 }

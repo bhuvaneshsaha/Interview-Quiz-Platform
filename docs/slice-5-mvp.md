@@ -14,7 +14,7 @@ There is no live start, pause, or monitor. There is no human or AI review, no En
 |------------------|--------------------------|
 | Live on the create form | Slice 5 left the choice disabled. Slice 6 enables it, requires a duration (1–480), and runs the session from the assignment. Create still omits `inviteUrl`. |
 | SMTP / email | Async issue and resend send mail. Development defaults to a file sink. Mailpit or real SMTP is configuration (`InviteMail__Mode`). Tests do not open SMTP. The recruiter can still copy `inviteUrl`. Ticketing is out of scope. |
-| Result `pendingReview` | At least one item is unsettled (`aiAssist` or `humanOnly`). Auto totals are not a final decision. A reviewer with `attempts.review` scores those items. AI suggestion drafts are not implemented. |
+| Result `pendingReview` | At least one item is unsettled (`aiAssist` or `humanOnly`). Auto totals are not a final decision. A reviewer with `attempts.review` scores those items. An `aiAssist` item can also store an auditable suggestion draft; confirming it still uses the review score. |
 | `sessions.live.run` | Seeded on Dev Recruiter. **Active in slice 6** for start, pause, resume, and end. |
 | `attempts.review` | Seeded on Dev Reviewer. **Active** for human scoring. It does not call an LLM. |
 

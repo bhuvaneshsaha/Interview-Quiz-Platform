@@ -15,7 +15,13 @@ public sealed class Attempt
     public const string PointsOutOfRangeMessage = "Points awarded must be between 0 and the question points.";
     public const string CommentTooLongMessage = "Review comment must be 2000 characters or fewer.";
     public const string ReviewerRequiredMessage = "Reviewer is required.";
+    public const string SuggestionOnlyForAiAssistMessage = "AI suggestions apply only to AI-assist items.";
+    public const string SuggestionUnavailableMessage = "AI suggestions are not configured.";
+    public const string SuggestionFailedMessage = "AI suggestion could not be produced.";
+    public const string SuggestionFeedbackTooLongMessage = "Suggestion feedback must be 2000 characters or fewer.";
     public const int ReviewCommentMaxLength = 2000;
+    public const int SuggestionFeedbackMaxLength = 2000;
+    public const int SuggestionModelMaxLength = 200;
 
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptItemResult> _itemResults = [];
@@ -295,6 +301,59 @@ public sealed class Attempt
 
         RowVersion++;
         return complete && !wasComplete;
+    }
+
+    /// <summary>
+    /// Stores the latest AI draft on an <c>aiAssist</c> item. Does not settle the item
+    /// and does not change a score the reviewer already confirmed.
+    /// </summary>
+    public void RecordSuggestion(
+        Guid questionId,
+        decimal suggestedPoints,
+        string? feedback,
+        string suggestedByUserId,
+        string model,
+        IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (!IsSubmitted)
+        {
+            throw new ConcurrencyException(NotSubmittedMessage);
+        }
+
+        var actor = suggestedByUserId?.Trim() ?? "";
+        if (actor.Length == 0)
+        {
+            throw new DomainException(ReviewerRequiredMessage);
+        }
+
+        var modelName = model?.Trim() ?? "";
+        if (modelName.Length == 0 || modelName.Length > SuggestionModelMaxLength)
+        {
+            throw new DomainException(SuggestionFailedMessage);
+        }
+
+        var item = _itemResults.FirstOrDefault(result => result.QuestionId == questionId)
+            ?? throw new DomainException(UnknownQuestionMessage);
+        if (!item.IsAiAssist)
+        {
+            throw new DomainException(SuggestionOnlyForAiAssistMessage);
+        }
+
+        var points = decimal.Round(suggestedPoints, 4, MidpointRounding.AwayFromZero);
+        if (points < 0 || points > item.Points)
+        {
+            throw new DomainException(PointsOutOfRangeMessage);
+        }
+
+        var note = string.IsNullOrWhiteSpace(feedback) ? null : feedback.Trim();
+        if (note is { Length: > SuggestionFeedbackMaxLength })
+        {
+            throw new DomainException(SuggestionFeedbackTooLongMessage);
+        }
+
+        item.RecordSuggestion(points, note, actor, TruncateToMicroseconds(clock.UtcNow), modelName);
+        RowVersion++;
     }
 
     private void EnsureInProgress()

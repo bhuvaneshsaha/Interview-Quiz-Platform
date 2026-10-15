@@ -66,4 +66,17 @@ public sealed class AttemptsController : ControllerBase
         var result = await _attempts.ScoreItemAsync(id, itemId, request, reviewerUserId, cancellationToken);
         return Ok(result);
     }
+
+    [HttpPost("attempts/{id:guid}/items/{itemId:guid}/suggestion")]
+    [HasPermission(PermissionCodes.Evaluation.AttemptsReview)]
+    public async Task<ActionResult<AttemptReviewResponse>> SuggestItem(
+        Guid id,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var reviewerUserId = User.FindUserId()
+            ?? throw new ForbiddenException("Authenticated user id is required.");
+        var result = await _attempts.SuggestItemAsync(id, itemId, reviewerUserId, cancellationToken);
+        return Ok(result);
+    }
 }

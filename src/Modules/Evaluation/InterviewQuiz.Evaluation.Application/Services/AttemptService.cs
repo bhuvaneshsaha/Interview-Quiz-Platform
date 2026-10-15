@@ -4,6 +4,7 @@ using InterviewQuiz.Catalog.Application.CandidatePreview;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Application.Contracts;
+using InterviewQuiz.Evaluation.Application.Ai;
 using InterviewQuiz.Evaluation.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Scoring;
 using InterviewQuiz.Evaluation.Domain;
@@ -26,6 +27,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
     private readonly ILiveSessionGateway? _live;
     private readonly IClock _clock;
     private readonly ILogger<AttemptService> _logger;
+    private readonly IAiSuggestionClient _suggestions;
 
     public AttemptService(
         IAttemptRepository attempts,
@@ -34,7 +36,8 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         IClock clock,
         ILogger<AttemptService> logger,
         IInviteContinuation? invites = null,
-        ILiveSessionGateway? live = null)
+        ILiveSessionGateway? live = null,
+        IAiSuggestionClient? suggestions = null)
     {
         _attempts = attempts;
         _assignments = assignments;
@@ -43,6 +46,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         _live = live;
         _clock = clock;
         _logger = logger;
+        _suggestions = suggestions ?? DisabledAiSuggestionClient.Instance;
     }
 
     public async Task<(CandidateAttemptResponse Response, bool Created)> StartAsync(
@@ -418,7 +422,62 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
 
         var attempt = await RequireSubmittedAttemptAsync(attemptId, cancellationToken);
         var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
-        return MapReview(attempt, header.Snapshot);
+        return MapReview(attempt, header.Snapshot, _suggestions.IsEnabled);
+    }
+
+    public async Task<AttemptReviewResponse> SuggestItemAsync(
+        Guid attemptId,
+        Guid questionId,
+        string reviewerUserId,
+        CancellationToken cancellationToken)
+    {
+        if (!_suggestions.IsEnabled)
+        {
+            throw new DomainException(Attempt.SuggestionUnavailableMessage);
+        }
+
+        using var activity = ActivitySource.StartActivity("attempts.review.suggest");
+        activity?.SetTag("attempt.id", attemptId);
+        activity?.SetTag("question.id", questionId);
+
+        var attempt = await RequireSubmittedAttemptAsync(attemptId, cancellationToken);
+        activity?.SetTag("assignment.id", attempt.AssignmentId);
+        var item = attempt.ItemResults.FirstOrDefault(result => result.QuestionId == questionId)
+            ?? throw new DomainException(Attempt.UnknownQuestionMessage);
+        if (!item.IsAiAssist)
+        {
+            throw new DomainException(Attempt.SuggestionOnlyForAiAssistMessage);
+        }
+
+        var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
+        var question = header.Snapshot.Questions.FirstOrDefault(q => q.Id == questionId);
+        var answer = attempt.Answers.FirstOrDefault(a => a.QuestionId == questionId);
+        JsonElement? candidateAnswer = answer is null ? null : answer.Value.RootElement.Clone();
+        var draft = await _suggestions.SuggestAsync(
+            new AiSuggestionRequest(
+                questionId,
+                item.Type,
+                item.Points,
+                question?.Stem ?? "",
+                question?.Body ?? default,
+                candidateAnswer),
+            cancellationToken);
+
+        attempt.RecordSuggestion(
+            questionId,
+            draft.Points,
+            draft.Feedback,
+            reviewerUserId,
+            _suggestions.ModelName,
+            _clock);
+        await _attempts.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Stored AI suggestion model {Model} for question {QuestionId} on attempt {AttemptId}",
+            _suggestions.ModelName,
+            questionId,
+            attempt.Id);
+
+        return MapReview(attempt, header.Snapshot, _suggestions.IsEnabled);
     }
 
     public async Task<AttemptReviewResponse> ScoreItemAsync(
@@ -454,7 +513,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             attempt.AssignmentId);
 
         var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
-        return MapReview(attempt, header.Snapshot);
+        return MapReview(attempt, header.Snapshot, _suggestions.IsEnabled);
     }
 
     private async Task<Attempt> RequireSubmittedAttemptAsync(Guid attemptId, CancellationToken cancellationToken)
@@ -838,7 +897,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         };
     }
 
-    private static AttemptReviewResponse MapReview(Attempt attempt, QuizSnapshotDto snapshot)
+    private static AttemptReviewResponse MapReview(Attempt attempt, QuizSnapshotDto snapshot, bool aiSuggestionsEnabled)
     {
         var questions = snapshot.Questions.ToDictionary(q => q.Id);
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.Value.RootElement.Clone());
@@ -867,7 +926,12 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
                     Reviewable = r.IsHumanReviewable,
                     ReviewedByUserId = r.ReviewedByUserId,
                     ReviewedAtUtc = r.ReviewedAtUtc,
-                    ReviewComment = r.ReviewComment
+                    ReviewComment = r.ReviewComment,
+                    SuggestedPoints = r.SuggestedPoints,
+                    SuggestionFeedback = r.SuggestionFeedback,
+                    SuggestedByUserId = r.SuggestedByUserId,
+                    SuggestedAtUtc = r.SuggestedAtUtc,
+                    SuggestionModel = r.SuggestionModel
                 };
             })
             .ToList();
@@ -886,6 +950,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             AutoPointsAvailable = attempt.AutoPointsAvailable,
             TotalPointsAvailable = attempt.TotalPointsAvailable,
             FinalPointsAwarded = attempt.FinalPointsAwarded,
+            AiSuggestionsEnabled = aiSuggestionsEnabled,
             QuizRowVersion = snapshot.RowVersion,
             Items = items
         };

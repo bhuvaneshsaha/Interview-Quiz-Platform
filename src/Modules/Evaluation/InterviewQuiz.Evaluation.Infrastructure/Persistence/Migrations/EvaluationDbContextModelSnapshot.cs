@@ -161,6 +161,25 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<DateTimeOffset?>("SuggestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SuggestedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<decimal?>("SuggestedPoints")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("SuggestionFeedback")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("SuggestionModel")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(64)

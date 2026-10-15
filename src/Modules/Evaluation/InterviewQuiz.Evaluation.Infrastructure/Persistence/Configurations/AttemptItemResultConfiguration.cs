@@ -20,6 +20,10 @@ public sealed class AttemptItemResultConfiguration : IEntityTypeConfiguration<At
         builder.Property(e => e.ReviewedByUserId).HasMaxLength(450);
         builder.Property(e => e.ReviewedAtUtc);
         builder.Property(e => e.ReviewComment).HasMaxLength(Attempt.ReviewCommentMaxLength);
+        builder.Property(e => e.SuggestedPoints).HasPrecision(18, 4);
+        builder.Property(e => e.SuggestionFeedback).HasMaxLength(Attempt.SuggestionFeedbackMaxLength);
+        builder.Property(e => e.SuggestedByUserId).HasMaxLength(450);
+        builder.Property(e => e.SuggestionModel).HasMaxLength(Attempt.SuggestionModelMaxLength);
         builder.Property(e => e.Status)
             .HasConversion(CamelCaseEnumConverter.For<ItemScoreStatus>())
             .HasMaxLength(32)

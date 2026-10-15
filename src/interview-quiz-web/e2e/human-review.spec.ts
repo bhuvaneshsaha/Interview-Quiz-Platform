@@ -130,6 +130,7 @@ test('reviewer scores an unsettled item and sees the final score', async ({ page
   await signIn(page, 'reviewer.dev@example.com', reviewUrl);
 
   await expect(page.getByRole('heading', { name: 'Review attempt' })).toBeVisible();
+  await expect(page.getByTestId(`suggest-score-${humanId}`)).toHaveCount(0);
   await expect(page.getByText('Describe how a snapshot freezes the quiz.')).toBeVisible();
   await expect(page.getByText('No keyed answer. Guidance: Mention the frozen copy.')).toBeVisible();
   await expect(page.getByTestId('final-score')).toContainText('Not finalised');

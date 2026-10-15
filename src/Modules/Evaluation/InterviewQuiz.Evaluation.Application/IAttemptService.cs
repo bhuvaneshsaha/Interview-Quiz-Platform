@@ -40,4 +40,10 @@ public interface IAttemptService
         ReviewItemRequest request,
         string reviewerUserId,
         CancellationToken cancellationToken);
+
+    Task<AttemptReviewResponse> SuggestItemAsync(
+        Guid attemptId,
+        Guid questionId,
+        string reviewerUserId,
+        CancellationToken cancellationToken);
 }

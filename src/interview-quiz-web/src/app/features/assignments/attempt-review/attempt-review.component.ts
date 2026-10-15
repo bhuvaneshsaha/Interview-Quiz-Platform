@@ -35,6 +35,7 @@ export class AttemptReview implements OnInit {
   readonly correlationId = signal<string | null>(null);
   readonly saveError = signal<string | null>(null);
   readonly savingId = signal<string | null>(null);
+  readonly suggestingId = signal<string | null>(null);
   readonly review = signal<AttemptReviewResponse | null>(null);
   readonly drafts = signal<Record<string, ScoreDraft>>({});
   readonly assignmentId = signal(this.route.snapshot.paramMap.get('assignmentId') ?? '');
@@ -77,9 +78,38 @@ export class AttemptReview implements OnInit {
     this.drafts.update((drafts) => ({ ...drafts, [questionId]: { ...current, ...patch } }));
   }
 
+  suggest(item: AttemptReviewItem): void {
+    const current = this.review();
+    if (!current || this.suggestingId() || this.savingId()) {
+      return;
+    }
+    this.saveError.set(null);
+    this.suggestingId.set(item.questionId);
+    this.api.suggestItem(current.id, item.questionId).subscribe({
+      next: (review) => {
+        this.apply(review);
+        this.suggestingId.set(null);
+      },
+      error: (err: unknown) => {
+        const mapped = PageStatus.fromError(err);
+        this.saveError.set(mapped.message);
+        this.correlationId.set(mapped.correlationId);
+        this.suggestingId.set(null);
+      },
+    });
+  }
+
+  useSuggestion(item: AttemptReviewItem): void {
+    this.updateDraft(item.questionId, {
+      points:
+        item.suggestedPoints === null || item.suggestedPoints === undefined ? '' : String(item.suggestedPoints),
+      comment: item.suggestionFeedback ?? '',
+    });
+  }
+
   save(item: AttemptReviewItem): void {
     const current = this.review();
-    if (!current || this.savingId()) {
+    if (!current || this.savingId() || this.suggestingId()) {
       return;
     }
     const draft = this.draft(item);

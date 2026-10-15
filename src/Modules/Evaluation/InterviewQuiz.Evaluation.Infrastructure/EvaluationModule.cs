@@ -1,5 +1,6 @@
 using InterviewQuiz.Evaluation.Application;
 using InterviewQuiz.Evaluation.Application.Services;
+using InterviewQuiz.Evaluation.Infrastructure.Ai;
 using InterviewQuiz.Evaluation.Infrastructure.Persistence;
 using InterviewQuiz.Kernel.Assignments;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ public static class EvaluationModule
         services.AddScoped<IAttemptClock>(sp => sp.GetRequiredService<AttemptService>());
         services.AddScoped<ICandidateAttemptIdLookup>(sp => sp.GetRequiredService<AttemptService>());
         services.AddScoped<IRevokedInviteAttemptCloser>(sp => sp.GetRequiredService<AttemptService>());
+        services.AddAiSuggestions(configuration);
         return services;
     }
 }

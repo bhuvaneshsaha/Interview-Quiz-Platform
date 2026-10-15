@@ -1,6 +1,6 @@
 # Interview Quiz Platform — Architecture
 
-Status: v1 architecture record — slices **1–7 human review implemented** (live sessions: [ADR 0010](adr/0010-live-quiz-sessions.md); AI suggestion drafts are not in slice 7).  
+Status: v1 architecture record — slices **1–7 implemented**, including human review and AI suggestion drafts (live sessions: [ADR 0010](adr/0010-live-quiz-sessions.md)).  
 Platform skill: `enterprise-architecture-onprem.md`  
 Client shape: **Angular SPA + installable PWA, online-first** (no Ionic / Capacitor)  
 AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link (protocol in ADR 0008 + §16.3, **implemented**); Entra ID later as external login. Auth owns issuance, storage, and protocol **within that lock**.  
@@ -246,7 +246,7 @@ Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable
 
 **Language:** attempt, answer, auto-score, AI-assist draft, human review, final result.
 
-**Owns:** attempts (answers, timestamps, duration); immediate auto-score of `auto` items on submit; human scores for `humanOnly` and `aiAssist` items until every item is settled (**slice 7**, §17); final score/outcome. AI suggestion drafts are not stored yet. Archive/restore of attempts metadata (files via file store).
+**Owns:** attempts (answers, timestamps, duration); immediate auto-score of `auto` items on submit; human scores for `humanOnly` and `aiAssist` items until every item is settled (**slice 7**, §17); AI suggestion drafts on `aiAssist` items; final score/outcome. Archive/restore of attempts metadata (files via file store).
 
 **Does not own:** assignment creation, quiz authoring, magic-link tokens.
 
@@ -254,7 +254,7 @@ Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable
 
 - Candidate (resource-scoped JWT): `POST /api/assignments/{id}/attempts`, `GET /api/assignments/{id}/attempts/current`, `PUT .../current/answers`, `POST .../current/submit`
 - Employee (`attempts.read`): `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — results without answer keys
-- Slice **7** (§17): `GET /api/attempts/{id}/review` and `POST /api/attempts/{id}/items/{itemId}/review` (`attempts.review`). AI suggestion is not this contract.
+- Slice **7** (§17): `GET /api/attempts/{id}/review`, `POST /api/attempts/{id}/items/{itemId}/review`, and `POST /api/attempts/{id}/items/{itemId}/suggestion` (`attempts.review`).
 
 **In-process:** consume `IAssignmentSnapshotReader`; call `IAssignmentLifecycle`; never read `catalog` or `delivery` tables.
 
@@ -338,7 +338,7 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/assignments/:id` | `assignments.read` | Assignment detail, join or invite link (`assignments.write`), Open live session when live, basic results if `attempts.read` |
 | `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress. Start, pause, resume, and end require `sessions.live.run` |
 | `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail: stem, candidate answer, auto points or awaiting human review, final score when settled. No answer keys |
-| `/assignments/:assignmentId/attempts/:attemptId/review` | `attempts.review` | Score unsettled `humanOnly` and `aiAssist` items. Answer keys are on this screen |
+| `/assignments/:assignmentId/attempts/:attemptId/review` | `attempts.review` | Score unsettled `humanOnly` and `aiAssist` items. Answer keys and AI drafts are on this screen |
 | `/reports` | `reports.read` | Reporting v1 hub (funnel, scores, time, questions, candidates, pending review) |
 | `/reports/:reportKey` | `reports.read` | One report: chip filters, saved filter for that report key, table, simple chart, CSV export |
 
@@ -370,7 +370,7 @@ Skill used: **`enterprise-architecture-onprem.md`**. Azure/AWS skills were not u
 | AI (slice 8) | Configured base URL + secret via env/Vault. Operator’s OpenAI-compatible endpoint. |
 | Entra (later) | App calls Entra as external IdP; still issues app JWTs. No paid IdP product. |
 
-Suggested env **names** (values never in git): `ConnectionStrings__InterviewQuiz`, `FileStorage__Root`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__SigningKey`, `Jwt__AccessTokenMinutes`, `Jwt__RefreshTokenDays`, `Jwt__CandidateAccessTokenMinutes` (slice 5 candidate JWT; default 60, range 1–180), `PublicBaseUrl` (origin for invite URLs, no trailing slash; not a secret), `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `Retention__Years`, later `Ai__BaseUrl` / `Ai__ApiKey`.
+Suggested env **names** (values never in git): `ConnectionStrings__InterviewQuiz`, `FileStorage__Root`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__SigningKey`, `Jwt__AccessTokenMinutes`, `Jwt__RefreshTokenDays`, `Jwt__CandidateAccessTokenMinutes` (slice 5 candidate JWT; default 60, range 1–180), `PublicBaseUrl` (origin for invite URLs, no trailing slash; not a secret), `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `Retention__Years`, `Ai__Provider`, `Ai__BaseUrl`, `Ai__Model`, `Ai__ApiKey`, `Ai__TimeoutSeconds`.
 
 ---
 
@@ -379,7 +379,7 @@ Suggested env **names** (values never in git): `ConnectionStrings__InterviewQuiz
 | Emit (app) | Destination (on-prem) |
 |------------|------------------------|
 | Structured logs (templates, no secrets) | Files and/or collector |
-| OTel traces named after use cases (assignments.create, assignments.list, assignments.get, assignments.invite, auth.magic-link.consume, attempts.start, attempts.save, attempts.submit, attempts.score, attempts.get, attempts.review, live start, templates.publish, templates.clone, filters.write) | OTel Collector |
+| OTel traces named after use cases (assignments.create, assignments.list, assignments.get, assignments.invite, auth.magic-link.consume, attempts.start, attempts.save, attempts.submit, attempts.score, attempts.get, attempts.review, attempts.review.suggest, live start, templates.publish, templates.clone, filters.write) | OTel Collector |
 | Metrics: request duration, error rate, dependency duration | OTel Collector |
 | Health live/ready | Reverse proxy / CI |
 | Angular HTTP failures: status + correlation id | API log ingest or collector; **no tokens, no resume text, no answers** |
@@ -441,10 +441,10 @@ Vertical slices. Each slice is not done until the collaboration skill DoD holds 
 | **4 Question bank** | Implemented | Authoring library + include-into-quiz (copy-on-include); Angular list/editor and quiz include panel; `questions.read` / `questions.write` on Dev Template author seed | Catalog, Angular |
 | **5 Assignments** | **Implemented** | Candidate assignment, snapshot, async timed link, auto-score, basic results, Angular employee + `/attempt` | Delivery, Evaluation (submit + auto-score), Access (magic-link), Angular |
 | **6 Live mode** | Implemented | Start/pause/monitor on the **same** assignment model. REST polling. [ADR 0010](adr/0010-live-quiz-sessions.md) | Delivery |
-| **7 Review** | **Implemented** (human scores only) | Human marking of `humanOnly` and `aiAssist` items, final score, `pendingReview` → `completed`. AI suggestion drafts are not included | Evaluation |
+| **7 Review** | **Implemented** | Human marking of `humanOnly` and `aiAssist` items, auditable AI suggestion drafts, final score, `pendingReview` → `completed` | Evaluation |
 | **8 AI draft** | Later | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
 
-No LLM in slices 1–6. Slice 7 AI-assist may call the same operator endpoint when configured; if unset, human-only review still works. Slice 8 is the first **authoring** LLM path.
+No LLM in slices 1–6. Slice 7 AI-assist calls the operator’s OpenAI-compatible endpoint when `Ai:Provider` is `OpenAiCompatible` and the base URL, model, and API key are set. Development and tests use a deterministic fake. If that configuration is missing, suggestions are off and human review still works. Slice 8 is the first **authoring** LLM path.
 
 ---
 
@@ -469,7 +469,7 @@ Permission catalog: [`docs/permissions.md`](permissions.md). Slice 5 REST: §16.
 
 Slices **1–5** are implemented. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank. ADR 0008 records the magic-link (implemented).
 
-Still later: AI suggestion drafts on review, AI draft (slice 8), production runbook, self-hosted CI (DevOps). Human review and live mode are implemented ([§17](#17-slice-7-human-review-implemented), [ADR 0010](adr/0010-live-quiz-sessions.md)). No LLM in slices 1–7. Entra and SMTP are out of slice 5.
+Still later: AI authoring draft (slice 8), production runbook, self-hosted CI (DevOps). Human review, AI suggestion drafts, and live mode are implemented ([§17](#17-slice-7-human-review-implemented), [ADR 0010](adr/0010-live-quiz-sessions.md)). Entra and SMTP are out of slice 5.
 
 ---
 
@@ -927,14 +927,15 @@ Invite raw tokens are **not** seeded; issue at runtime. Do not seed Production. 
 
 ## 17. Slice 7 human review (implemented)
 
-Human scores for unsettled items. AI suggestion drafts are **not** in this contract.
+Human scores for unsettled items, plus an auditable AI draft on `aiAssist` items.
 
 | Method | Path | Permission | Result |
 |--------|------|------------|--------|
 | `GET` | `/api/attempts/{id}/review` | `attempts.review` | `AttemptReviewResponse` |
+| `POST` | `/api/attempts/{id}/items/{itemId}/suggestion` | `attempts.review` | `AttemptReviewResponse` 200 |
 | `POST` | `/api/attempts/{id}/items/{itemId}/review` | `attempts.review` | `AttemptReviewResponse` 200 |
 
-`GET /api/attempts/{id}` (`attempts.read`) stays redacted: no `answerKey`, no review comment, no snapshot key fields (`correct`, `isCorrect`, `acceptableAnswers`, slot correct ids). The review payload adds `answerKey` (the frozen snapshot body, keys included), `reviewable`, `reviewedByUserId`, `reviewedAtUtc`, and `reviewComment`.
+`GET /api/attempts/{id}` (`attempts.read`) stays redacted: no `answerKey`, no review comment, no suggestion fields, no snapshot key fields (`correct`, `isCorrect`, `acceptableAnswers`, slot correct ids). The review payload adds `answerKey` (the frozen snapshot body, keys included), `reviewable`, `reviewedByUserId`, `reviewedAtUtc`, `reviewComment`, and, for a stored draft, `suggestedPoints`, `suggestionFeedback`, `suggestedByUserId`, `suggestedAtUtc`, and `suggestionModel`. `aiSuggestionsEnabled` says whether Suggest score is available.
 
 **`ReviewItemRequest`:** `pointsAwarded` (decimal, 0 through the item’s points, four decimal places) and optional `comment` (trimmed, max 2000, empty becomes null).
 
@@ -947,9 +948,22 @@ Rules:
 - While any item is unsettled, `finalPointsAwarded` is null, result stays `incomplete`, and the assignment stays `pendingReview`.
 - The score that settles the last item sets `finalPointsAwarded` to the sum of awarded points and calls `IAssignmentLifecycle.NotifyReviewCompleted`, which moves `pendingReview` → `completed`. `pendingReview` stays closed for invites and new starts.
 - An all-auto submit sets `finalPointsAwarded` to the auto total immediately. Existing complete rows were backfilled the same way.
-- Logs and the `attempts.review` activity record attempt, question, and assignment ids. They do not record the comment, the stem, or the answer. There is no LLM call.
+- Logs and the `attempts.review` / `attempts.review.suggest` activities record attempt, question, and assignment ids, plus the suggestion model name. They do not record the comment, the feedback, the stem, the answer, or the API key.
 
-Angular: the review route is in §6. The results page links to it only when the user has `attempts.review`. Dev Reviewer seed already has that code.
+**AI suggestion draft**
+
+`POST /api/attempts/{id}/items/{itemId}/suggestion` stores the latest draft. It does not settle the item and does not change points the reviewer already saved.
+
+- Same permission as confirm: `attempts.review`. Authoring drafts stay on `ai.draft.use`.
+- Only `scoringMode` `aiAssist`. A `humanOnly` or `auto` item is **400** `AI suggestions apply only to AI-assist items.`
+- An unsubmitted attempt is **409** `Attempt is not submitted.`
+- `Ai:Provider` is `Fake` in Development and Testing. The fake scores an empty answer as 0 and any other answer as half the item points. Model name `fake`.
+- `OpenAiCompatible` calls `POST {Ai:BaseUrl}/chat/completions` with bearer `Ai:ApiKey` only when the base URL, model, and API key are all set. Points from the model are clamped to 0 through the item points. A failure is **400** `AI suggestion could not be produced.`
+- Anything else, including a missing key, leaves suggestions off: **400** `AI suggestions are not configured.` Scoring still works.
+- The draft is one current row (points, feedback up to 2000 characters, actor, time, model). Confirming does not delete it. Asking again replaces that draft only. There is no separate history table. A new draft after `completed` does not reopen the assignment.
+- The reviewer copies the draft into the score form and still saves with `POST .../review`. That save is the confirmation (or the edit). `reviewedByUserId` and `reviewedAtUtc` are the confirmer and the confirm time.
+
+Angular: the review route is in §6. Suggest score is shown for `aiAssist` items only when `aiSuggestionsEnabled` is true. The results page links to review only when the user has `attempts.review`. Dev Reviewer seed already has that code.
 
 Reporting pass/fail follows §4.5.1.
 
