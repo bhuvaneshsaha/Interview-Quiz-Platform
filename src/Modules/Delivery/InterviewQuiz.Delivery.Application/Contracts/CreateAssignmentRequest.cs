@@ -19,4 +19,7 @@ public sealed class CreateAssignmentRequest
     public AssignmentTimingRequest? Timing { get; set; }
 
     public int? AttemptLimit { get; set; }
+
+    /// <summary>Optional invite expiry. Omitted uses Invite:DefaultLifetimeHours.</summary>
+    public DateTimeOffset? InviteExpiresAt { get; set; }
 }

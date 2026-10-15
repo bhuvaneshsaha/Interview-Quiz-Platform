@@ -145,6 +145,24 @@ public sealed class AssignmentService :
         _logger.LogInformation("Issuing invite for assignment {AssignmentId}", assignment.Id);
     }
 
+    public async Task<AssignmentResponse> RecordInviteDeliveryAsync(
+        Guid id,
+        bool succeeded,
+        string? error,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await _assignments.GetAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Assignment), id);
+        assignment.RecordInviteDelivery(succeeded, error, _clock);
+        await _assignments.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Invite email {Status} for assignment {AssignmentId} attempt {AttemptCount}",
+            assignment.InviteEmailStatus,
+            assignment.Id,
+            assignment.InviteEmailAttemptCount);
+        return MapResponse(assignment);
+    }
+
     async Task<AssignmentInviteInfoDto?> IAssignmentInviteInfo.GetAsync(
         Guid assignmentId,
         CancellationToken cancellationToken)
@@ -233,7 +251,11 @@ public sealed class AssignmentService :
             Status = Camel(assignment.Status),
             CreatedAtUtc = assignment.CreatedAtUtc,
             UpdatedAtUtc = assignment.UpdatedAtUtc,
-            CreatedByUserId = assignment.CreatedByUserId
+            CreatedByUserId = assignment.CreatedByUserId,
+            InviteEmailStatus = assignment.InviteEmailStatus,
+            InviteEmailAttemptCount = assignment.InviteEmailAttemptCount,
+            InviteEmailLastAttemptAt = assignment.InviteEmailLastAttemptAt,
+            InviteEmailLastError = assignment.InviteEmailLastError
         };
 
     internal static AssignmentSummaryResponse MapSummary(Assignment assignment)

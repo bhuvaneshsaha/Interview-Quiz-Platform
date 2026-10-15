@@ -1,17 +1,21 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   AssignmentMode,
   AssignmentResponse,
+  CreateAssignmentFromTemplateRequest,
   CreateAssignmentRequest,
   OpeningResponse,
   QuizResponse,
+  TemplateSummaryResponse,
+  TemplateVersionSummaryResponse,
 } from '../../../core/api/contracts';
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
+import { TemplatesApi } from '../../../core/api/templates-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
@@ -31,13 +35,16 @@ export class AssignmentForm implements OnInit {
   private readonly api = inject(AssignmentsApi);
   private readonly openingsApi = inject(OpeningsApi);
   private readonly quizzesApi = inject(QuizzesApi);
+  private readonly templatesApi = inject(TemplatesApi);
   private readonly permissions = inject(PermissionService);
+  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly codes = PermissionCodes;
   readonly canWrite = this.permissions.hasPermission(PermissionCodes.AssignmentsWrite);
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
   readonly canReadQuizzes = this.permissions.hasPermission(PermissionCodes.QuizzesRead);
+  readonly canReadTemplates = this.permissions.hasPermission(PermissionCodes.TemplatesRead);
 
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -45,6 +52,8 @@ export class AssignmentForm implements OnInit {
   readonly correlationId = signal<string | null>(null);
   readonly openings = signal<OpeningResponse[]>([]);
   readonly quizzes = signal<QuizResponse[]>([]);
+  readonly templates = signal<TemplateSummaryResponse[]>([]);
+  readonly templateVersions = signal<TemplateVersionSummaryResponse[]>([]);
   readonly created = signal<AssignmentResponse | null>(null);
   readonly copied = signal(false);
   readonly copyError = signal<string | null>(null);
@@ -59,6 +68,10 @@ export class AssignmentForm implements OnInit {
     mode: this.fb.nonNullable.control<AssignmentMode>('async', Validators.required),
     overallDurationMinutes: [30, [Validators.required, Validators.min(1), Validators.max(480)]],
     attemptLimit: [1, [Validators.required, Validators.min(1), Validators.max(20)]],
+    source: this.fb.nonNullable.control<'quiz' | 'template'>('quiz'),
+    templateId: [''],
+    templateVersionId: [''],
+    inviteExpiresAt: [''],
   });
 
   ngOnInit(): void {
@@ -85,7 +98,25 @@ export class AssignmentForm implements OnInit {
     this.form.controls.mode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((mode) => {
       this.syncDurationValidators(mode);
     });
+    this.form.controls.source.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.syncSourceValidators();
+    });
+    this.form.controls.templateId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((templateId) => {
+      this.loadVersions(templateId);
+    });
     this.syncDurationValidators(this.form.controls.mode.value);
+    this.prefillTemplate();
+    this.syncSourceValidators();
+    if (this.canReadTemplates) {
+      this.templatesApi.list(1, 100).subscribe({
+        next: (result) => this.templates.set(result.items),
+        error: () => this.templates.set([]),
+      });
+    }
+  }
+
+  get usesTemplate(): boolean {
+    return this.canReadTemplates && this.form.controls.source.value === 'template';
   }
 
   get isLive(): boolean {
@@ -106,12 +137,55 @@ export class AssignmentForm implements OnInit {
     }
     const value = this.form.getRawValue();
     const openingId = value.openingId.trim();
-    const quizId = value.quizId.trim();
-    if (!isUuid(openingId) || !isUuid(quizId)) {
-      this.error.set('Opening and quiz must be valid ids.');
+    if (!isUuid(openingId)) {
+      this.error.set('Opening must be a valid id.');
+      return;
+    }
+    const inviteExpiresAt = this.expiryIso(value.inviteExpiresAt);
+    if (value.inviteExpiresAt.trim() && !inviteExpiresAt) {
+      this.error.set('Invite expiry is not a valid date.');
       return;
     }
     this.saving.set(true);
+    if (this.usesTemplate) {
+      const templateId = value.templateId.trim();
+      if (!isUuid(templateId)) {
+        this.saving.set(false);
+        this.error.set('Template must be a valid id.');
+        return;
+      }
+      const body: CreateAssignmentFromTemplateRequest = {
+        openingId,
+        templateId,
+        candidateEmail: value.candidateEmail.trim(),
+        mode: value.mode,
+        attemptLimit: Number(value.attemptLimit),
+      };
+      const versionId = value.templateVersionId.trim();
+      if (isUuid(versionId)) {
+        body.templateVersionId = versionId;
+      }
+      if (value.mode === 'async') {
+        body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
+        if (inviteExpiresAt) {
+          body.inviteExpiresAt = inviteExpiresAt;
+        }
+      }
+      this.api.createFromTemplate(body).subscribe({
+        next: (created) => {
+          this.created.set(created);
+          this.saving.set(false);
+        },
+        error: (err: unknown) => this.fail(err),
+      });
+      return;
+    }
+    const quizId = value.quizId.trim();
+    if (!isUuid(quizId)) {
+      this.saving.set(false);
+      this.error.set('Opening and quiz must be valid ids.');
+      return;
+    }
     const body: CreateAssignmentRequest = {
       openingId,
       quizId,
@@ -121,18 +195,16 @@ export class AssignmentForm implements OnInit {
     };
     if (value.mode === 'async') {
       body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
+      if (inviteExpiresAt) {
+        body.inviteExpiresAt = inviteExpiresAt;
+      }
     }
     this.api.create(body).subscribe({
       next: (created) => {
         this.created.set(created);
         this.saving.set(false);
       },
-      error: (err: unknown) => {
-        const mapped = PageStatus.fromError(err);
-        this.error.set(mapped.message);
-        this.correlationId.set(mapped.correlationId);
-        this.saving.set(false);
-      },
+      error: (err: unknown) => this.fail(err),
     });
   }
 
@@ -155,6 +227,63 @@ export class AssignmentForm implements OnInit {
     this.quizzesApi.list(1, 100, { openingId }).subscribe({
       next: (result) => this.quizzes.set(result.items),
       error: () => this.quizzes.set([]),
+    });
+  }
+
+  private fail(err: unknown): void {
+    const mapped = PageStatus.fromError(err);
+    this.error.set(mapped.message);
+    this.correlationId.set(mapped.correlationId);
+    this.saving.set(false);
+  }
+
+  private expiryIso(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  private prefillTemplate(): void {
+    if (!this.canReadTemplates) {
+      return;
+    }
+    const templateId = this.route.snapshot.queryParamMap.get('templateId')?.trim() ?? '';
+    const versionId = this.route.snapshot.queryParamMap.get('versionId')?.trim() ?? '';
+    if (!isUuid(templateId)) {
+      return;
+    }
+    this.form.controls.source.setValue('template');
+    this.form.controls.templateId.setValue(templateId);
+    if (isUuid(versionId)) {
+      this.form.controls.templateVersionId.setValue(versionId);
+    }
+  }
+
+  private syncSourceValidators(): void {
+    const quiz = this.form.controls.quizId;
+    const template = this.form.controls.templateId;
+    if (this.usesTemplate) {
+      quiz.clearValidators();
+      template.setValidators(Validators.required);
+    } else {
+      template.clearValidators();
+      quiz.setValidators(Validators.required);
+    }
+    quiz.updateValueAndValidity({ emitEvent: false });
+    template.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private loadVersions(templateId: string): void {
+    if (!this.canReadTemplates || !isUuid(templateId)) {
+      this.templateVersions.set([]);
+      return;
+    }
+    this.templatesApi.listVersions(templateId, 1, 100).subscribe({
+      next: (result) => this.templateVersions.set(result.items),
+      error: () => this.templateVersions.set([]),
     });
   }
 

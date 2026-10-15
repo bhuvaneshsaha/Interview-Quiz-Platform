@@ -12,6 +12,8 @@ public sealed class MagicLinkInviteConfiguration : IEntityTypeConfiguration<Magi
         builder.HasKey(invite => invite.Id);
         builder.Property(invite => invite.AssignmentId).IsRequired();
         builder.Property(invite => invite.TokenHash).HasMaxLength(64).IsRequired();
+        builder.Property(invite => invite.ExpiresAt);
+        builder.Property(invite => invite.ProtectedToken);
         builder.HasIndex(invite => invite.TokenHash).IsUnique();
         builder.HasIndex(invite => invite.AssignmentId)
             .IsUnique()

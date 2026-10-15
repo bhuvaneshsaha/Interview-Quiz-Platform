@@ -17,4 +17,10 @@ public interface IAssignmentService
         CancellationToken cancellationToken);
 
     Task EnsureInvitableAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<AssignmentResponse> RecordInviteDeliveryAsync(
+        Guid id,
+        bool succeeded,
+        string? error,
+        CancellationToken cancellationToken);
 }

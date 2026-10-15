@@ -93,6 +93,27 @@ public sealed class AssignmentTransitionTests
     }
 
     [Fact]
+    public void Invite_email_status_records_sent_failed_and_resent()
+    {
+        var assignment = Create();
+        assignment.RecordInviteDelivery(true, null, _clock);
+        Assert.Equal(Assignment.InviteEmailSent, assignment.InviteEmailStatus);
+        Assert.Equal(1, assignment.InviteEmailAttemptCount);
+        Assert.Null(assignment.InviteEmailLastError);
+
+        assignment.RecordInviteDelivery(false, "SMTP down token=secret-value", _clock);
+        Assert.Equal(Assignment.InviteEmailFailed, assignment.InviteEmailStatus);
+        Assert.Equal(2, assignment.InviteEmailAttemptCount);
+        Assert.DoesNotContain("secret-value", assignment.InviteEmailLastError);
+        Assert.Contains("token=[redacted]", assignment.InviteEmailLastError, StringComparison.Ordinal);
+
+        assignment.RecordInviteDelivery(true, null, _clock);
+        Assert.Equal(Assignment.InviteEmailResent, assignment.InviteEmailStatus);
+        Assert.Equal(3, assignment.InviteEmailAttemptCount);
+        Assert.Null(assignment.InviteEmailLastError);
+    }
+
+    [Fact]
     public void Unknown_result_status_is_rejected()
     {
         var assignment = Create();

@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Local invite-mail sink (development). Not a log of raw tokens for operators to commit.
+src/InterviewQuiz.Host/App_Data/
+
 # User-specific files
 *.rsuser
 *.suo

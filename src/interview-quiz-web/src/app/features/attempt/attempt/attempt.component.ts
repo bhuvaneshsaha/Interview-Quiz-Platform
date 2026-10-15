@@ -22,6 +22,7 @@ import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { TemplatesApi } from '../../../core/api/templates-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
+import { EXPIRED_INVITE_MESSAGE, REVOKED_INVITE_MESSAGE } from '../../assignments/invite-lifetime';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { itemResultLabel, resultStatusLabel } from '../../../shared/labels/status-labels';
 import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.component';
@@ -75,6 +76,7 @@ export class Attempt implements OnInit {
 
   readonly resultStatusLabel = resultStatusLabel;
   readonly loading = signal(true);
+  readonly inviteBlock = signal<'expired' | 'revoked' | null>(null);
   readonly starting = signal(false);
   readonly preview = signal<CandidateAttemptPreview | null>(null);
   readonly saving = signal(false);
@@ -113,6 +115,17 @@ export class Attempt implements OnInit {
       return Math.max(0, attempt.remainingSeconds);
     }
     return Math.max(0, Math.floor((due - this.now()) / 1000));
+  });
+
+  readonly pageTitle = computed(() => {
+    const block = this.inviteBlock();
+    if (block === 'expired') {
+      return 'This invite has expired';
+    }
+    if (block === 'revoked') {
+      return 'This invite is no longer active';
+    }
+    return this.preview()?.quizTitle || 'Quiz attempt';
   });
 
   readonly submitted = computed(() => {
@@ -839,6 +852,18 @@ export class Attempt implements OnInit {
 
   private fail(err: unknown, stopLoading = true, fatal = true): void {
     const mapped = PageStatus.fromError(err);
+    if (fatal && mapped.message === EXPIRED_INVITE_MESSAGE) {
+      this.inviteBlock.set('expired');
+      this.error.set(null);
+      this.loading.set(false);
+      return;
+    }
+    if (fatal && mapped.message === REVOKED_INVITE_MESSAGE) {
+      this.inviteBlock.set('revoked');
+      this.error.set(null);
+      this.loading.set(false);
+      return;
+    }
     this.correlationId.set(mapped.correlationId);
     if (fatal) {
       this.error.set(mapped.message);

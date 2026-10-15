@@ -5,7 +5,10 @@ import {
   AssignmentListQuery,
   AssignmentResponse,
   AssignmentSummaryResponse,
+  CreateAssignmentFromTemplateRequest,
   CreateAssignmentRequest,
+  InviteDeliveryResponse,
+  InviteLifetimeResponse,
   InviteResponse,
   PagedResult,
 } from './contracts';
@@ -45,7 +48,25 @@ export class AssignmentsApi {
     return this.http.post<AssignmentResponse>('/api/assignments', body);
   }
 
-  invite(id: string): Observable<InviteResponse> {
-    return this.http.post<InviteResponse>(`/api/assignments/${id}/invite`, {});
+  createFromTemplate(body: CreateAssignmentFromTemplateRequest): Observable<AssignmentResponse> {
+    return this.http.post<AssignmentResponse>('/api/assignments/from-template', body);
+  }
+
+  invite(id: string, expiresAt?: string | null): Observable<InviteResponse> {
+    return this.http.post<InviteResponse>(`/api/assignments/${id}/invite`, {
+      expiresAt: expiresAt ?? null,
+    });
+  }
+
+  resendInvite(id: string): Observable<InviteDeliveryResponse> {
+    return this.http.post<InviteDeliveryResponse>(`/api/assignments/${id}/invite/resend`, {});
+  }
+
+  revokeInvite(id: string): Observable<InviteLifetimeResponse> {
+    return this.http.post<InviteLifetimeResponse>(`/api/assignments/${id}/invite/revoke`, {});
+  }
+
+  extendInvite(id: string, expiresAt: string | null): Observable<InviteLifetimeResponse> {
+    return this.http.post<InviteLifetimeResponse>(`/api/assignments/${id}/invite/extend`, { expiresAt });
   }
 }

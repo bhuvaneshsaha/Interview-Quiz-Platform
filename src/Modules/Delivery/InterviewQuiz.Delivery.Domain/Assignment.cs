@@ -1,6 +1,7 @@
 using System.Net.Mail;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
+using InterviewQuiz.Kernel.Mail;
 
 namespace InterviewQuiz.Delivery.Domain;
 
@@ -22,6 +23,12 @@ public sealed class Assignment
     public const string LiveStartUnavailableMessage = "Assignment is live; start is not available.";
     public const string InviteLiveMessage = "Invite links are for async assignments.";
     public const string InviteNoLongerInvitableMessage = "Assignment is no longer invitable.";
+    public const int InviteEmailErrorMaxLength = 500;
+
+    public const string InviteEmailNone = "none";
+    public const string InviteEmailSent = "sent";
+    public const string InviteEmailFailed = "failed";
+    public const string InviteEmailResent = "resent";
 
     private Assignment()
     {
@@ -41,6 +48,11 @@ public sealed class Assignment
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public int RowVersion { get; private set; }
+
+    public string InviteEmailStatus { get; private set; } = InviteEmailNone;
+    public int InviteEmailAttemptCount { get; private set; }
+    public DateTimeOffset? InviteEmailLastAttemptAt { get; private set; }
+    public string? InviteEmailLastError { get; private set; }
 
     public const string InvalidResultStatusMessage = "Result status is invalid.";
 
@@ -167,6 +179,26 @@ public sealed class Assignment
         {
             throw new ConcurrencyException(TransitionDeniedMessage(Status, to));
         }
+    }
+
+    public void RecordInviteDelivery(bool succeeded, string? error, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        InviteEmailAttemptCount++;
+        InviteEmailLastAttemptAt = clock.UtcNow;
+        if (!succeeded)
+        {
+            InviteEmailStatus = InviteEmailFailed;
+            var redacted = InviteSecretRedactor.Redact(error, InviteEmailErrorMaxLength);
+            InviteEmailLastError = string.IsNullOrWhiteSpace(redacted) ? "Email could not be sent." : redacted;
+        }
+        else
+        {
+            InviteEmailStatus = InviteEmailAttemptCount <= 1 ? InviteEmailSent : InviteEmailResent;
+            InviteEmailLastError = null;
+        }
+
+        Touch(clock);
     }
 
     public void EnsureInvitable()

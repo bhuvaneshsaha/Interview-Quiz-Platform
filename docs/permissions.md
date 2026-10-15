@@ -71,7 +71,7 @@ These codes are **not** the drag-drop question type `dragDropSharedBank` (items 
 | Code | Display name | Capability |
 |------|----------------|------------|
 | `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id`. **No** SavedFilters on the list. |
-| `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/{id}/invite`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
+| `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/from-template` (also `templates.read`); `POST /api/assignments/{id}/invite`, `.../resend`, `.../revoke`, `.../extend`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
 | `sessions.live.run` | Run live sessions | **Seeded but inactive until slice 6.** Start, pause, and monitor a live attempt. No slice 5 API or screen uses this code. Dev Recruiter seed includes it. |
 
 Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes.write`. **Dev Recruiter seed already includes** `assignments.read` / `assignments.write` / `sessions.live.run`. **Dev Template author seed does not** — authors cannot assign unless an operator grants the codes. Candidate JWTs never include `assignments.write`.

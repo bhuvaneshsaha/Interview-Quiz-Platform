@@ -13,8 +13,14 @@ namespace InterviewQuiz.Access.Authentication;
 public sealed class MagicLinkService : IMagicLinkService
 {
     public const string InvalidInviteMessage = "Invite is not valid.";
+    public const string ExpiredInviteMessage = "This invite has expired.";
+    public const string RevokedInviteMessage = "This invite has been revoked.";
     public const string LiveModeMessage = "Invite links are for async assignments.";
     public const string NoLongerInvitableMessage = "Assignment is no longer invitable.";
+    public const string ExpiryMustBeFutureMessage = "Invite expiry must be in the future.";
+    public const string NoInviteToEmailMessage = "There is no invite to email. Issue a link first.";
+    public const string ReissueBeforeEmailMessage = "Re-issue the invite before it can be emailed again.";
+    public const string ExpiredBeforeEmailMessage = "This invite has expired. Extend it or issue a new link.";
 
     public static readonly ActivitySource ActivitySource = new("InterviewQuiz.Access");
 
@@ -30,6 +36,7 @@ public sealed class MagicLinkService : IMagicLinkService
     private readonly IJwtAccessTokenIssuer _tokens;
     private readonly ICandidateAttemptIdLookup? _attempts;
     private readonly IClock _clock;
+    private readonly InviteOptions _inviteOptions;
     private readonly PublicBaseUrlOptions _publicBaseUrl;
     private readonly ILogger<MagicLinkService> _logger;
 
@@ -40,6 +47,7 @@ public sealed class MagicLinkService : IMagicLinkService
         IJwtAccessTokenIssuer tokens,
         IEnumerable<ICandidateAttemptIdLookup> attemptLookups,
         IClock clock,
+        IOptions<InviteOptions> inviteOptions,
         IOptions<PublicBaseUrlOptions> publicBaseUrl,
         ILogger<MagicLinkService> logger)
     {
@@ -49,19 +57,28 @@ public sealed class MagicLinkService : IMagicLinkService
         _tokens = tokens;
         _attempts = attemptLookups.FirstOrDefault();
         _clock = clock;
+        _inviteOptions = inviteOptions.Value;
         _publicBaseUrl = publicBaseUrl.Value;
         _logger = logger;
     }
 
-    public async Task<string> IssueAsync(Guid assignmentId, CancellationToken cancellationToken)
+    public async Task<string> IssueAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken,
+        DateTimeOffset? expiresAt = null)
     {
         using var activity = ActivitySource.StartActivity("auth.magic-link.issue");
         activity?.SetTag("assignment.id", assignmentId);
 
         var info = await _assignments.GetAsync(assignmentId, cancellationToken);
         EnsureIssuable(info);
-        var raw = await _invites.RotateAsync(assignmentId, cancellationToken);
-        _logger.LogInformation("Magic-link issued for assignment {AssignmentId}", assignmentId);
+        var resolvedExpiry = ResolveExpiry(expiresAt);
+        activity?.SetTag("invite.expires_at", resolvedExpiry?.ToString("O"));
+        var raw = await _invites.RotateAsync(assignmentId, resolvedExpiry, cancellationToken);
+        _logger.LogInformation(
+            "Magic-link issued for assignment {AssignmentId} expires {ExpiresAt}",
+            assignmentId,
+            resolvedExpiry);
         return raw;
     }
 
@@ -76,34 +93,112 @@ public sealed class MagicLinkService : IMagicLinkService
             throw new DomainException(InvalidInviteMessage);
         }
 
-        var assignmentId = await _invites.FindActiveAssignmentIdAsync(request.Token.Trim(), cancellationToken);
-        if (assignmentId is null)
+        var lookup = await _invites.FindAsync(request.Token.Trim(), cancellationToken);
+        if (lookup.Kind == MagicLinkLookupKind.Expired)
+        {
+            activity?.SetTag("assignment.id", lookup.AssignmentId);
+            _logger.LogInformation(
+                "Magic-link consume rejected because the invite expired for assignment {AssignmentId}",
+                lookup.AssignmentId);
+            throw new DomainException(ExpiredInviteMessage);
+        }
+
+        if (lookup.Kind == MagicLinkLookupKind.Revoked)
+        {
+            activity?.SetTag("assignment.id", lookup.AssignmentId);
+            _logger.LogInformation(
+                "Magic-link consume rejected because the invite was revoked for assignment {AssignmentId}",
+                lookup.AssignmentId);
+            throw new DomainException(RevokedInviteMessage);
+        }
+
+        if (lookup.Kind != MagicLinkLookupKind.Active)
         {
             _logger.LogInformation("Magic-link consume rejected");
             throw new DomainException(InvalidInviteMessage);
         }
 
-        activity?.SetTag("assignment.id", assignmentId.Value);
+        var assignmentId = lookup.AssignmentId;
+        activity?.SetTag("assignment.id", assignmentId);
 
-        var info = await _assignments.GetAsync(assignmentId.Value, cancellationToken);
+        var info = await _assignments.GetAsync(assignmentId, cancellationToken);
         if (info is null || !IsConsumable(info))
         {
             _logger.LogInformation(
                 "Magic-link consume rejected for assignment {AssignmentId}",
-                assignmentId.Value);
+                assignmentId);
             throw new DomainException(InvalidInviteMessage);
         }
 
-        var user = await FindOrCreateCandidateAsync(info.CandidateEmail, assignmentId.Value, cancellationToken);
+        var user = await FindOrCreateCandidateAsync(info.CandidateEmail, assignmentId, cancellationToken);
         Guid? attemptId = null;
         if (_attempts is not null)
         {
-            attemptId = await _attempts.GetAttemptIdAsync(assignmentId.Value, cancellationToken);
+            attemptId = await _attempts.GetAttemptIdAsync(assignmentId, cancellationToken);
         }
 
-        var access = _tokens.IssueCandidate(user.Id, user.Email!, assignmentId.Value, attemptId);
-        _logger.LogInformation("Magic-link consumed for assignment {AssignmentId}", assignmentId.Value);
-        return new CandidateTokenResponse(access.Token, access.ExpiresAt, assignmentId.Value);
+        var access = _tokens.IssueCandidate(user.Id, user.Email!, assignmentId, attemptId);
+        _logger.LogInformation("Magic-link consumed for assignment {AssignmentId}", assignmentId);
+        return new CandidateTokenResponse(access.Token, access.ExpiresAt, assignmentId);
+    }
+
+    public Task<MagicLinkInviteStatus> GetStatusAsync(Guid assignmentId, CancellationToken cancellationToken)
+        => _invites.GetStatusAsync(assignmentId, cancellationToken);
+
+    public async Task RevokeAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("auth.magic-link.revoke");
+        activity?.SetTag("assignment.id", assignmentId);
+        var info = await _assignments.GetAsync(assignmentId, cancellationToken);
+        EnsureIssuable(info);
+        await _invites.RevokeCurrentAsync(assignmentId, cancellationToken);
+        _logger.LogInformation("Magic-link revoked for assignment {AssignmentId}", assignmentId);
+    }
+
+    public async Task<MagicLinkInviteStatus> ExtendAsync(
+        Guid assignmentId,
+        DateTimeOffset? expiresAt,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("auth.magic-link.extend");
+        activity?.SetTag("assignment.id", assignmentId);
+        var info = await _assignments.GetAsync(assignmentId, cancellationToken);
+        EnsureIssuable(info);
+        if (expiresAt is { } value && value <= _clock.UtcNow)
+        {
+            throw new DomainException(ExpiryMustBeFutureMessage);
+        }
+
+        var status = await _invites.ExtendCurrentAsync(assignmentId, expiresAt, cancellationToken);
+        _logger.LogInformation(
+            "Magic-link expiry updated for assignment {AssignmentId} expires {ExpiresAt}",
+            assignmentId,
+            status.ExpiresAt);
+        return status;
+    }
+
+    public async Task<string> GetDeliverableTokenAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var info = await _assignments.GetAsync(assignmentId, cancellationToken);
+        EnsureIssuable(info);
+        var status = await _invites.GetStatusAsync(assignmentId, cancellationToken);
+        if (status.State == MagicLinkInviteStatus.Expired)
+        {
+            throw new DomainException(ExpiredBeforeEmailMessage);
+        }
+
+        if (status.State != MagicLinkInviteStatus.Active)
+        {
+            throw new DomainException(NoInviteToEmailMessage);
+        }
+
+        var raw = await _invites.ReadCurrentTokenAsync(assignmentId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new DomainException(ReissueBeforeEmailMessage);
+        }
+
+        return raw;
     }
 
     public string BuildInviteUrl(string opaqueToken)
@@ -116,6 +211,32 @@ public sealed class MagicLinkService : IMagicLinkService
         }
 
         return $"{origin}/attempt?token={Uri.EscapeDataString(opaqueToken)}";
+    }
+
+    private DateTimeOffset? ResolveExpiry(DateTimeOffset? requested)
+    {
+        if (requested is { } value)
+        {
+            if (value <= _clock.UtcNow)
+            {
+                throw new DomainException(ExpiryMustBeFutureMessage);
+            }
+
+            return value;
+        }
+
+        var hours = _inviteOptions.DefaultLifetimeHours;
+        if (hours <= 0)
+        {
+            return null;
+        }
+
+        if (hours > InviteOptions.MaxLifetimeHours)
+        {
+            hours = InviteOptions.MaxLifetimeHours;
+        }
+
+        return _clock.UtcNow.AddHours(hours);
     }
 
     private static void EnsureIssuable(AssignmentInviteInfoDto? info)

@@ -47,6 +47,29 @@
         <dt>Updated</dt>
         <dd>{{ formatDate(item.updatedAtUtc) }}</dd>
       </div>
+      @if (item.mode === 'async') {
+        <div>
+          <dt>Invite</dt>
+          <dd>
+            {{ inviteStateLabel(item.inviteState) }}
+            @if (item.inviteExpiresAt) {
+              until {{ formatDate(item.inviteExpiresAt) }}
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Invite email</dt>
+          <dd>
+            {{ emailStatusLabel(item.inviteEmailStatus) }}
+            @if (item.inviteEmailAttemptCount) {
+              ({{ item.inviteEmailAttemptCount }})
+            }
+            @if (item.inviteEmailLastError) {
+              — {{ item.inviteEmailLastError }}
+            }
+          </dd>
+        </div>
+      }
     </dl>
 
     @if (item.mode === 'live') {
@@ -54,15 +77,41 @@
     }
 
     @if (canInvite) {
-      <button
-        *hasPermission="codes.AssignmentsWrite"
-        type="button"
-        class="button"
-        [disabled]="inviting()"
-        (click)="requestInvite()"
-      >
-        {{ inviting() ? 'Issuing invite…' : inviteUrl() ? 'Re-issue invite link' : 'Issue invite link' }}
-      </button>
+      <div class="invite-actions">
+        <button
+          *hasPermission="codes.AssignmentsWrite"
+          type="button"
+          class="button"
+          [disabled]="inviting()"
+          (click)="requestInvite()"
+        >
+          {{ inviting() ? 'Issuing invite…' : inviteUrl() ? 'Re-issue invite link' : 'Issue invite link' }}
+        </button>
+        <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="resendEmail()">
+          Resend email
+        </button>
+        <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="requestRevoke()">
+          Revoke invite
+        </button>
+      </div>
+      <div class="field invite-extend">
+        <label for="extend-expiry">Extend expiry</label>
+        <input
+          id="extend-expiry"
+          type="datetime-local"
+          data-testid="extend-expiry"
+          [value]="expiresAtLocal()"
+          (input)="onExpiryInput($event)"
+        />
+        <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="extendInvite()">
+          Extend invite
+        </button>
+        <p class="hint">Extend keeps the same link. Re-issue replaces it and emails the new one.</p>
+      </div>
+    }
+
+    @if (inviteNotice()) {
+      <p class="hint" role="status">{{ inviteNotice() }}</p>
     }
 
     @if (inviteError()) {
@@ -83,6 +132,30 @@
         @if (copyError()) {
           <p class="status status-error" role="alert">{{ copyError() }}</p>
         }
+      </div>
+    }
+
+    @if (confirmRevoke()) {
+      <div class="dialog-backdrop" (click)="cancelRevoke()">
+        <div
+          class="dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="revoke-invite-title"
+          aria-describedby="revoke-invite-body"
+          tabindex="-1"
+          (click)="$event.stopPropagation()"
+          (keydown.escape)="cancelRevoke()"
+        >
+          <h2 id="revoke-invite-title">Revoke invite?</h2>
+          <p id="revoke-invite-body">The current link stops working. This does not create a replacement link.</p>
+          <div class="dialog-actions">
+            <button type="button" class="button button-quiet" autofocus (click)="cancelRevoke()">Cancel</button>
+            <button type="button" class="button" data-testid="confirm-revoke" (click)="confirmRevokeInvite()">
+              Revoke invite
+            </button>
+          </div>
+        </div>
       </div>
     }
 

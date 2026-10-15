@@ -46,6 +46,19 @@
       </ul>
     }
 
+    @if (canAssign) {
+      <p>
+        <a
+          class="button"
+          data-testid="assign-from-template"
+          [routerLink]="['/assignments/new']"
+          [queryParams]="{ templateId: item.id, versionId: item.latestVersionId }"
+        >
+          Assign to candidate
+        </a>
+      </p>
+    }
+
     @if (canWrite) {
       <p>
         <a class="button" [routerLink]="['/templates', item.id, 'edit']">Edit template</a>

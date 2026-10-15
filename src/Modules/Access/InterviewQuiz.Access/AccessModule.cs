@@ -35,6 +35,8 @@ public static class AccessModule
             options.PublicBaseUrl = configuration[PublicBaseUrlOptions.ConfigurationKey]?.Trim() ?? "";
         });
         services.Configure<BootstrapOptions>(configuration.GetSection(BootstrapOptions.SectionName));
+        services.Configure<InviteOptions>(configuration.GetSection(InviteOptions.SectionName));
+        services.AddDataProtection();
 
         services.AddDbContext<AccessDbContext>(options =>
         {

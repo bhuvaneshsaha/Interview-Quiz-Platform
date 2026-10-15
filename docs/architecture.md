@@ -417,7 +417,7 @@ No numeric SLAs or KPIs are claimed; Brief §13 is qualitative until a Forms bas
 | Which self-hosted CI already exists | **DevOps** |
 | Threat model of live “watch the screen” vs app-side controls | **Security** (not Architecture) |
 | Fork-to-new-template (publish a cloned quiz as a **new** lineage instead of versioning the origin) | **Product / Master** — out of slice 3; default is stay in lineage (§15.1) |
-| Recruiter instantiate-from-template (clone requires `quizzes.write`; Dev Recruiter seed does not have it) | **Product / Master** — slice 3 clone is an authoring action; assignment (slice 5) binds an existing quiz |
+| Recruiter instantiate-from-template | **Decided.** `POST /api/assignments/from-template` requires `assignments.write` and `templates.read`. It clones the template version into the opening, then snapshots that new quiz. Authoring clone stays `quizzes.write` + `templates.read`. Dev Recruiter is not granted `quizzes.write`. |
 
 ---
 
@@ -715,9 +715,9 @@ No PUT/DELETE/cancel in slice 5. No `sessions.live.run` on these paths.
 
 **`AssignmentResponse`:** summary fields plus `createdByUserId`. Full frozen graph is **not** on this GET (keys stay on the snapshot row for Evaluation). Optional `inviteUrl` **only** on **POST create** when `mode == async` (first issue) — not on GET.
 
-**`InviteResponse`:** `assignmentId`, `inviteUrl`. Returned **once per issue**. GET assignment never reconstructs the raw token (Access stores a **hash**). Re-issue **rotates** (previous invite stops working) unless the assignment is already submitted or `mode == live` → 400 `Invite links are for async assignments.` / `Assignment is no longer invitable.`
+**`InviteResponse`:** `assignmentId`, `inviteUrl`, optional `expiresAt`, and the latest email status. Returned **once per issue**. GET assignment never returns the raw token (Access stores a **hash**, plus a data-protected copy used only to resend). Re-issue **rotates** (previous invite stops working) unless the assignment is already submitted or `mode == live` → 400 `Invite links are for async assignments.` / `Assignment is no longer invitable.` Revoke and extend do not rotate. See ADR 0009.
 
-`inviteUrl` shape: `{PublicBaseUrl}/attempt?token={opaque}` (no trailing slash on `PublicBaseUrl`). Development: recruiter copies from create body or invite POST. **No SMTP.**
+`inviteUrl` shape: `{PublicBaseUrl}/attempt?token={opaque}` (no trailing slash on `PublicBaseUrl`). Development: recruiter copies from create body or invite POST, and the same URL is emailed through `IInviteMailer` (sink by default, SMTP when configured). See ADR 0009.
 
 Creating `mode: live` is allowed (snapshot + row). Create response **omits** `inviteUrl`. Candidate attempt APIs reject live until slice 6 (`Assignment is live; start is not available.` → 400).
 
@@ -734,7 +734,7 @@ Activities: `assignments.list`, `assignments.get`, `assignments.create`, `assign
 
 **`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume while the attempt is not started or in progress, and again after submit so the candidate can reopen the link and see the submitted summary. Consume never creates an attempt and never sets `dueAtUtc`. Live mode and a rotated/unknown token still reject consume. A new invite cannot be issued once the assignment is submitted.
 
-**Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, created/rotated at, revoked at. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match). Other modules do not read Access or Delivery tables across the boundary.
+**Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, optional `expiresAt`, created at, revoked at, and a data-protected token for resend. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match) and stores email status. Other modules do not read Access or Delivery tables across the boundary. An active invite stays reusable until submit (ADR 0008). Expired and revoked invites cannot be consumed (ADR 0009).
 
 **Candidate JWT** (same `Jwt__Issuer` / `Jwt__Audience` / `Jwt__SigningKey` as employees):
 

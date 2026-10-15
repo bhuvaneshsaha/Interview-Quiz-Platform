@@ -5,6 +5,7 @@ using InterviewQuiz.Access.Infrastructure.Identity;
 using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Permissions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -56,7 +57,7 @@ public sealed class MagicLinkServiceTests
             harness.MagicLinks.ConsumeAsync(
                 new ConsumeMagicLinkRequest { Token = first },
                 CancellationToken.None));
-        Assert.Equal(MagicLinkService.InvalidInviteMessage, ex.Message);
+        Assert.Equal(MagicLinkService.RevokedInviteMessage, ex.Message);
 
         var response = await harness.MagicLinks.ConsumeAsync(
             new ConsumeMagicLinkRequest { Token = second },
@@ -194,8 +195,90 @@ public sealed class MagicLinkServiceTests
         Assert.Equal(attemptId.ToString("D"), claims.AttemptId);
     }
 
+    [Fact]
+    public async Task Consume_rejects_expired_invite()
+    {
+        var harness = Harness.Create();
+        var raw = await harness.MagicLinks.IssueAsync(
+            AssignmentId,
+            CancellationToken.None,
+            Now.AddHours(1));
+        harness.Invites.Now = Now.AddHours(2);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.MagicLinks.ConsumeAsync(
+                new ConsumeMagicLinkRequest { Token = raw },
+                CancellationToken.None));
+        Assert.Equal(MagicLinkService.ExpiredInviteMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Revoke_does_not_rotate_and_blocks_consume()
+    {
+        var harness = Harness.Create();
+        var raw = await harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None);
+        await harness.MagicLinks.RevokeAsync(AssignmentId, CancellationToken.None);
+
+        var status = await harness.MagicLinks.GetStatusAsync(AssignmentId, CancellationToken.None);
+        Assert.Equal(MagicLinkInviteStatus.Revoked, status.State);
+        Assert.Equal(1, harness.Invites.IssueCount);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.MagicLinks.ConsumeAsync(
+                new ConsumeMagicLinkRequest { Token = raw },
+                CancellationToken.None));
+        Assert.Equal(MagicLinkService.RevokedInviteMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Extend_keeps_the_same_token()
+    {
+        var harness = Harness.Create();
+        var raw = await harness.MagicLinks.IssueAsync(
+            AssignmentId,
+            CancellationToken.None,
+            Now.AddHours(1));
+        var extendedTo = Now.AddDays(3);
+
+        var status = await harness.MagicLinks.ExtendAsync(AssignmentId, extendedTo, CancellationToken.None);
+
+        Assert.Equal(MagicLinkInviteStatus.Active, status.State);
+        Assert.Equal(extendedTo, status.ExpiresAt);
+        Assert.Equal(1, harness.Invites.IssueCount);
+        var response = await harness.MagicLinks.ConsumeAsync(
+            new ConsumeMagicLinkRequest { Token = raw },
+            CancellationToken.None);
+        Assert.Equal(AssignmentId, response.AssignmentId);
+    }
+
+    [Fact]
+    public async Task Issue_applies_configured_default_lifetime_when_expiry_omitted()
+    {
+        var harness = Harness.Create(defaultLifetimeHours: 48);
+        await harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None);
+
+        var status = await harness.MagicLinks.GetStatusAsync(AssignmentId, CancellationToken.None);
+        Assert.Equal(MagicLinkInviteStatus.Active, status.State);
+        Assert.Equal(Now.AddHours(48), status.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Issue_and_consume_logs_do_not_contain_the_raw_token()
+    {
+        var logs = new ListLogger<MagicLinkService>();
+        var harness = Harness.Create(logger: logs);
+        var raw = await harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None);
+        await harness.MagicLinks.ConsumeAsync(
+            new ConsumeMagicLinkRequest { Token = raw },
+            CancellationToken.None);
+
+        var written = string.Join('\n', logs.Messages);
+        Assert.DoesNotContain(raw, written, StringComparison.Ordinal);
+        Assert.DoesNotContain("token=", written, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static async Task<string> IssueBypassingRulesAsync(Harness harness)
-        => await harness.Invites.RotateAsync(AssignmentId, CancellationToken.None);
+        => await harness.Invites.RotateAsync(AssignmentId, null, CancellationToken.None);
 
     private static async Task<TokenClaims> ReadClaimsAsync(string token)
     {
@@ -240,14 +323,16 @@ public sealed class MagicLinkServiceTests
             string mode = "async",
             string status = "notStarted",
             Guid? attemptId = null,
-            IReadOnlyList<ApplicationUser>? existingUsers = null)
+            IReadOnlyList<ApplicationUser>? existingUsers = null,
+            int defaultLifetimeHours = 0,
+            ILogger<MagicLinkService>? logger = null)
         {
             var assignments = new FakeAssignmentInviteInfo(new AssignmentInviteInfoDto(
                 AssignmentId,
                 email,
                 mode,
                 status));
-            var invites = new FakeInviteStore();
+            var invites = new FakeInviteStore { Now = Now };
             var users = new FakeUsers(existingUsers ?? []);
             var issuer = new JwtAccessTokenIssuer(Options.Create(CreateJwtOptions()), new FixedClock(Now));
             IEnumerable<ICandidateAttemptIdLookup> lookups = attemptId is { } id
@@ -260,8 +345,9 @@ public sealed class MagicLinkServiceTests
                 issuer,
                 lookups,
                 new FixedClock(Now),
+                Options.Create(new InviteOptions { DefaultLifetimeHours = defaultLifetimeHours }),
                 Options.Create(new PublicBaseUrlOptions { PublicBaseUrl = "http://localhost:4200/" }),
-                NullLogger<MagicLinkService>.Instance);
+                logger ?? NullLogger<MagicLinkService>.Instance);
             return new Harness { MagicLinks = magic, Assignments = assignments, Invites = invites };
         }
     }
@@ -278,25 +364,139 @@ public sealed class MagicLinkServiceTests
 
     private sealed class FakeInviteStore : IMagicLinkInviteStore
     {
-        private readonly Dictionary<string, Guid> _activeByRaw = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, (Guid AssignmentId, DateTimeOffset? ExpiresAt, bool Revoked)> _byRaw =
+            new(StringComparer.Ordinal);
         private readonly Dictionary<Guid, string> _rawByAssignment = [];
 
-        public Task<string> RotateAsync(Guid assignmentId, CancellationToken cancellationToken)
+        public DateTimeOffset Now { get; set; }
+        public int IssueCount { get; private set; }
+
+        public Task<string> RotateAsync(Guid assignmentId, DateTimeOffset? expiresAt, CancellationToken cancellationToken)
         {
-            if (_rawByAssignment.TryGetValue(assignmentId, out var previous))
+            if (_rawByAssignment.TryGetValue(assignmentId, out var previous)
+                && _byRaw.TryGetValue(previous, out var prior))
             {
-                _activeByRaw.Remove(previous);
+                _byRaw[previous] = prior with { Revoked = true };
             }
 
             var raw = RefreshTokenHasher.CreateToken();
-            _activeByRaw[raw] = assignmentId;
+            _byRaw[raw] = (assignmentId, expiresAt, false);
             _rawByAssignment[assignmentId] = raw;
+            IssueCount++;
             return Task.FromResult(raw);
         }
 
-        public Task<Guid?> FindActiveAssignmentIdAsync(string rawToken, CancellationToken cancellationToken)
-            => Task.FromResult(
-                _activeByRaw.TryGetValue(rawToken, out var assignmentId) ? assignmentId : (Guid?)null);
+        public Task<MagicLinkLookup> FindAsync(string rawToken, CancellationToken cancellationToken)
+        {
+            if (!_byRaw.TryGetValue(rawToken, out var row))
+            {
+                return Task.FromResult(MagicLinkLookup.Unknown);
+            }
+
+            if (row.Revoked)
+            {
+                return Task.FromResult(new MagicLinkLookup(MagicLinkLookupKind.Revoked, row.AssignmentId));
+            }
+
+            if (row.ExpiresAt is { } expiresAt && expiresAt <= Now)
+            {
+                return Task.FromResult(new MagicLinkLookup(MagicLinkLookupKind.Expired, row.AssignmentId));
+            }
+
+            return Task.FromResult(new MagicLinkLookup(MagicLinkLookupKind.Active, row.AssignmentId));
+        }
+
+        public Task<MagicLinkInviteStatus> GetStatusAsync(Guid assignmentId, CancellationToken cancellationToken)
+        {
+            if (!_rawByAssignment.TryGetValue(assignmentId, out var raw) || !_byRaw.TryGetValue(raw, out var row))
+            {
+                return Task.FromResult(MagicLinkInviteStatus.Missing);
+            }
+
+            if (row.Revoked)
+            {
+                return Task.FromResult(new MagicLinkInviteStatus(MagicLinkInviteStatus.Revoked, null));
+            }
+
+            var expired = row.ExpiresAt is { } expiresAt && expiresAt <= Now;
+            return Task.FromResult(new MagicLinkInviteStatus(
+                expired ? MagicLinkInviteStatus.Expired : MagicLinkInviteStatus.Active,
+                row.ExpiresAt));
+        }
+
+        public Task RevokeCurrentAsync(Guid assignmentId, CancellationToken cancellationToken)
+        {
+            if (!_rawByAssignment.TryGetValue(assignmentId, out var raw)
+                || !_byRaw.TryGetValue(raw, out var row)
+                || row.Revoked)
+            {
+                throw new DomainException(MagicLinkInviteStore.NoInviteToRevokeMessage);
+            }
+
+            _byRaw[raw] = row with { Revoked = true };
+            return Task.CompletedTask;
+        }
+
+        public Task<MagicLinkInviteStatus> ExtendCurrentAsync(
+            Guid assignmentId,
+            DateTimeOffset? expiresAt,
+            CancellationToken cancellationToken)
+        {
+            if (expiresAt is { } value && value <= Now)
+            {
+                throw new DomainException(MagicLinkInviteStore.ExpiryMustBeFutureMessage);
+            }
+
+            if (!_rawByAssignment.TryGetValue(assignmentId, out var raw)
+                || !_byRaw.TryGetValue(raw, out var row)
+                || row.Revoked)
+            {
+                throw new DomainException(MagicLinkInviteStore.NoInviteToExtendMessage);
+            }
+
+            _byRaw[raw] = row with { ExpiresAt = expiresAt };
+            var expired = expiresAt is { } at && at <= Now;
+            return Task.FromResult(new MagicLinkInviteStatus(
+                expired ? MagicLinkInviteStatus.Expired : MagicLinkInviteStatus.Active,
+                expiresAt));
+        }
+
+        public Task<string?> ReadCurrentTokenAsync(Guid assignmentId, CancellationToken cancellationToken)
+        {
+            if (!_rawByAssignment.TryGetValue(assignmentId, out var raw)
+                || !_byRaw.TryGetValue(raw, out var row)
+                || row.Revoked)
+            {
+                return Task.FromResult<string?>(null);
+            }
+
+            return Task.FromResult<string?>(raw);
+        }
+    }
+
+    private sealed class ListLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Messages.Add(formatter(state, exception));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose()
+            {
+            }
+        }
     }
 
     private sealed class FakeAttemptLookup : ICandidateAttemptIdLookup

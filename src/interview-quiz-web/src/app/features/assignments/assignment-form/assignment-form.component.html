@@ -44,6 +44,41 @@
       }
     </div>
 
+    @if (canReadTemplates) {
+      <fieldset class="mode-fieldset">
+        <legend>Assign from</legend>
+        <label class="choice">
+          <input type="radio" formControlName="source" value="quiz" />
+          Existing quiz
+        </label>
+        <label class="choice">
+          <input type="radio" formControlName="source" value="template" data-testid="source-template" />
+          Template
+        </label>
+        <p class="hint">A template creates a quiz in this opening, then snapshots that quiz for the candidate.</p>
+      </fieldset>
+    }
+
+    @if (usesTemplate) {
+      <div class="field">
+        <label for="templateId">Template</label>
+        <select id="templateId" formControlName="templateId" data-testid="template-id">
+          <option value="">Select a template</option>
+          @for (template of templates(); track template.id) {
+            <option [value]="template.id">{{ template.title }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="templateVersionId">Template version</label>
+        <select id="templateVersionId" formControlName="templateVersionId">
+          <option value="">Latest version</option>
+          @for (version of templateVersions(); track version.id) {
+            <option [value]="version.id">Version {{ version.versionNumber }} — {{ version.title }}</option>
+          }
+        </select>
+      </div>
+    } @else {
     <div class="field">
       @if (canReadQuizzes) {
         <label for="quizId">Quiz</label>
@@ -73,6 +108,7 @@
         <p id="quiz-error" class="field-error">Quiz is required and must belong to the opening.</p>
       }
     </div>
+    }
 
     <div class="field">
       <label for="candidateEmail">Candidate email</label>
@@ -148,6 +184,14 @@
       }
     </div>
 
+    @if (!isLive) {
+      <div class="field">
+        <label for="inviteExpiresAt">Invite expiry (optional)</label>
+        <input id="inviteExpiresAt" type="datetime-local" formControlName="inviteExpiresAt" data-testid="invite-expires" />
+        <p class="hint">Leave blank to use the server default. The candidate cannot open the link after this time.</p>
+      </div>
+    }
+
     <button *hasPermission="codes.AssignmentsWrite" type="submit" class="button" [disabled]="saving()">
       {{ saving() ? 'Creating…' : 'Create assignment' }}
     </button>
@@ -162,6 +206,14 @@
         }}
         questions).
       </p>
+      @if (assignment.inviteEmailStatus && assignment.inviteEmailStatus !== 'none') {
+        <p data-testid="invite-email-status">
+          Email {{ assignment.inviteEmailStatus }}.
+          @if (assignment.inviteEmailLastError) {
+            {{ assignment.inviteEmailLastError }}
+          }
+        </p>
+      }
       @if (assignment.mode === 'async' && assignment.inviteUrl) {
         <div class="field">
           <p class="hint">{{ inviteLifetimeNote }}</p>

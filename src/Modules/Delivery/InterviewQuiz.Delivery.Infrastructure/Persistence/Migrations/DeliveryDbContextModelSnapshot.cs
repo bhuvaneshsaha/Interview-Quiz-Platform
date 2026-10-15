@@ -44,6 +44,21 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<int>("InviteEmailAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("InviteEmailLastAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InviteEmailLastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("InviteEmailStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("Mode")
                         .IsRequired()
                         .HasMaxLength(16)

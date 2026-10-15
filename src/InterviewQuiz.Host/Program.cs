@@ -14,6 +14,7 @@ using InterviewQuiz.Evaluation.Infrastructure;
 using InterviewQuiz.Evaluation.Infrastructure.Persistence;
 using InterviewQuiz.Host.Composition;
 using InterviewQuiz.Host.Hosting;
+using InterviewQuiz.Host.Mail;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Infrastructure;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
@@ -57,6 +58,8 @@ try
     builder.Services.AddEvaluationModule(builder.Configuration);
     builder.Services.AddSearchModule(builder.Configuration);
     builder.Services.AddScoped<OpeningSummaryComposer>();
+    builder.Services.AddScoped<AssignmentInviteCoordinator>();
+    builder.Services.AddInviteMail(builder.Configuration, builder.Environment);
 
     builder.Services.AddControllers().AddJsonOptions(options =>
     {
