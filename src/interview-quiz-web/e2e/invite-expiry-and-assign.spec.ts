@@ -38,7 +38,8 @@ test('expired and revoked invites show a clear page', async ({ page }) => {
 
   await page.goto('/attempt?token=revoked-token');
   await expect(page.getByRole('heading', { name: 'This invite is no longer active' })).toBeVisible();
-  await expect(page.getByText('This link was revoked')).toBeVisible();
+  await expect(page.getByText('this quiz has ended')).toBeVisible();
+  await expect(page.getByText('You cannot keep answering.')).toBeVisible();
   await page.screenshot({ path: screenshotPath('invite-revoked.png'), fullPage: true });
 });
 

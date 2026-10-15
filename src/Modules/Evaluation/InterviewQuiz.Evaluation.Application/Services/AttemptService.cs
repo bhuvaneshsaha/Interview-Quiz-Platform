@@ -15,13 +15,14 @@ using Microsoft.Extensions.Logging;
 
 namespace InterviewQuiz.Evaluation.Application.Services;
 
-public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
+public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup, IRevokedInviteAttemptCloser
 {
     public static readonly ActivitySource ActivitySource = new("InterviewQuiz.Evaluation");
 
     private readonly IAttemptRepository _attempts;
     private readonly IAssignmentSnapshotReader _assignments;
     private readonly IAssignmentLifecycle _lifecycle;
+    private readonly IInviteContinuation _invites;
     private readonly IClock _clock;
     private readonly ILogger<AttemptService> _logger;
 
@@ -30,11 +31,13 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
         IAssignmentSnapshotReader assignments,
         IAssignmentLifecycle lifecycle,
         IClock clock,
-        ILogger<AttemptService> logger)
+        ILogger<AttemptService> logger,
+        IInviteContinuation? invites = null)
     {
         _attempts = attempts;
         _assignments = assignments;
         _lifecycle = lifecycle;
+        _invites = invites ?? AllowContinuingInvite.Instance;
         _clock = clock;
         _logger = logger;
     }
@@ -45,6 +48,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     {
         using var activity = ActivitySource.StartActivity("attempts.start");
         activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
         EnsureAsync(header);
@@ -113,6 +117,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     {
         using var activity = ActivitySource.StartActivity("attempts.preview");
         activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
         EnsureAsync(header);
@@ -146,6 +151,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     {
         using var activity = ActivitySource.StartActivity("attempts.get");
         activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
         EnsureAsync(header);
@@ -161,6 +167,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     {
         using var activity = ActivitySource.StartActivity("attempts.save");
         activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
         EnsureAsync(header);
@@ -193,6 +200,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     {
         using var activity = ActivitySource.StartActivity("attempts.submit");
         activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
         EnsureAsync(header);
@@ -231,6 +239,25 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
 
         var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
         return MapResult(attempt, header.Snapshot);
+    }
+
+    public async Task CloseInProgressAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("attempts.revoke");
+        activity?.SetTag("assignment.id", assignmentId);
+
+        var inProgress = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        if (inProgress is null || inProgress.IsSubmitted)
+        {
+            return;
+        }
+
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        await ScoreAndSubmitAsync(inProgress, header, cancellationToken);
+        _logger.LogInformation(
+            "Ended in-progress attempt {AttemptId} because the invite for assignment {AssignmentId} was revoked",
+            inProgress.Id,
+            assignmentId);
     }
 
     public async Task<Guid?> GetAttemptIdAsync(Guid assignmentId, CancellationToken cancellationToken)
@@ -305,6 +332,14 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
             attempt.Id,
             attempt.AssignmentId,
             attempt.SnapshotId);
+    }
+
+    private async Task EnsureNotRevokedAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        if (await _invites.IsRevokedAsync(assignmentId, cancellationToken))
+        {
+            throw new DomainException(InviteMessages.Revoked);
+        }
     }
 
     private async Task<AssignmentWithSnapshotDto> RequireAssignmentAsync(
@@ -487,4 +522,12 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
     }
 
     private static string Camel(Enum value) => JsonNamingPolicy.CamelCase.ConvertName(value.ToString());
+
+    private sealed class AllowContinuingInvite : IInviteContinuation
+    {
+        public static readonly AllowContinuingInvite Instance = new();
+
+        public Task<bool> IsRevokedAsync(Guid assignmentId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
+    }
 }

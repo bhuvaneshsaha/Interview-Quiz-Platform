@@ -23,22 +23,38 @@ public sealed class TemplateRepository : ITemplateRepository
     public Task<Template?> GetByOriginQuizIdAsync(Guid quizId, CancellationToken cancellationToken)
         => _db.Templates.FirstOrDefaultAsync(t => t.OriginQuizId == quizId, cancellationToken);
 
-    public Task<TemplateVersion?> GetVersionAsync(
+    public async Task<TemplateVersion?> GetVersionAsync(
         Guid templateId,
         Guid versionId,
         CancellationToken cancellationToken)
-        => _db.TemplateVersions
+    {
+        var version = await _db.TemplateVersions
             .Include(v => v.Questions)
             .FirstOrDefaultAsync(
                 v => v.TemplateId == templateId && v.Id == versionId,
                 cancellationToken);
+        if (version is not null)
+        {
+            await HydrateSharedQuestionsAsync([version], cancellationToken);
+        }
 
-    public Task<TemplateVersion?> GetLatestVersionAsync(Guid templateId, CancellationToken cancellationToken)
-        => _db.TemplateVersions
+        return version;
+    }
+
+    public async Task<TemplateVersion?> GetLatestVersionAsync(Guid templateId, CancellationToken cancellationToken)
+    {
+        var version = await _db.TemplateVersions
             .Include(v => v.Questions)
             .Where(v => v.TemplateId == templateId)
             .OrderByDescending(v => v.VersionNumber)
             .FirstOrDefaultAsync(cancellationToken);
+        if (version is not null)
+        {
+            await HydrateSharedQuestionsAsync([version], cancellationToken);
+        }
+
+        return version;
+    }
 
     public async Task<int> GetMaxVersionNumberAsync(Guid templateId, CancellationToken cancellationToken)
     {
@@ -129,8 +145,37 @@ public sealed class TemplateRepository : ITemplateRepository
             .Skip(page.Skip)
             .Take(page.PageSize)
             .ToListAsync(cancellationToken);
+        await HydrateSharedQuestionsAsync(items, cancellationToken);
 
         return new PagedResult<TemplateVersion>(items, page.Page, page.PageSize, total);
+    }
+
+    private async Task HydrateSharedQuestionsAsync(
+        IReadOnlyList<TemplateVersion> versions,
+        CancellationToken cancellationToken)
+    {
+        var pending = versions
+            .Where(version => version.ContentVersionId is { } contentId && contentId != Guid.Empty)
+            .ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        var ids = pending.Select(version => version.ContentVersionId!.Value).Distinct().ToArray();
+        var owners = await _db.TemplateVersions
+            .AsNoTracking()
+            .Include(version => version.Questions)
+            .Where(version => ids.Contains(version.Id))
+            .ToListAsync(cancellationToken);
+        var byId = owners.ToDictionary(version => version.Id);
+        foreach (var version in pending)
+        {
+            if (byId.TryGetValue(version.ContentVersionId!.Value, out var owner))
+            {
+                version.UseSharedQuestions(owner.Questions);
+            }
+        }
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)

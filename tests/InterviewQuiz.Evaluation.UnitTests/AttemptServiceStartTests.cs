@@ -4,10 +4,12 @@ using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Evaluation.Application;
+using InterviewQuiz.Evaluation.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Services;
 using InterviewQuiz.Evaluation.Domain;
 using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Clock;
+using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -134,6 +136,107 @@ public sealed class AttemptServiceStartTests
         Assert.Equal(first.DueAtUtc, second.DueAtUtc);
     }
 
+    [Fact]
+    public async Task Revoked_invite_rejects_save_and_close_ends_the_attempt()
+    {
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+        var attempts = new InMemoryAttempts();
+        var lifecycle = new RecordingLifecycle();
+        var header = Header();
+        var started = Attempt.Start(
+            AssignmentId,
+            OpeningId,
+            header.SnapshotId,
+            "candidate.dev@example.com",
+            30,
+            JsonDocument.Parse("{}"),
+            clock);
+        attempts.Seed(started);
+
+        var revoked = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(header),
+            lifecycle,
+            clock,
+            NullLogger<AttemptService>.Instance,
+            new FlaggedInvite(revoked: true));
+
+        var save = await Assert.ThrowsAsync<DomainException>(() =>
+            revoked.SaveAnswersAsync(
+                AssignmentId,
+                new SaveAnswersRequest
+                {
+                    Answers =
+                    [
+                        new AnswerDto
+                        {
+                            QuestionId = QuestionId,
+                            Value = JsonSerializer.SerializeToElement(new { value = true })
+                        }
+                    ]
+                },
+                CancellationToken.None));
+        Assert.Equal(InviteMessages.Revoked, save.Message);
+        Assert.False(started.IsSubmitted);
+
+        var closer = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(header),
+            lifecycle,
+            clock,
+            NullLogger<AttemptService>.Instance,
+            new FlaggedInvite(revoked: false));
+        await closer.CloseInProgressAsync(AssignmentId, CancellationToken.None);
+        Assert.True(started.IsSubmitted);
+        Assert.Equal(started.Id, Assert.Single(lifecycle.Submitted));
+
+        var after = await Assert.ThrowsAsync<DomainException>(() =>
+            revoked.SaveAnswersAsync(AssignmentId, new SaveAnswersRequest(), CancellationToken.None));
+        Assert.Equal(InviteMessages.Revoked, after.Message);
+    }
+
+    [Fact]
+    public async Task Expired_invite_does_not_block_an_in_progress_save()
+    {
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+        var attempts = new InMemoryAttempts();
+        var header = Header();
+        var started = Attempt.Start(
+            AssignmentId,
+            OpeningId,
+            header.SnapshotId,
+            "candidate.dev@example.com",
+            30,
+            JsonDocument.Parse("{}"),
+            clock);
+        attempts.Seed(started);
+        var service = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(header),
+            new RecordingLifecycle(),
+            clock,
+            NullLogger<AttemptService>.Instance,
+            new FlaggedInvite(revoked: false));
+
+        var saved = await service.SaveAnswersAsync(
+            AssignmentId,
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = QuestionId,
+                        Value = JsonSerializer.SerializeToElement(new { value = true })
+                    }
+                ]
+            },
+            CancellationToken.None);
+
+        Assert.Equal("inProgress", saved.Status);
+        Assert.False(started.IsSubmitted);
+    }
+
     private static AssignmentWithSnapshotDto Header()
     {
         var snapshot = new QuizSnapshotDto(
@@ -208,6 +311,12 @@ public sealed class AttemptServiceStartTests
             Submitted.Add(attemptId);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FlaggedInvite(bool revoked) : IInviteContinuation
+    {
+        public Task<bool> IsRevokedAsync(Guid assignmentId, CancellationToken cancellationToken)
+            => Task.FromResult(revoked);
     }
 
     private sealed class InMemoryAttempts : IAttemptRepository

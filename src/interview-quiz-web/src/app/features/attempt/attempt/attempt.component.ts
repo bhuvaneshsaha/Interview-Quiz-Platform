@@ -67,6 +67,7 @@ export class Attempt implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly saves = new Subject<void>();
   private timerId: ReturnType<typeof setInterval> | null = null;
+  private inviteChecks = 0;
   private autoSubmitStarted = false;
   private timerAnnounced: TimerAnnouncementState = { five: false, one: false };
   private enteredCandidate = false;
@@ -804,14 +805,30 @@ export class Attempt implements OnInit {
   private startTimer(): void {
     this.stopTimer();
     this.now.set(Date.now());
+    this.inviteChecks = 0;
     this.timerId = setInterval(() => {
       this.now.set(Date.now());
       this.noteTimerThreshold();
+      this.inviteChecks += 1;
+      if (this.inviteChecks % 2 === 0) {
+        this.watchRevoke();
+      }
       if (!this.autoSubmitStarted && this.remainingSeconds() <= 0 && !this.submitted()) {
         this.autoSubmitStarted = true;
         this.submit('timeout');
       }
     }, 1000);
+  }
+
+  private watchRevoke(): void {
+    const attempt = this.attempt();
+    if (!attempt || this.previewMode() || this.submitted() || this.inviteBlock()) {
+      return;
+    }
+    this.attemptsApi.getCurrent(attempt.assignmentId).subscribe({
+      next: () => undefined,
+      error: (err: unknown) => this.fail(err),
+    });
   }
 
   private noteTimerThreshold(): void {
@@ -852,14 +869,23 @@ export class Attempt implements OnInit {
 
   private fail(err: unknown, stopLoading = true, fatal = true): void {
     const mapped = PageStatus.fromError(err);
-    if (fatal && mapped.message === EXPIRED_INVITE_MESSAGE) {
-      this.inviteBlock.set('expired');
+    if (mapped.message === REVOKED_INVITE_MESSAGE) {
+      this.inviteBlock.set('revoked');
+      this.attempt.set(null);
+      this.preview.set(null);
+      this.answers.set({});
+      this.submitSummary.set(null);
       this.error.set(null);
+      this.bannerError.set(null);
       this.loading.set(false);
+      this.saving.set(false);
+      this.submitting.set(false);
+      this.stopTimer();
+      this.candidate.clear();
       return;
     }
-    if (fatal && mapped.message === REVOKED_INVITE_MESSAGE) {
-      this.inviteBlock.set('revoked');
+    if (fatal && mapped.message === EXPIRED_INVITE_MESSAGE) {
+      this.inviteBlock.set('expired');
       this.error.set(null);
       this.loading.set(false);
       return;

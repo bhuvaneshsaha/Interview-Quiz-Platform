@@ -66,8 +66,9 @@
       <form class="metadata-form" [formGroup]="metadata" (ngSubmit)="saveMetadata()">
         <h2>Rename / metadata</h2>
         <p class="hint">
-          Saving creates a new version with the same questions. Earlier versions, cloned quizzes, and
-          assignment snapshots stay as they were.
+          Saving a name or details change creates a new version that reuses the same questions. It
+          does not copy them. Earlier versions, cloned quizzes, and assignment snapshots stay as they
+          were.
         </p>
         @if (saveError(); as message) {
           <p class="status status-error" role="alert">{{ message }}</p>
@@ -132,7 +133,7 @@
           <tr>
             <th scope="row" data-label="Version">{{ version.versionNumber }}</th>
             <td data-label="Title">{{ version.title }}</td>
-            <td data-label="Author">{{ version.publishedByUserId }}</td>
+            <td data-label="Author" data-testid="version-author">{{ version.publishedByDisplayName }}</td>
             <td data-label="Change note">{{ version.changeNote || '—' }}</td>
             <td data-label="Questions">{{ version.questionCount }}</td>
             <td data-label="Published">{{ formatWhen(version.publishedAtUtc) }}</td>

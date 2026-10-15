@@ -5,14 +5,17 @@ using System.Text;
 using System.Text.Json;
 using InterviewQuiz.Access.Application.Contracts;
 using InterviewQuiz.Access.Authentication;
+using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Scoring;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace InterviewQuiz.Host.IntegrationTests;
@@ -475,6 +478,109 @@ public sealed class AttemptsApiTests
         Assert.Equal(0m, scored!.AutoPointsAwarded);
         Assert.Equal(1m, scored.AutoPointsAvailable);
     }
+
+    [RequiresDatabaseFact]
+    public async Task Revoke_ends_an_in_progress_attempt_and_blocks_further_answers()
+    {
+        var (assignment, questionId) = await CreateAutoAssignmentAsync();
+        var client = await CandidateClientAsync(assignment.InviteUrl!);
+        var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+
+        var save = await SaveTrueAsync(client, assignment.Id, questionId);
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+
+        var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite,
+            PermissionCodes.Evaluation.AttemptsRead));
+        var revoke = await recruiter.PostAsync($"/api/assignments/{assignment.Id}/invite/revoke", null);
+        Assert.Equal(HttpStatusCode.OK, revoke.StatusCode);
+
+        var blockedSave = await SaveTrueAsync(client, assignment.Id, questionId);
+        Assert.Equal(HttpStatusCode.BadRequest, blockedSave.StatusCode);
+        Assert.Contains(InviteMessages.Revoked, await blockedSave.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        var current = await client.GetAsync($"/api/assignments/{assignment.Id}/attempts/current");
+        Assert.Equal(HttpStatusCode.BadRequest, current.StatusCode);
+        Assert.Contains(InviteMessages.Revoked, await current.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        var submit = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts/current/submit", null);
+        Assert.Equal(HttpStatusCode.BadRequest, submit.StatusCode);
+
+        var assignmentGet = await recruiter.GetFromJsonAsync<AssignmentResponse>(
+            $"/api/assignments/{assignment.Id}",
+            JsonOptions);
+        Assert.NotEqual("inProgress", assignmentGet!.Status);
+        Assert.NotEqual("notStarted", assignmentGet.Status);
+
+        var list = await recruiter.GetFromJsonAsync<PagedResult<AttemptSummaryResponse>>(
+            $"/api/assignments/{assignment.Id}/attempts",
+            JsonOptions);
+        Assert.Equal("submitted", Assert.Single(list!.Items).Status);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Expiry_does_not_stop_an_in_progress_attempt()
+    {
+        var (assignment, questionId) = await CreateAutoAssignmentAsync();
+        var token = MagicLinkApiTests.TokenFromInviteUrl(assignment.InviteUrl!);
+        var client = await CandidateClientAsync(assignment.InviteUrl!);
+        var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
+            var invite = await db.MagicLinkInvites.SingleAsync(row =>
+                row.AssignmentId == assignment.Id && row.RevokedAt == null);
+            invite.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+            await db.SaveChangesAsync();
+        }
+
+        var save = await SaveTrueAsync(client, assignment.Id, questionId);
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        var saved = await save.Content.ReadFromJsonAsync<CandidateAttemptResponse>(JsonOptions);
+        Assert.Equal("inProgress", saved!.Status);
+
+        var current = await client.GetAsync($"/api/assignments/{assignment.Id}/attempts/current");
+        Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+
+        var anonymous = _factory.CreateClient();
+        var consume = await anonymous.PostAsJsonAsync(
+            "/api/auth/magic-link/consume",
+            new ConsumeMagicLinkRequest { Token = token });
+        Assert.Equal(HttpStatusCode.BadRequest, consume.StatusCode);
+        Assert.Contains(InviteMessages.Expired, await consume.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    private async Task<HttpClient> CandidateClientAsync(string inviteUrl)
+    {
+        var client = _factory.CreateClient();
+        var consume = await client.PostAsJsonAsync(
+            "/api/auth/magic-link/consume",
+            new ConsumeMagicLinkRequest { Token = MagicLinkApiTests.TokenFromInviteUrl(inviteUrl) });
+        Assert.Equal(HttpStatusCode.OK, consume.StatusCode);
+        var candidate = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", candidate!.AccessToken);
+        return client;
+    }
+
+    private static Task<HttpResponseMessage> SaveTrueAsync(HttpClient client, Guid assignmentId, Guid questionId)
+        => client.PutAsJsonAsync(
+            $"/api/assignments/{assignmentId}/attempts/current/answers",
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = questionId,
+                        Value = JsonSerializer.SerializeToElement(new { value = true }, JsonOptions)
+                    }
+                ]
+            });
 
     private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync()
     {

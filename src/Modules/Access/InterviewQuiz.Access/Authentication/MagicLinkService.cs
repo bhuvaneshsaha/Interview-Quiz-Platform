@@ -13,8 +13,8 @@ namespace InterviewQuiz.Access.Authentication;
 public sealed class MagicLinkService : IMagicLinkService
 {
     public const string InvalidInviteMessage = "Invite is not valid.";
-    public const string ExpiredInviteMessage = "This invite has expired.";
-    public const string RevokedInviteMessage = "This invite has been revoked.";
+    public const string ExpiredInviteMessage = InviteMessages.Expired;
+    public const string RevokedInviteMessage = InviteMessages.Revoked;
     public const string LiveModeMessage = "Invite links are for async assignments.";
     public const string NoLongerInvitableMessage = "Assignment is no longer invitable.";
     public const string ExpiryMustBeFutureMessage = "Invite expiry must be in the future.";

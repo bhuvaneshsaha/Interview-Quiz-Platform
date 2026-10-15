@@ -26,7 +26,9 @@ ADR 0008 made the opaque invite reusable until the candidate submits, and until 
 
 3. **Consume of an expired token returns** `This invite has expired.` **A revoked token returns** `This invite has been revoked.` Unknown tokens stay `Invite is not valid.` The Angular `/attempt` page shows a dedicated explanation and does not start the quiz.
 
-4. **A candidate JWT already issued is not revoked when the invite later expires.** Quiz timing stays on the attempt `dueAtUtc`. Opening the link again re-consumes and then hits the expiry or revoke page. Cutting off an in-progress JWT the moment the invite expires is not this decision.
+4. **Expiry does not end an in-progress attempt.** A candidate JWT already issued stays usable for save and submit after `expiresAt` passes. Quiz timing stays on the attempt `dueAtUtc`. Opening the link again re-consumes and shows the expiry page, so a fresh visit cannot start, but the candidate who already started may finish.
+
+   **Revoke does end an in-progress attempt.** `POST /api/assignments/{id}/invite/revoke` still does not mint a replacement. It also submits the in-progress attempt from the answers saved so far. Later candidate calls (`preview`, `current`, save, submit, start) return `This invite has been revoked.` The Angular page clears the questions and says the quiz has ended. A retry of revoke, after the link is already revoked and the assignment is still invitable, still closes an in-progress attempt.
 
 ### Email
 
@@ -47,6 +49,7 @@ ADR 0008 made the opaque invite reusable until the candidate submits, and until 
 ## Consequences
 
 - Operators set `Invite__DefaultLifetimeHours` and `InviteMail__*` . Production SMTP passwords stay in the environment, not in git.
-- Data Protection keys must survive process restarts if resend of an existing link must survive a restart. Otherwise the recruiter re-issues.
+- Data Protection keys are stored in PostgreSQL (`access.data_protection_keys`, application name `InterviewQuiz`). Resend of an existing link works after the API process restarts or a new instance starts against the same database. Losing that table means those links must be re-issued. There is no separate key-ring path to configure.
+- Ticketing is out of scope. Invite delivery is email through `IInviteMailer` only.
 - Clone-then-assign uses two module saves. If assignment create fails after the quiz is saved, the cloned quiz remains in the opening.
 - Angular assignment create can start from an existing quiz or a template, and the candidate expiry page is specific to expired and revoked links.

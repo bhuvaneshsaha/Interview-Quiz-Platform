@@ -5,6 +5,7 @@ using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
+using InterviewQuiz.Kernel.Users;
 using InterviewQuiz.Openings.Application;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +18,7 @@ public sealed class TemplateService : ITemplateService
     private readonly ITemplateRepository _templates;
     private readonly IQuizRepository _quizzes;
     private readonly IOpeningLookup _openings;
+    private readonly IAssignableUserLookup _users;
     private readonly IClock _clock;
     private readonly ILogger<TemplateService> _logger;
 
@@ -24,12 +26,14 @@ public sealed class TemplateService : ITemplateService
         ITemplateRepository templates,
         IQuizRepository quizzes,
         IOpeningLookup openings,
+        IAssignableUserLookup users,
         IClock clock,
         ILogger<TemplateService> logger)
     {
         _templates = templates;
         _quizzes = quizzes;
         _openings = openings;
+        _users = users;
         _clock = clock;
         _logger = logger;
     }
@@ -196,12 +200,17 @@ public sealed class TemplateService : ITemplateService
             ?? throw new EntityNotFoundException(nameof(TemplateVersion), id);
 
         var nextNumber = await _templates.GetMaxVersionNumberAsync(id, cancellationToken) + 1;
-        var copies = questions
-            ?? latest.Questions
-                .OrderBy(q => q.SortOrder)
-                .ThenBy(q => q.Id)
-                .Select((question, index) => question.CopyWithNewId(index))
-                .ToList();
+        Guid? contentVersionId = null;
+        IReadOnlyList<Question> ownedQuestions;
+        if (questions is null)
+        {
+            contentVersionId = latest.QuestionContentVersionId;
+            ownedQuestions = [];
+        }
+        else
+        {
+            ownedQuestions = questions;
+        }
 
         var version = TemplateVersion.Create(
             template.Id,
@@ -212,9 +221,10 @@ public sealed class TemplateService : ITemplateService
             tags,
             latest.PublishedFromQuizId,
             editedByUserId,
-            copies,
+            ownedQuestions,
             _clock,
-            changeNote: changeNote);
+            changeNote: changeNote,
+            contentVersionId: contentVersionId);
 
         template.Touch(_clock);
         await _templates.AddVersionAsync(version, cancellationToken);
@@ -241,7 +251,12 @@ public sealed class TemplateService : ITemplateService
         }
 
         var result = await _templates.ListVersionsAsync(templateId, page, cancellationToken);
-        var items = result.Items.Select(MapVersionSummary).ToList();
+        var names = await DisplayNamesAsync(
+            result.Items.Select(version => version.PublishedByUserId),
+            cancellationToken);
+        var items = result.Items
+            .Select(version => MapVersionSummary(version, names[version.PublishedByUserId]))
+            .ToList();
         return new PagedResult<TemplateVersionSummaryResponse>(items, result.Page, result.PageSize, result.TotalCount);
     }
 
@@ -254,7 +269,8 @@ public sealed class TemplateService : ITemplateService
         var version = await _templates.GetVersionAsync(templateId, versionId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(TemplateVersion), versionId);
 
-        return MapVersion(version);
+        var names = await DisplayNamesAsync([version.PublishedByUserId], cancellationToken);
+        return MapVersion(version, names[version.PublishedByUserId]);
     }
 
     public async Task<QuizResponse> CloneAsync(
@@ -269,7 +285,7 @@ public sealed class TemplateService : ITemplateService
 
         await EnsureOpeningExistsAsync(request.OpeningId, cancellationToken);
 
-        var questions = version.Questions
+        var questions = version.ReadQuestions()
             .OrderBy(q => q.SortOrder)
             .ThenBy(q => q.Id)
             .Select((q, i) => q.CopyWithNewId(i))
@@ -323,7 +339,7 @@ public sealed class TemplateService : ITemplateService
             version.Description,
             version.ExpectedExperienceYears,
             version.Tags,
-            version.Questions
+            version.ReadQuestions()
                 .OrderBy(q => q.SortOrder)
                 .ThenBy(q => q.Id)
                 .Select(q => new QuizSnapshotQuestionDto(
@@ -382,7 +398,9 @@ public sealed class TemplateService : ITemplateService
             RowVersion = template.RowVersion
         };
 
-    internal static TemplateVersionSummaryResponse MapVersionSummary(TemplateVersion version)
+    internal static TemplateVersionSummaryResponse MapVersionSummary(
+        TemplateVersion version,
+        string publishedByDisplayName)
         => new()
         {
             Id = version.Id,
@@ -392,11 +410,12 @@ public sealed class TemplateService : ITemplateService
             PublishedFromQuizId = version.PublishedFromQuizId,
             PublishedAtUtc = version.PublishedAtUtc,
             PublishedByUserId = version.PublishedByUserId,
+            PublishedByDisplayName = publishedByDisplayName,
             ChangeNote = version.ChangeNote,
-            QuestionCount = version.Questions.Count
+            QuestionCount = version.ReadQuestionCount()
         };
 
-    internal static TemplateVersionResponse MapVersion(TemplateVersion version)
+    internal static TemplateVersionResponse MapVersion(TemplateVersion version, string publishedByDisplayName)
         => new()
         {
             Id = version.Id,
@@ -406,15 +425,39 @@ public sealed class TemplateService : ITemplateService
             PublishedFromQuizId = version.PublishedFromQuizId,
             PublishedAtUtc = version.PublishedAtUtc,
             PublishedByUserId = version.PublishedByUserId,
+            PublishedByDisplayName = publishedByDisplayName,
             ChangeNote = version.ChangeNote,
-            QuestionCount = version.Questions.Count,
+            QuestionCount = version.ReadQuestionCount(),
             Description = version.Description,
             ExpectedExperienceYears = version.ExpectedExperienceYears,
             Tags = version.Tags,
-            Questions = version.Questions
+            Questions = version.ReadQuestions()
                 .OrderBy(q => q.SortOrder)
                 .ThenBy(q => q.Id)
                 .Select(QuizService.MapQuestion)
                 .ToList()
         };
+
+    private async Task<IReadOnlyDictionary<string, string>> DisplayNamesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var found = ids.Length == 0
+            ? new Dictionary<string, AssignableUserDto>(StringComparer.Ordinal)
+            : await _users.GetByIdsAsync(ids, cancellationToken);
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var id in ids)
+        {
+            names[id] = found.TryGetValue(id, out var user) && !string.IsNullOrWhiteSpace(user.Name)
+                ? user.Name
+                : id;
+        }
+
+        return names;
+    }
 }

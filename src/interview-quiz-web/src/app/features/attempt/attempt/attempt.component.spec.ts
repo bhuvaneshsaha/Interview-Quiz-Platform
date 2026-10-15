@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { ApiError } from '../../../core/http/api-error';
 import {
   CandidateAttemptPreview,
@@ -78,6 +78,7 @@ describe('Attempt', () => {
   let startedAttempt: CandidateAttemptResponse;
   let previewResponse: CandidateAttemptPreview;
   let consumeError: ApiError | null;
+  let currentImpl: (id: string) => Observable<CandidateAttemptResponse>;
 
   beforeEach(async () => {
     consumeCalls = [];
@@ -88,6 +89,10 @@ describe('Attempt', () => {
     startedAttempt = attempt;
     previewResponse = previewWelcome;
     consumeError = null;
+    currentImpl = (id: string) => {
+      currentCalls.push(id);
+      return of(startedAttempt);
+    };
     await TestBed.configureTestingModule({
       imports: [Attempt],
       providers: [
@@ -114,10 +119,7 @@ describe('Attempt', () => {
               previewCalls.push(id);
               return of(previewResponse);
             },
-            getCurrent: (id: string) => {
-              currentCalls.push(id);
-              return of(startedAttempt);
-            },
+            getCurrent: (id: string) => currentImpl(id),
             start: (id: string) => {
               startCalls.push(id);
               return of(startedAttempt);
@@ -222,6 +224,39 @@ describe('Attempt', () => {
       (button: HTMLButtonElement) => button.textContent?.trim() === 'Next',
     ) as HTMLButtonElement;
     expect(nextAfter.disabled).toBe(true);
+  });
+
+  it('ends an in-progress attempt when the invite is revoked', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
+    try {
+      previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
+      let reads = 0;
+      currentImpl = () => {
+        reads += 1;
+        currentCalls.push(assignmentId);
+        if (reads > 1) {
+          return throwError(() => new ApiError('This invite has been revoked.', 400, null, 'Bad Request'));
+        }
+        return of(startedAttempt);
+      };
+
+      fixture = TestBed.createComponent(Attempt);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Which of these are ASP.NET Core hosting concerns?');
+      await vi.advanceTimersByTimeAsync(2000);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="invite-blocked"]')).not.toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('this quiz has ended');
+      expect(fixture.nativeElement.textContent).toContain('You cannot keep answering.');
+      expect(fixture.nativeElement.textContent).not.toContain('Which of these are ASP.NET Core hosting concerns?');
+      expect(fixture.nativeElement.querySelector('[role="timer"]')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('skips the welcome page when the attempt is already in progress', async () => {
