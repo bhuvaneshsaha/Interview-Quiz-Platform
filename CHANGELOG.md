@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-16
+
 ### Added
 
 - Reviewers with `attempts.review` can request an auditable AI suggestion for an `aiAssist` item (`POST /api/attempts/{id}/items/{itemId}/suggestion`). The draft stores the suggested points, feedback, actor, model, and time, and it stays after the reviewer confirms or edits the score. Development and tests use a deterministic fake. An OpenAI-compatible endpoint is used only when `Ai__BaseUrl`, `Ai__Model`, and `Ai__ApiKey` are set; otherwise suggestions are off and human scoring still works. No API key is stored in git (#22).
@@ -53,7 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.0...v0.1.1
