@@ -1,6 +1,16 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, and Entra ID are **not** in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Human review, AI drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). After a change merges to `main`, tag that merge commit with an annotated tag `vMAJOR.MINOR.PATCH` and push the tag. Put the notes for that version in [CHANGELOG.md](CHANGELOG.md) on the same commit, so the tag points at the entry it publishes.
+
+- **MINOR** for a feature that keeps existing contracts. [v0.1.0](https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/releases/tag/v0.1.0) is the first release (Sprints 1–4, the open points from those sprints, and live quiz sessions).
+- **PATCH** for a fix. [v0.1.1](https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/releases/tag/v0.1.1) returns slot questions to dropdowns.
+- **MAJOR** when a released contract changes in a breaking way.
+
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml). The workflow reads the matching changelog section and opens a GitHub Release. If that release already exists, the workflow leaves it alone. `v0.1.0` and `v0.1.1` were tagged before this workflow was on `main`, so those two releases were created by hand.
 
 ## Prerequisites
 
