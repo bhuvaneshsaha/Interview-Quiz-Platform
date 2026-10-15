@@ -12,6 +12,12 @@ export const routes: Routes = [
     title: 'Sign in',
   },
   {
+    path: 'attempt',
+    loadComponent: () =>
+      import('./features/attempt/attempt/attempt.component').then((m) => m.Attempt),
+    title: 'Quiz attempt',
+  },
+  {
     path: '',
     loadComponent: () => import('./layout/shell/shell.component').then((m) => m.Shell),
     canActivate: [authGuard],
@@ -124,6 +130,46 @@ export const routes: Routes = [
             (m) => m.QuestionForm,
           ),
         title: 'Bank question',
+      },
+      {
+        path: 'assignments',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AssignmentsRead },
+        loadComponent: () =>
+          import('./features/assignments/assignment-list/assignment-list.component').then(
+            (m) => m.AssignmentList,
+          ),
+        title: 'Assignments',
+      },
+      {
+        path: 'assignments/new',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AssignmentsWrite },
+        loadComponent: () =>
+          import('./features/assignments/assignment-form/assignment-form.component').then(
+            (m) => m.AssignmentForm,
+          ),
+        title: 'Create assignment',
+      },
+      {
+        path: 'assignments/:assignmentId/attempts/:attemptId',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AttemptsRead },
+        loadComponent: () =>
+          import('./features/assignments/attempt-detail/attempt-detail.component').then(
+            (m) => m.AttemptDetail,
+          ),
+        title: 'Attempt',
+      },
+      {
+        path: 'assignments/:id',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AssignmentsRead },
+        loadComponent: () =>
+          import('./features/assignments/assignment-detail/assignment-detail.component').then(
+            (m) => m.AssignmentDetail,
+          ),
+        title: 'Assignment',
       },
       {
         path: 'opening-fields',

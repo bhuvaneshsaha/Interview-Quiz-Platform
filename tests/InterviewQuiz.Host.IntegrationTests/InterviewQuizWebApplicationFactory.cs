@@ -2,6 +2,9 @@ using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Seeding;
 using InterviewQuiz.Catalog.Infrastructure.Persistence;
 using InterviewQuiz.Catalog.Infrastructure.Seeding;
+using InterviewQuiz.Delivery.Infrastructure.Persistence;
+using InterviewQuiz.Delivery.Infrastructure.Seeding;
+using InterviewQuiz.Evaluation.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search.Infrastructure.Persistence;
@@ -52,6 +55,10 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
             .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<CatalogDbContext>()
             .Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<DeliveryDbContext>()
+            .Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<EvaluationDbContext>()
+            .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<SearchDbContext>()
             .Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
@@ -61,6 +68,8 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
         await scope.ServiceProvider.GetRequiredService<DevelopmentQuizSeeder>()
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentBankQuestionSeeder>()
+            .SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentAssignmentSeeder>()
             .SeedAsync();
     }
 

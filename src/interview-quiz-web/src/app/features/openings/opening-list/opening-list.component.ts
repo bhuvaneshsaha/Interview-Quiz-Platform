@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
@@ -9,6 +9,7 @@ import {
 } from '../../../core/api/contracts';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
+import { PermissionService } from '../../../core/permissions/permission.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { openingCriteriaFromUnknown } from '../../../shared/saved-filters/saved-filter.criteria';
 import { SavedFilters } from '../../../shared/saved-filters/saved-filters.component';
@@ -21,7 +22,15 @@ import { SavedFilters } from '../../../shared/saved-filters/saved-filters.compon
 })
 export class OpeningList implements OnInit {
   private readonly api = inject(OpeningsApi);
+  private readonly permissions = inject(PermissionService);
   readonly codes = PermissionCodes;
+  readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.OpeningsWrite));
+  readonly filtered = computed(() => Object.keys(this.appliedCriteria()).length > 0);
+  readonly emptyMessage = computed(() =>
+    this.filtered() ? 'No openings match this filter.' : 'No openings yet.',
+  );
+  readonly emptyActionLabel = computed(() => (this.canWrite() ? 'Create opening' : null));
+  readonly emptyActionLink = computed(() => (this.canWrite() ? '/openings/new' : null));
   readonly ownerFilter = new FormControl('', { nonNullable: true });
 
   readonly loading = signal(true);

@@ -1,5 +1,9 @@
 @if (!online()) {
   <div class="offline-banner" role="status">
-    You are offline. Openings and authoring need a network connection.
+    @if (context() === 'attempt') {
+      You are offline. Saving answers and submitting this quiz need a network connection.
+    } @else {
+      You are offline. Openings and authoring need a network connection.
+    }
   </div>
 }

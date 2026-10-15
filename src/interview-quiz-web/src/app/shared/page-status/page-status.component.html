@@ -8,7 +8,12 @@
     }
   </p>
 } @else if (empty()) {
-  <p class="status status-empty">{{ emptyMessage() }}</p>
+  <div class="status status-empty">
+    <p>{{ emptyMessage() }}</p>
+    @if (emptyActionLabel() && emptyActionLink(); as actionLink) {
+      <a class="button" [routerLink]="actionLink">{{ emptyActionLabel() }}</a>
+    }
+  </div>
 } @else {
   <ng-content />
 }

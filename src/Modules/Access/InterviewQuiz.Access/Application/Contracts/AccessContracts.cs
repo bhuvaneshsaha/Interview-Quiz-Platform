@@ -21,6 +21,17 @@ public sealed record TokenResponse(
     DateTimeOffset RefreshTokenExpiresAt,
     string TokenType = "Bearer");
 
+public sealed class ConsumeMagicLinkRequest
+{
+    public string Token { get; set; } = "";
+}
+
+public sealed record CandidateTokenResponse(
+    string AccessToken,
+    DateTimeOffset AccessTokenExpiresAt,
+    Guid AssignmentId,
+    string TokenType = "Bearer");
+
 public sealed record PermissionResponse(
     string Code,
     string DisplayName,

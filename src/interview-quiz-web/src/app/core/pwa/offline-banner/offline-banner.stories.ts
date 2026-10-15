@@ -30,3 +30,8 @@ export const Online: Story = {
 export const Offline: Story = {
   decorators: [onlineStatusMock(false)],
 };
+
+export const AttemptOffline: Story = {
+  args: { context: 'attempt' },
+  decorators: [onlineStatusMock(false)],
+};

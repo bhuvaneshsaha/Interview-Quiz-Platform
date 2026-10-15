@@ -7,8 +7,11 @@ using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Catalog.Infrastructure;
 using InterviewQuiz.Catalog.Infrastructure.Persistence;
 using InterviewQuiz.Catalog.Infrastructure.Seeding;
-using InterviewQuiz.Delivery;
-using InterviewQuiz.Evaluation;
+using InterviewQuiz.Delivery.Infrastructure;
+using InterviewQuiz.Delivery.Infrastructure.Persistence;
+using InterviewQuiz.Delivery.Infrastructure.Seeding;
+using InterviewQuiz.Evaluation.Infrastructure;
+using InterviewQuiz.Evaluation.Infrastructure.Persistence;
 using InterviewQuiz.Host.Hosting;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Infrastructure;
@@ -49,8 +52,8 @@ try
     builder.Services.AddAccessModule(builder.Configuration);
     builder.Services.AddOpeningsModule(builder.Configuration);
     builder.Services.AddCatalogModule(builder.Configuration);
-    builder.Services.AddDeliveryModule();
-    builder.Services.AddEvaluationModule();
+    builder.Services.AddDeliveryModule(builder.Configuration);
+    builder.Services.AddEvaluationModule(builder.Configuration);
     builder.Services.AddSearchModule(builder.Configuration);
 
     builder.Services.AddControllers().AddJsonOptions(options =>
@@ -81,6 +84,8 @@ try
         .AddDbContextCheck<AccessDbContext>("access-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
         .AddDbContextCheck<OpeningsDbContext>("openings-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
         .AddDbContextCheck<CatalogDbContext>("catalog-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+        .AddDbContextCheck<DeliveryDbContext>("delivery-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+        .AddDbContextCheck<EvaluationDbContext>("evaluation-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
         .AddDbContextCheck<SearchDbContext>("search-db", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
     builder.Services.AddOpenApi(options =>
@@ -96,7 +101,8 @@ try
             Version = "v1",
             Description =
                 "Modular Monolith host. Employee login is email/password (JWT bearer). " +
-                "Candidate magic-link and Entra ID are not in this slice."
+                "Candidates exchange a magic-link invite at POST /api/auth/magic-link/consume. " +
+                "Entra ID is not in this slice."
         });
         options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
@@ -152,15 +158,22 @@ try
         {
             options.SwaggerEndpoint("/openapi/v1.json", "Interview Quiz API v1");
         });
+    }
 
+    if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+    {
         using var scope = app.Services.CreateScope();
         var accessDb = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
         var openingsDb = scope.ServiceProvider.GetRequiredService<OpeningsDbContext>();
         var catalogDb = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var deliveryDb = scope.ServiceProvider.GetRequiredService<DeliveryDbContext>();
+        var evaluationDb = scope.ServiceProvider.GetRequiredService<EvaluationDbContext>();
         var searchDb = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
         await accessDb.Database.MigrateAsync();
         await openingsDb.Database.MigrateAsync();
         await catalogDb.Database.MigrateAsync();
+        await deliveryDb.Database.MigrateAsync();
+        await evaluationDb.Database.MigrateAsync();
         await searchDb.Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentAccessSeeder>()
             .SeedAsync();
@@ -169,6 +182,8 @@ try
         await scope.ServiceProvider.GetRequiredService<DevelopmentQuizSeeder>()
             .SeedAsync();
         await scope.ServiceProvider.GetRequiredService<DevelopmentBankQuestionSeeder>()
+            .SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentAssignmentSeeder>()
             .SeedAsync();
     }
 
