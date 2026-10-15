@@ -47,9 +47,14 @@
   font-weight: 600;
 }
 
-.score-form {
+.score-form,
+.suggestion {
   display: grid;
   gap: 0.75rem;
   margin-top: 0.75rem;
   max-width: 28rem;
+}
+
+.suggestion .button {
+  justify-self: start;
 }

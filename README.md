@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch, plus live sessions, **Reporting v1**, and **human review** of unsettled attempts: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score/review, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 shipped as v0.2.0. AI suggestion drafts, AI authoring drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch, plus live sessions, **Reporting v1**, and **human review** of unsettled attempts: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score/review, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 shipped as v0.2.0. Human review shipped as v0.3.0. AI suggestion drafts for review are in this branch when configured. AI authoring drafts and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Releases
 
@@ -144,6 +144,11 @@ Do not pass `--with-deps` on Windows. That flag installs Linux system packages. 
 | `InviteMail__Smtp__Password` | Optional SMTP password. Do not commit a real password |
 | `Bootstrap__SuperAdminEmail` | Optional mailbox for the first Super Admin. Empty seeds the role and no user. No password is stored in git |
 | `Bootstrap__ResetSuperAdminSetup` | `true` re-issues the one-time password token on startup while the user still must set a password |
+| `Ai__Provider` | `None` (default), `Fake`, or `OpenAiCompatible`. Development and Testing use `Fake`. Suggestions stay off unless this is `Fake`, or `OpenAiCompatible` with a base URL, model, and API key |
+| `Ai__BaseUrl` | OpenAI-compatible origin, for example `https://llm.example/v1`. Not a secret. Required only for `OpenAiCompatible` |
+| `Ai__Model` | Model name sent to that endpoint |
+| `Ai__ApiKey` | Bearer token for that endpoint. Set this in the environment. Do not commit a real key |
+| `Ai__TimeoutSeconds` | HTTP timeout for a suggestion. Default `30`, capped at 120 |
 
 Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
@@ -396,10 +401,11 @@ curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e50
 | `GET` | `/api/attempts/{id}` | `attempts.read` |
 | `GET` | `/api/attempts/{id}/review` | `attempts.review` |
 | `POST` | `/api/attempts/{id}/items/{itemId}/review` | `attempts.review` |
+| `POST` | `/api/attempts/{id}/items/{itemId}/suggestion` | `attempts.review` |
 
-Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. `attempts.read` does not return answer keys or review comments. A reviewer with `attempts.review` opens `/assignments/{assignmentId}/attempts/{attemptId}/review`, scores each `humanOnly` or `aiAssist` item from 0 through that item’s points, and may leave a comment of up to 2000 characters. Auto items cannot be re-scored. When every item is settled, the attempt stores `finalPointsAwarded` and the assignment moves from `pendingReview` to `completed`. Dev Reviewer (`reviewer.dev@example.com` / `Dev.Reviewer!1`) has this permission in Development. There is no AI suggestion on this path.
+Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. `attempts.read` does not return answer keys or review comments. A reviewer with `attempts.review` opens `/assignments/{assignmentId}/attempts/{attemptId}/review`, scores each `humanOnly` or `aiAssist` item from 0 through that item’s points, and may leave a comment of up to 2000 characters. Auto items cannot be re-scored. When every item is settled, the attempt stores `finalPointsAwarded` and the assignment moves from `pendingReview` to `completed`. Dev Reviewer (`reviewer.dev@example.com` / `Dev.Reviewer!1`) has this permission in Development. For an `aiAssist` item the same permission can request a suggestion. The draft (points, feedback, actor, model, time) stays after the reviewer saves a score, including when they edit the points. `humanOnly` items have no suggestion. Development uses a deterministic fake (empty answer scores 0; any other answer scores half the item points). Set `Ai__Provider` to `OpenAiCompatible` plus `Ai__BaseUrl`, `Ai__Model`, and `Ai__ApiKey` to call an operator endpoint. If those are missing, suggestions are off and scoring still works. The suggestion is not on `GET /api/attempts/{id}`.
 
-Not in this slice: live start/pause REST, human review, AI drafts, Entra. Invite email is in [Invite email](#invite-email).
+Still later: AI authoring drafts and Entra. Invite email is in [Invite email](#invite-email).
 
 ## Search API (slice 3 — saved filters)
 

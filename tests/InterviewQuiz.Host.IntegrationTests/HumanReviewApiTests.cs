@@ -128,6 +128,126 @@ public sealed class HumanReviewApiTests
         Assert.Equal("completed", row.Status);
     }
 
+    [RequiresDatabaseFact]
+    public async Task Reviewer_keeps_an_ai_suggestion_after_confirming_the_score()
+    {
+        var author = Client(JwtTestTokens.Create(
+            PermissionCodes.Catalog.QuizzesRead,
+            PermissionCodes.Catalog.QuizzesWrite,
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite,
+            PermissionCodes.Evaluation.AttemptsRead));
+        var created = await CreateMixedQuizAsync(author);
+        var email = $"suggest.{Guid.NewGuid():N}@example.com";
+        var assignment = await CreateAssignmentAsync(author, created.QuizId, email);
+        var candidate = await CandidateClientAsync(assignment.InviteUrl!);
+        Assert.Equal(HttpStatusCode.Created, (await candidate.PostAsync($"/api/assignments/{assignment.Id}/attempts", null)).StatusCode);
+        var save = await candidate.PutAsJsonAsync(
+            $"/api/assignments/{assignment.Id}/attempts/current/answers",
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = created.AssistId,
+                        Value = JsonSerializer.SerializeToElement(new { text = "Confirm on the review screen." }, JsonOptions)
+                    }
+                ]
+            });
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        var submit = await candidate.PostAsync($"/api/assignments/{assignment.Id}/attempts/current/submit", null);
+        var submitted = await submit.Content.ReadFromJsonAsync<CandidateSubmitResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+
+        var anonymous = await _factory.CreateClient().PostAsync(
+            $"/api/attempts/{submitted!.Id}/items/{created.AssistId}/suggestion",
+            null);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        var reader = Client(JwtTestTokens.Create(PermissionCodes.Evaluation.AttemptsRead));
+        var forbidden = await reader.PostAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.AssistId}/suggestion",
+            null);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var reviewer = Client(JwtTestTokens.CreateForUser(
+            "reviewer-1",
+            PermissionCodes.Evaluation.AttemptsReview));
+        var humanDenied = await reviewer.PostAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.HumanId}/suggestion",
+            null);
+        Assert.Equal(HttpStatusCode.BadRequest, humanDenied.StatusCode);
+        Assert.Contains(Attempt.SuggestionOnlyForAiAssistMessage, await humanDenied.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        var suggested = await reviewer.PostAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.AssistId}/suggestion",
+            null);
+        var draft = await suggested.Content.ReadFromJsonAsync<AttemptReviewResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, suggested.StatusCode);
+        Assert.True(draft!.AiSuggestionsEnabled);
+        Assert.Equal("incomplete", draft.ResultStatus);
+        Assert.Null(draft.FinalPointsAwarded);
+        var assist = draft.Items.Single(item => item.QuestionId == created.AssistId);
+        Assert.Equal("unsettled", assist.Status);
+        Assert.Equal(5m, assist.SuggestedPoints);
+        Assert.Equal(FakeFeedback, assist.SuggestionFeedback);
+        Assert.Equal("reviewer-1", assist.SuggestedByUserId);
+        Assert.Equal("fake", assist.SuggestionModel);
+        Assert.NotNull(assist.SuggestedAtUtc);
+        Assert.Null(assist.ReviewedByUserId);
+
+        var pending = await author.GetFromJsonAsync<AssignmentResponse>($"/api/assignments/{assignment.Id}", JsonOptions);
+        Assert.Equal("pendingReview", pending!.Status);
+
+        var read = await reader.GetAsync($"/api/attempts/{submitted.Id}");
+        var readJson = await read.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("suggestionFeedback", readJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("suggestedPoints", readJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("suggestionModel", readJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(FakeFeedback, readJson, StringComparison.Ordinal);
+
+        var confirmed = await reviewer.PostAsJsonAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.AssistId}/review",
+            new ReviewItemRequest { PointsAwarded = 4, Comment = "Edited the draft." });
+        var confirmedBody = await confirmed.Content.ReadFromJsonAsync<AttemptReviewResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+        var confirmedItem = confirmedBody!.Items.Single(item => item.QuestionId == created.AssistId);
+        Assert.Equal(4m, confirmedItem.PointsAwarded);
+        Assert.Equal("reviewer-1", confirmedItem.ReviewedByUserId);
+        Assert.Equal(5m, confirmedItem.SuggestedPoints);
+        Assert.Equal(FakeFeedback, confirmedItem.SuggestionFeedback);
+        Assert.Equal("scored", confirmedItem.Status);
+
+        var again = await reviewer.PostAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.AssistId}/suggestion",
+            null);
+        var againBody = await again.Content.ReadFromJsonAsync<AttemptReviewResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+        var againItem = againBody!.Items.Single(item => item.QuestionId == created.AssistId);
+        Assert.Equal(4m, againItem.PointsAwarded);
+        Assert.Equal("reviewer-1", againItem.ReviewedByUserId);
+        Assert.Equal(5m, againItem.SuggestedPoints);
+
+        var humanScore = await reviewer.PostAsJsonAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.HumanId}/review",
+            new ReviewItemRequest { PointsAwarded = 0 });
+        Assert.Equal(HttpStatusCode.OK, humanScore.StatusCode);
+        var completed = await author.GetFromJsonAsync<AssignmentResponse>($"/api/assignments/{assignment.Id}", JsonOptions);
+        Assert.Equal("completed", completed!.Status);
+
+        var afterComplete = await reviewer.PostAsync(
+            $"/api/attempts/{submitted.Id}/items/{created.AssistId}/suggestion",
+            null);
+        var afterBody = await afterComplete.Content.ReadFromJsonAsync<AttemptReviewResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, afterComplete.StatusCode);
+        Assert.Equal(4m, afterBody!.Items.Single(item => item.QuestionId == created.AssistId).PointsAwarded);
+        var stillCompleted = await author.GetFromJsonAsync<AssignmentResponse>($"/api/assignments/{assignment.Id}", JsonOptions);
+        Assert.Equal("completed", stillCompleted!.Status);
+    }
+
+    private const string FakeFeedback = "Non-empty answer. Suggested half of the available points.";
+
     private async Task<ScoresReportResponse> GetScoresAsync(HttpClient client, Guid quizId)
     {
         var criteria = JsonSerializer.Serialize(new

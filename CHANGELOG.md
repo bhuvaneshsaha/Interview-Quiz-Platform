@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Reviewers with `attempts.review` can request an auditable AI suggestion for an `aiAssist` item (`POST /api/attempts/{id}/items/{itemId}/suggestion`). The draft stores the suggested points, feedback, actor, model, and time, and it stays after the reviewer confirms or edits the score. Development and tests use a deterministic fake. An OpenAI-compatible endpoint is used only when `Ai__BaseUrl`, `Ai__Model`, and `Ai__ApiKey` are set; otherwise suggestions are off and human scoring still works. No API key is stored in git (#22).
+
 ## [0.3.0] - 2026-10-15
 
 ### Added

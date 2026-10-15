@@ -831,9 +831,15 @@ export interface AttemptReviewItem extends AttemptResultItem {
   reviewedByUserId?: string | null;
   reviewedAtUtc?: string | null;
   reviewComment?: string | null;
+  suggestedPoints?: number | null;
+  suggestionFeedback?: string | null;
+  suggestedAtUtc?: string | null;
+  suggestedByUserId?: string | null;
+  suggestionModel?: string | null;
 }
 
 export interface AttemptReviewResponse extends AttemptSummaryResponse {
+  aiSuggestionsEnabled?: boolean;
   items: AttemptReviewItem[];
 }
 

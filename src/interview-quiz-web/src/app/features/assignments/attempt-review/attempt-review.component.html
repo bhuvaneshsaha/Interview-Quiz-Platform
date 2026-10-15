@@ -59,6 +59,55 @@
               <span class="answer-label">Key.</span>
               {{ formatAnswerKey(item.type, item.answerKey) }}
             </p>
+            @if (item.scoringMode === 'aiAssist') {
+              @if (current.aiSuggestionsEnabled) {
+                <section class="suggestion" [attr.data-testid]="'suggestion-' + item.questionId">
+                  @if (item.suggestedPoints !== null && item.suggestedPoints !== undefined) {
+                    <p data-testid="suggestion-draft">
+                      Suggested {{ item.suggestedPoints }} of {{ item.points }}.
+                      {{ item.suggestionFeedback }}
+                    </p>
+                    <p class="hint">
+                      Suggested by {{ item.suggestedByUserId }}
+                      @if (item.suggestedAtUtc) {
+                        at {{ item.suggestedAtUtc }}
+                      }
+                      @if (item.suggestionModel) {
+                        · model {{ item.suggestionModel }}
+                      }.
+                      Saving a score confirms or edits this draft. The suggestion stays on the attempt.
+                    </p>
+                    <button
+                      type="button"
+                      class="button"
+                      [attr.data-testid]="'use-suggestion-' + item.questionId"
+                      (click)="useSuggestion(item)"
+                    >
+                      Use suggestion
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="button"
+                    [attr.data-testid]="'suggest-score-' + item.questionId"
+                    [disabled]="suggestingId() === item.questionId"
+                    (click)="suggest(item)"
+                  >
+                    {{
+                      suggestingId() === item.questionId
+                        ? 'Suggesting…'
+                        : item.suggestedAtUtc
+                          ? 'Suggest again'
+                          : 'Suggest score'
+                    }}
+                  </button>
+                </section>
+              } @else {
+                <p class="hint">AI suggestions are off. Score this item yourself.</p>
+              }
+            } @else {
+              <p class="hint">Human-only items are scored without an AI suggestion.</p>
+            }
             <form class="score-form" (ngSubmit)="save(item)">
               <div class="field">
                 <label [attr.for]="'points-' + item.questionId">Points awarded (0–{{ item.points }})</label>

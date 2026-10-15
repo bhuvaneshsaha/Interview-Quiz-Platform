@@ -49,6 +49,13 @@ export class AttemptsApi {
     );
   }
 
+  suggestItem(attemptId: string, questionId: string): Observable<AttemptReviewResponse> {
+    return this.http.post<AttemptReviewResponse>(
+      `/api/attempts/${attemptId}/items/${questionId}/suggestion`,
+      {},
+    );
+  }
+
   preview(assignmentId: string): Observable<CandidateAttemptPreview> {
     return this.http.get<CandidateAttemptPreview>(`/api/assignments/${assignmentId}/attempts/preview`);
   }

@@ -86,18 +86,18 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 |------|----------------|------------|
 | `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
 | `reports.read` | View reports | Reporting v1. Company-wide `GET /api/reports/*` and CSV export. Angular `/reports` and `/reports/:reportKey`. Dev Recruiter seed includes it. Super Admin receives it from `PermissionCodes.All`. Dev Reviewer does **not**. |
-| `attempts.review` | Review attempts | Score `humanOnly` and `aiAssist` items and finalise a result. `GET /api/attempts/{id}/review` and `POST /api/attempts/{id}/items/{itemId}/review`. Angular `/assignments/:assignmentId/attempts/:attemptId/review`. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. Answer keys are on this payload only. |
+| `attempts.review` | Review attempts | Score `humanOnly` and `aiAssist` items and finalise a result. `GET /api/attempts/{id}/review`, `POST /api/attempts/{id}/items/{itemId}/review`, and `POST /api/attempts/{id}/items/{itemId}/suggestion`. Angular `/assignments/:assignmentId/attempts/:attemptId/review`. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. Answer keys and AI drafts are on this payload only. |
 
-AI suggestion drafts are not implemented. Generating authoring drafts is `ai.draft.use`, not this code. Auto-score does not use `attempts.review`.
+Generating authoring drafts is `ai.draft.use`, not this code. A review suggestion uses `attempts.review`. Auto-score does not use `attempts.review`.
 
 ### Seeded permissions
 
-`sessions.live.run` is active for live host actions ([ADR 0010](adr/0010-live-quiz-sessions.md)). `attempts.review` is active for human scoring. AI suggestion drafts are not part of that screen.
+`sessions.live.run` is active for live host actions ([ADR 0010](adr/0010-live-quiz-sessions.md)). `attempts.review` is active for human scoring and for AI suggestion drafts on `aiAssist` items.
 
 | Code | Seeded on | Status |
 |------|-----------|--------|
 | `sessions.live.run` | Dev Recruiter | Active. Start, pause, resume, end. |
-| `attempts.review` | Dev Reviewer | Active. Human scores for `humanOnly` and `aiAssist` items, including the answer key. |
+| `attempts.review` | Dev Reviewer | Active. Human scores for `humanOnly` and `aiAssist` items, including the answer key and AI suggestion drafts. |
 
 See [slice 5 MVP boundary](slice-5-mvp.md) for what slice 5 itself did not run.
 

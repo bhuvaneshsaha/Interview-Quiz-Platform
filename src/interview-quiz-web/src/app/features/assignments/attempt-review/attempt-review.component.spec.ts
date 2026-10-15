@@ -118,6 +118,103 @@ describe('AttemptReview', () => {
     expect(saved?.questionId).toBe(humanId);
     expect(saved?.pointsAwarded).toBe(5);
     expect(fixture.nativeElement.textContent).toContain('6 / 6');
+    expect(fixture.nativeElement.textContent).toContain('Human-only items are scored without an AI suggestion.');
+    expect(fixture.nativeElement.querySelector('[data-testid^="suggest-score-"]')).toBeNull();
+  });
+
+  it('copies an AI suggestion into the score form and still requires save', async () => {
+    const assistId = 'q-ai';
+    const assist = {
+      questionId: assistId,
+      sortOrder: 0,
+      type: 'longText',
+      scoringMode: 'aiAssist',
+      points: 10,
+      status: 'unsettled',
+      pointsAwarded: null,
+      stem: 'Where is the suggestion confirmed?',
+      candidateAnswer: { text: 'On the review screen.' },
+      reviewable: true,
+      answerKey: { guidance: 'On the review screen.' },
+    };
+    const aiReview: AttemptReviewResponse = {
+      ...review,
+      aiSuggestionsEnabled: true,
+      totalPointsAvailable: 10,
+      autoPointsAwarded: 0,
+      autoPointsAvailable: 0,
+      items: [assist],
+    };
+    const drafted = {
+      ...aiReview,
+      items: [
+        {
+          ...assist,
+          suggestedPoints: 5,
+          suggestionFeedback: 'Non-empty answer. Suggested half of the available points.',
+          suggestedByUserId: 'reviewer-1',
+          suggestedAtUtc: '2026-10-15T12:00:00Z',
+          suggestionModel: 'fake',
+        },
+      ],
+    };
+    const api = TestBed.inject(AttemptsApi);
+    api.getReview = () => of(aiReview);
+    api.suggestItem = () => of(drafted);
+    await render();
+
+    expect(fixture.nativeElement.textContent).not.toContain('AI suggestions are off');
+    const suggest = fixture.nativeElement.querySelector(
+      `[data-testid="suggest-score-${assistId}"]`,
+    ) as HTMLButtonElement;
+    suggest.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Suggested 5 of 10.');
+    const use = fixture.nativeElement.querySelector(
+      `[data-testid="use-suggestion-${assistId}"]`,
+    ) as HTMLButtonElement;
+    use.click();
+    fixture.detectChanges();
+    const save = fixture.nativeElement.querySelector(
+      `[data-testid="save-score-${assistId}"]`,
+    ) as HTMLButtonElement;
+    save.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(saved?.questionId).toBe(assistId);
+    expect(saved?.pointsAwarded).toBe(5);
+    expect(saved?.comment).toBe('Non-empty answer. Suggested half of the available points.');
+  });
+
+  it('hides suggest when AI suggestions are off', async () => {
+    const assistId = 'q-ai';
+    const api = TestBed.inject(AttemptsApi);
+    api.getReview = () =>
+      of({
+        ...review,
+        aiSuggestionsEnabled: false,
+        items: [
+          {
+            questionId: assistId,
+            sortOrder: 0,
+            type: 'longText',
+            scoringMode: 'aiAssist',
+            points: 10,
+            status: 'unsettled',
+            pointsAwarded: null,
+            stem: 'Score this yourself.',
+            reviewable: true,
+          },
+        ],
+      });
+    await render();
+    expect(fixture.nativeElement.textContent).toContain('AI suggestions are off. Score this item yourself.');
+    expect(fixture.nativeElement.querySelector(`[data-testid="suggest-score-${assistId}"]`)).toBeNull();
   });
 
   it('uses page status when review cannot be loaded', async () => {

@@ -89,6 +89,48 @@ public sealed class AttemptReviewTests
         Assert.Equal(2m, attempt.FinalPointsAwarded);
     }
 
+    [Fact]
+    public void Suggestion_stays_after_confirm_and_a_later_draft_does_not_change_the_score()
+    {
+        var attempt = SubmittedMixed();
+        var assist = attempt.ItemResults.Single(item => item.ScoringMode == "aiAssist");
+        var human = attempt.ItemResults.Single(item => item.ScoringMode == "humanOnly");
+
+        attempt.RecordSuggestion(assist.QuestionId, 2.5m, "  half  ", " reviewer ", "fake", _clock);
+
+        var drafted = attempt.ItemResults.Single(item => item.QuestionId == assist.QuestionId);
+        Assert.Equal(ItemScoreStatus.Unsettled, drafted.Status);
+        Assert.Null(drafted.PointsAwarded);
+        Assert.Equal(2.5m, drafted.SuggestedPoints);
+        Assert.Equal("half", drafted.SuggestionFeedback);
+        Assert.Equal("reviewer", drafted.SuggestedByUserId);
+        Assert.Equal("fake", drafted.SuggestionModel);
+        Assert.Null(attempt.FinalPointsAwarded);
+
+        attempt.ApplyHumanScore(assist.QuestionId, 4m, "confirmer", "edited", _clock);
+        var confirmed = attempt.ItemResults.Single(item => item.QuestionId == assist.QuestionId);
+        Assert.Equal(4m, confirmed.PointsAwarded);
+        Assert.Equal("confirmer", confirmed.ReviewedByUserId);
+        Assert.Equal(2.5m, confirmed.SuggestedPoints);
+        Assert.Equal("half", confirmed.SuggestionFeedback);
+
+        attempt.RecordSuggestion(assist.QuestionId, 1m, "revised", "reviewer-2", "fake", _clock);
+        var revised = attempt.ItemResults.Single(item => item.QuestionId == assist.QuestionId);
+        Assert.Equal(4m, revised.PointsAwarded);
+        Assert.Equal("confirmer", revised.ReviewedByUserId);
+        Assert.Equal(1m, revised.SuggestedPoints);
+        Assert.Equal("reviewer-2", revised.SuggestedByUserId);
+
+        var humanEx = Assert.Throws<DomainException>(() =>
+            attempt.RecordSuggestion(human.QuestionId, 1m, "no", "reviewer", "fake", _clock));
+        Assert.Equal(Attempt.SuggestionOnlyForAiAssistMessage, humanEx.Message);
+
+        var auto = attempt.ItemResults.Single(item => item.ScoringMode == "auto");
+        var autoEx = Assert.Throws<DomainException>(() =>
+            attempt.RecordSuggestion(auto.QuestionId, 1m, "no", "reviewer", "fake", _clock));
+        Assert.Equal(Attempt.SuggestionOnlyForAiAssistMessage, autoEx.Message);
+    }
+
     private Attempt SubmittedMixed()
     {
         var attempt = Attempt.Start(
