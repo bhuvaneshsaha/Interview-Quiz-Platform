@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Publish the changelog section
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists."
+            exit 0
+          fi
+          notes="$(awk -v ver="${version}" '
+            $0 ~ "^## \\[" ver "\\]" { capture = 1; next }
+            capture && ($0 ~ "^## \\[" || $0 ~ "^\\[") { exit }
+            capture { print }
+          ' CHANGELOG.md)"
+          if [ -z "${notes//[[:space:]]/}" ]; then
+            echo "No changelog section for ${version}; using the tag message."
+            notes="$(git tag -l --format='%(contents)' "${tag}")"
+          fi
+          if [ -z "${notes//[[:space:]]/}" ]; then
+            notes="Release ${tag}."
+          fi
+          printf '%s\n' "${notes}" > release-notes.md
+          gh release create "${tag}" --title "${tag}" --notes-file release-notes.md
