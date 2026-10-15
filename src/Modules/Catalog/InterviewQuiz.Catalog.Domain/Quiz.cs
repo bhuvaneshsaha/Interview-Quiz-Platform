@@ -22,6 +22,8 @@ public sealed class Quiz
     public List<Question> Questions { get; private set; } = [];
     public Guid? OriginTemplateId { get; private set; }
     public Guid? SourceTemplateVersionId { get; private set; }
+    public bool ShuffleQuestions { get; private set; }
+    public bool ShuffleOptions { get; private set; }
     public uint RowVersion { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -36,7 +38,9 @@ public sealed class Quiz
         IClock clock,
         Guid? id = null,
         Guid? originTemplateId = null,
-        Guid? sourceTemplateVersionId = null)
+        Guid? sourceTemplateVersionId = null,
+        bool shuffleQuestions = false,
+        bool shuffleOptions = false)
     {
         var now = clock.UtcNow;
         var quiz = new Quiz
@@ -52,7 +56,16 @@ public sealed class Quiz
                 : sourceTemplateVersionId
         };
 
-        quiz.Apply(openingId, title, description, expectedExperienceYears, tags, questions, now);
+        quiz.Apply(
+            openingId,
+            title,
+            description,
+            expectedExperienceYears,
+            tags,
+            questions,
+            now,
+            shuffleQuestions,
+            shuffleOptions);
         return quiz;
     }
 
@@ -83,9 +96,20 @@ public sealed class Quiz
         int expectedExperienceYears,
         IReadOnlyDictionary<string, string>? tags,
         IReadOnlyList<Question> questions,
-        IClock clock)
+        IClock clock,
+        bool shuffleQuestions = false,
+        bool shuffleOptions = false)
     {
-        Apply(openingId, title, description, expectedExperienceYears, tags, questions, clock.UtcNow);
+        Apply(
+            openingId,
+            title,
+            description,
+            expectedExperienceYears,
+            tags,
+            questions,
+            clock.UtcNow,
+            shuffleQuestions,
+            shuffleOptions);
         RowVersion++;
     }
 
@@ -159,7 +183,9 @@ public sealed class Quiz
         int expectedExperienceYears,
         IReadOnlyDictionary<string, string>? tags,
         IReadOnlyList<Question> questions,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool shuffleQuestions,
+        bool shuffleOptions)
     {
         if (openingId == Guid.Empty)
         {
@@ -176,6 +202,8 @@ public sealed class Quiz
 
         OpeningId = openingId;
         ExpectedExperienceYears = expectedExperienceYears;
+        ShuffleQuestions = shuffleQuestions;
+        ShuffleOptions = shuffleOptions;
         Tags = NormalizeTags(tags);
         ReplaceQuestions(questions);
         UpdatedAtUtc = now;

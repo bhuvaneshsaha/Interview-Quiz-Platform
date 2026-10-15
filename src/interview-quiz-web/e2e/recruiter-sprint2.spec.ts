@@ -127,8 +127,18 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function installStaffApi(page: Page): Promise<{ attemptWrites: number; quizWrites: number; previewReads: number }> {
-  const calls = { attemptWrites: 0, quizWrites: 0, previewReads: 0 };
+async function installStaffApi(page: Page): Promise<{
+  attemptWrites: number;
+  quizWrites: number;
+  previewReads: number;
+  lastQuiz?: { title?: string; shuffleQuestions?: boolean; shuffleOptions?: boolean };
+}> {
+  const calls: {
+    attemptWrites: number;
+    quizWrites: number;
+    previewReads: number;
+    lastQuiz?: { title?: string; shuffleQuestions?: boolean; shuffleOptions?: boolean };
+  } = { attemptWrites: 0, quizWrites: 0, previewReads: 0 };
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -197,7 +207,12 @@ async function installStaffApi(page: Page): Promise<{ attemptWrites: number; qui
     }
     if (method === 'PUT' && pathname === `/api/quizzes/${quizId}`) {
       calls.quizWrites += 1;
-      const body = request.postDataJSON() as { title?: string };
+      const body = request.postDataJSON() as {
+        title?: string;
+        shuffleQuestions?: boolean;
+        shuffleOptions?: boolean;
+      };
+      calls.lastQuiz = body;
       await json(route, { ...quiz, title: body.title ?? quiz.title, rowVersion: quiz.rowVersion + 1 });
       return;
     }
@@ -250,13 +265,18 @@ test('editing an assigned quiz warns and asks before save', async ({ page }) => 
   await page.screenshot({ path: screenshotPath('after-quiz-edit-warning.png'), fullPage: true });
 
   await page.getByLabel('Title').fill('Backend interview — revised');
+  await page.getByLabel('Shuffle questions').check();
   await page.getByTestId('save-quiz').click();
   await expect(page.getByRole('alertdialog')).toContainText('Save changes to an assigned quiz?');
   await expect(page.getByRole('alertdialog')).toContainText('Snapshots already assigned stay frozen.');
   expect(calls.quizWrites).toBe(0);
   await page.getByTestId('confirm-quiz-edit').click();
   await expect(page.getByLabel('Title')).toHaveValue('Backend interview — revised');
+  await expect(page.getByLabel('Shuffle questions')).toBeChecked();
+  await expect(page.getByLabel('Shuffle multiple-choice options')).not.toBeChecked();
   expect(calls.quizWrites).toBe(1);
+  expect(calls.lastQuiz?.shuffleQuestions).toBe(true);
+  expect(calls.lastQuiz?.shuffleOptions).toBe(false);
   expect(calls.attemptWrites).toBe(0);
 });
 

@@ -30,6 +30,8 @@ function draftWithQuestion(question: QuestionDraft): QuizDraft {
     title: 'Backend interview',
     description: 'Working copy',
     expectedExperienceYears: 5,
+    shuffleQuestions: false,
+    shuffleOptions: false,
     tags: [{ key: 'Role', value: 'Backend' }],
     questions: [question],
   };
@@ -162,6 +164,8 @@ describe('quiz-form.mapper', () => {
       title: 'Backend interview — working copy',
       description: 'Sample authoring quiz',
       expectedExperienceYears: 5,
+      shuffleQuestions: true,
+      shuffleOptions: true,
       tags: { Client: 'Internal' },
       questions: [
         {
@@ -200,6 +204,8 @@ describe('quiz-form.mapper', () => {
     };
 
     const draft = quizToDraft(quiz);
+    expect(draft.shuffleQuestions).toBe(true);
+    expect(draft.shuffleOptions).toBe(true);
     expect(draft.questions.map((question) => question.stem)).toEqual([
       'Which HTTP status means a resource was created?',
       'A quiz belongs to exactly one opening.',
@@ -216,6 +222,8 @@ describe('quiz-form.mapper', () => {
     expect(update.questions[1].id).toBe('4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2103');
     expect(update.questions[2].id).toBeUndefined();
     expect(update.questions[0].creditMode).toBeUndefined();
+    expect(update.shuffleQuestions).toBe(true);
+    expect(update.shuffleOptions).toBe(true);
     expect('originTemplateId' in update).toBe(false);
     expect('sourceTemplateVersionId' in update).toBe(false);
   });
@@ -228,6 +236,8 @@ describe('quiz-form.mapper', () => {
       title: ' Title ',
       description: '',
       expectedExperienceYears: 4,
+      shuffleQuestions: true,
+      shuffleOptions: false,
       tags: [
         { key: 'Client', value: 'Internal' },
         { key: '  ', value: 'ignored' },
@@ -238,6 +248,8 @@ describe('quiz-form.mapper', () => {
     expect(request.title).toBe('Title');
     expect(request.description).toBeUndefined();
     expect(request.tags).toEqual({ Client: 'Internal' });
+    expect(request.shuffleQuestions).toBe(true);
+    expect(request.shuffleOptions).toBe(false);
   });
 
   it('rejects long text auto scoring and missing credit mode for multi', () => {

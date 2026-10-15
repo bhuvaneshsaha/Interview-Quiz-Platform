@@ -135,6 +135,52 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
   await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
 });
 
+test('attempt keeps the stored question and option order across refresh', async ({ page }) => {
+  const shuffled = {
+    ...candidateAttempt,
+    questions: [
+      {
+        id: 'q-second',
+        sortOrder: 1,
+        type: 'multipleChoiceSingle',
+        stem: 'Second in the saved quiz.',
+        body: {
+          options: [
+            { id: 'opt-c', text: 'Charlie' },
+            { id: 'opt-a', text: 'Alpha' },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+      {
+        id: 'q-first',
+        sortOrder: 0,
+        type: 'multipleChoiceSingle',
+        stem: 'First in the saved quiz.',
+        body: {
+          options: [
+            { id: 'opt-b', text: 'Bravo' },
+            { id: 'opt-a', text: 'Alpha' },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+    ],
+  };
+  await installCandidateApi(page, inProgressPreview, shuffled);
+  await page.goto(`/attempt?token=opaque-token`);
+  await expect(page.getByRole('heading', { name: 'Second in the saved quiz.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'First in the saved quiz.' })).toHaveCount(0);
+  await expect(page.locator('.choice').nth(0)).toContainText('Charlie');
+  await expect(page.locator('.choice').nth(1)).toContainText('Alpha');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Second in the saved quiz.' })).toBeVisible();
+  await expect(page.getByText('Question 1 of 2')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'First in the saved quiz.' })).toBeVisible();
+  await expect(page.getByText('Question 2 of 2')).toBeVisible();
+});
+
 test('ordering can be dragged and reordered from the keyboard', async ({ page }) => {
   await installCandidateApi(page, inProgressPreview);
   await page.goto(`/attempt?token=opaque-token`);

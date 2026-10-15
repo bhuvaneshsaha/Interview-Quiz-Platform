@@ -584,6 +584,190 @@ public sealed class AttemptsApiTests
                 ]
             });
 
+    [RequiresDatabaseFact]
+    public async Task Shuffled_attempt_stays_stable_and_recruiter_detail_stays_canonical()
+    {
+        var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite,
+            PermissionCodes.Catalog.QuizzesRead,
+            PermissionCodes.Catalog.QuizzesWrite,
+            PermissionCodes.Evaluation.AttemptsRead));
+        var quizId = await CreateShuffledQuizAsync(recruiter);
+        var quiz = await recruiter.GetFromJsonAsync<QuizResponse>($"/api/quizzes/{quizId}", JsonOptions);
+        Assert.NotNull(quiz);
+        Assert.True(quiz!.ShuffleQuestions);
+        Assert.True(quiz.ShuffleOptions);
+        var canonicalIds = quiz.Questions.OrderBy(q => q.SortOrder).ThenBy(q => q.Id).Select(q => q.Id).ToArray();
+        var scoredQuestion = quiz.Questions.Single(q => q.Stem == "Pick the right status.");
+
+        string? firstOrder = null;
+        HttpClient? firstClient = null;
+        AssignmentResponse? firstAssignment = null;
+        CandidateAttemptResponse? firstAttempt = null;
+        var orders = new List<string>();
+        var optionOrders = new List<string>();
+        for (var i = 0; i < 6; i++)
+        {
+            var assignment = await AssignAsync(recruiter, quizId);
+            var client = await CandidateClientAsync(assignment.InviteUrl!);
+            var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+            Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+            var started = await start.Content.ReadFromJsonAsync<CandidateAttemptResponse>(JsonOptions);
+            Assert.NotNull(started);
+            var order = string.Join(',', started!.Questions.Select(q => q.Id));
+            orders.Add(order);
+            optionOrders.Add(string.Join(
+                ',',
+                OptionIds(started.Questions.Single(q => q.Id == scoredQuestion.Id).Body)));
+            var startJson = await start.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("isCorrect", startJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("correctIndex", startJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("correctItemId", startJson, StringComparison.Ordinal);
+
+            if (i == 0)
+            {
+                firstOrder = order;
+                firstClient = client;
+                firstAssignment = assignment;
+                firstAttempt = started;
+            }
+        }
+
+        Assert.True(orders.Distinct(StringComparer.Ordinal).Count() > 1);
+        Assert.NotNull(firstClient);
+        Assert.NotNull(firstAssignment);
+        Assert.NotNull(firstAttempt);
+        var current = await firstClient.GetFromJsonAsync<CandidateAttemptResponse>(
+            $"/api/assignments/{firstAssignment.Id}/attempts/current",
+            JsonOptions);
+        Assert.Equal(firstOrder, string.Join(',', current!.Questions.Select(q => q.Id)));
+        var startedMcq = firstAttempt.Questions.Single(q => q.Id == scoredQuestion.Id);
+        var currentMcq = current.Questions.Single(q => q.Id == scoredQuestion.Id);
+        Assert.Equal(OptionIds(startedMcq.Body), OptionIds(currentMcq.Body));
+        Assert.Contains(optionOrders, order => order != "opt-a,opt-b,opt-right,opt-c");
+
+        var save = await firstClient.PutAsJsonAsync(
+            $"/api/assignments/{firstAssignment.Id}/attempts/current/answers",
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = scoredQuestion.Id,
+                        Value = JsonSerializer.SerializeToElement(new { optionId = "opt-right" }, JsonOptions)
+                    }
+                ]
+            });
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        var submit = await firstClient.PostAsync(
+            $"/api/assignments/{firstAssignment.Id}/attempts/current/submit",
+            null);
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+
+        var detailJson = await recruiter.GetStringAsync($"/api/attempts/{firstAttempt.Id}");
+        var detail = JsonSerializer.Deserialize<AttemptResultResponse>(detailJson, JsonOptions);
+        Assert.NotNull(detail);
+        Assert.Equal(canonicalIds, detail!.Items.Select(item => item.QuestionId).ToArray());
+        var scored = detail.Items.Single(item => item.QuestionId == scoredQuestion.Id);
+        Assert.Equal(1m, scored.PointsAwarded);
+        Assert.Equal(["opt-a", "opt-b", "opt-right", "opt-c"], OptionIds(scored.Body!.Value));
+        var ordering = detail.Items.Single(item => item.Stem == "Order these.");
+        Assert.Equal(
+            ["Third", "First", "Second"],
+            ordering.Body!.Value.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("text").GetString()!).ToArray());
+        Assert.DoesNotContain("correctIndex", detailJson, StringComparison.Ordinal);
+    }
+
+    private static string[] OptionIds(JsonElement body)
+        => body.GetProperty("options").EnumerateArray().Select(option => option.GetProperty("id").GetString()!).ToArray();
+
+    private async Task<AssignmentResponse> AssignAsync(HttpClient recruiter, Guid quizId)
+    {
+        var post = await recruiter.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
+        {
+            OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
+            QuizId = quizId,
+            CandidateEmail = $"shuffle.{Guid.NewGuid():N}@example.com",
+            Mode = "async",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 }
+        });
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        var assignment = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
+        Assert.NotNull(assignment!.InviteUrl);
+        return assignment;
+    }
+
+    private static async Task<Guid> CreateShuffledQuizAsync(HttpClient client)
+    {
+        var json = $$"""
+            {
+              "openingId": "{{DevelopmentOpeningSeeder.SampleOpeningBackend}}",
+              "title": "Shuffled slice quiz",
+              "expectedExperienceYears": 1,
+              "shuffleQuestions": true,
+              "shuffleOptions": true,
+              "questions": [
+                {
+                  "type": "multipleChoiceSingle",
+                  "stem": "Pick the right status.",
+                  "scoringMode": "auto",
+                  "points": 1,
+                  "body": {
+                    "options": [
+                      { "id": "opt-a", "text": "200 OK", "isCorrect": false },
+                      { "id": "opt-b", "text": "204 No Content", "isCorrect": false },
+                      { "id": "opt-right", "text": "201 Created", "isCorrect": true },
+                      { "id": "opt-c", "text": "404 Not Found", "isCorrect": false }
+                    ]
+                  }
+                },
+                {
+                  "type": "multipleChoiceSingle",
+                  "stem": "Second stem.",
+                  "scoringMode": "auto",
+                  "points": 1,
+                  "body": {
+                    "options": [
+                      { "id": "opt-a", "text": "A", "isCorrect": true },
+                      { "id": "opt-b", "text": "B", "isCorrect": false },
+                      { "id": "opt-c", "text": "C", "isCorrect": false }
+                    ]
+                  }
+                },
+                {
+                  "type": "ordering",
+                  "stem": "Order these.",
+                  "scoringMode": "auto",
+                  "creditMode": "partial",
+                  "points": 3,
+                  "body": {
+                    "items": [
+                      { "id": "third", "text": "Third", "correctIndex": 2 },
+                      { "id": "first", "text": "First", "correctIndex": 0 },
+                      { "id": "second", "text": "Second", "correctIndex": 1 }
+                    ]
+                  }
+                },
+                {
+                  "type": "trueFalse",
+                  "stem": "A quiz belongs to one opening.",
+                  "scoringMode": "auto",
+                  "points": 1,
+                  "body": { "correct": true }
+                }
+              ]
+            }
+            """;
+        var response = await client.PostAsync(
+            "/api/quizzes",
+            new StringContent(json, Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<QuizResponse>(JsonOptions);
+        return created!.Id;
+    }
+
     private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync()
     {
         var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(

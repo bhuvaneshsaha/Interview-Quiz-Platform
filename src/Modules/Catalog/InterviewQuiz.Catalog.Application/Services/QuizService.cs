@@ -50,7 +50,9 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             request.ExpectedExperienceYears,
             request.Tags,
             MapQuestions(request.Questions),
-            _clock);
+            _clock,
+            shuffleQuestions: request.ShuffleQuestions,
+            shuffleOptions: request.ShuffleOptions);
 
         await _quizzes.AddAsync(quiz, cancellationToken);
         await _quizzes.SaveChangesAsync(cancellationToken);
@@ -79,7 +81,9 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             request.ExpectedExperienceYears,
             request.Tags,
             MapQuestions(request.Questions),
-            _clock);
+            _clock,
+            request.ShuffleQuestions,
+            request.ShuffleOptions);
 
         _quizzes.SetExpectedRowVersion(quiz, request.RowVersion);
         await _quizzes.SaveChangesAsync(cancellationToken);
@@ -123,7 +127,9 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             request.ExpectedExperienceYears,
             request.Tags,
             MapQuestions(request.Questions),
-            _clock);
+            _clock,
+            shuffleQuestions: request.ShuffleQuestions,
+            shuffleOptions: request.ShuffleOptions);
         return CandidatePreviewBuilder.FromSnapshot(MapSnapshot(quiz), openingName);
     }
 
@@ -136,7 +142,9 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             request.ExpectedExperienceYears,
             request.Tags,
             MapQuestions(request.Questions ?? []),
-            _clock);
+            _clock,
+            shuffleQuestions: request.ShuffleQuestions,
+            shuffleOptions: request.ShuffleOptions);
         return MapSnapshot(quiz);
     }
 
@@ -271,6 +279,8 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             Title = quiz.Title,
             Description = quiz.Description,
             ExpectedExperienceYears = quiz.ExpectedExperienceYears,
+            ShuffleQuestions = quiz.ShuffleQuestions,
+            ShuffleOptions = quiz.ShuffleOptions,
             Tags = quiz.Tags,
             Questions = quiz.Questions
                 .OrderBy(q => q.SortOrder)
@@ -308,7 +318,9 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
                 .ToList(),
             quiz.RowVersion,
             quiz.CreatedAtUtc,
-            quiz.UpdatedAtUtc);
+            quiz.UpdatedAtUtc,
+            quiz.ShuffleQuestions,
+            quiz.ShuffleOptions);
 
     internal static QuestionResponse MapQuestion(Question question)
         => new()

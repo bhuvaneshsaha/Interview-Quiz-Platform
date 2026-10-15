@@ -25,6 +25,10 @@ public sealed class UpdateQuizRequest
 
     public List<QuestionRequest> Questions { get; set; } = [];
 
+    public bool ShuffleQuestions { get; set; }
+
+    public bool ShuffleOptions { get; set; }
+
     [Required]
     public uint RowVersion { get; set; }
 }

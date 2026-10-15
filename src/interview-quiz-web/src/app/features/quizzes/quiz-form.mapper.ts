@@ -171,6 +171,8 @@ export interface QuizDraft {
   title: string;
   description: string;
   expectedExperienceYears: number;
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
   tags: TagDraft[];
   questions: QuestionDraft[];
 }
@@ -300,6 +302,8 @@ export function emptyQuizDraft(): QuizDraft {
     title: '',
     description: '',
     expectedExperienceYears: 0,
+    shuffleQuestions: false,
+    shuffleOptions: false,
     tags: [],
     questions: [],
   };
@@ -312,6 +316,8 @@ export function quizToDraft(quiz: QuizResponse): QuizDraft {
     title: quiz.title,
     description: quiz.description ?? '',
     expectedExperienceYears: quiz.expectedExperienceYears,
+    shuffleQuestions: quiz.shuffleQuestions === true,
+    shuffleOptions: quiz.shuffleOptions === true,
     tags: Object.entries(quiz.tags).map(([key, value]) => ({ key, value })),
     questions: questions.map(questionToDraft),
   };
@@ -324,6 +330,8 @@ export function toCreateRequest(draft: QuizDraft): CreateQuizRequest {
     title: draft.title.trim(),
     ...(description ? { description } : {}),
     expectedExperienceYears: Number(draft.expectedExperienceYears),
+    shuffleQuestions: draft.shuffleQuestions === true,
+    shuffleOptions: draft.shuffleOptions === true,
     tags: tagsFromDraft(draft.tags),
     questions: draft.questions.map((question, index) => toQuestionRequest(question, index)),
   };
