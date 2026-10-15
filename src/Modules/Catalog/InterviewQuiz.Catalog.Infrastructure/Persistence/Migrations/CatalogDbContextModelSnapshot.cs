@@ -198,6 +198,16 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("row_version");
 
+                    b.Property<bool>("ShuffleOptions")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("ShuffleQuestions")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid?>("SourceTemplateVersionId")
                         .HasColumnType("uuid");
 

@@ -83,7 +83,7 @@ The client has component specs for quiz list/editor, templates, SavedFilters, qu
 
 ## End-to-end tests (Playwright)
 
-Chromium runs with the API mocked, so PostgreSQL and the .NET host are not required. Covered flows: candidate welcome (the timer starts only from Start quiz), one question at a time with Previous/Next, mark for review, and a 375px attempt layout; hidden question type and points; drag-and-drop ordering plus Move up / Move down; slot questions answered from dropdowns; recruiter attempt detail showing option text; quiz edit confirmation; candidate preview; and opening owner/handler pickers. A separate `mobile` project at 375×812 (`e2e/mobile-layout.spec.ts`) covers the assignment list, attempt questions, and recruiter lists. Desktop specs stay on the `chromium` project.
+Chromium runs with the API mocked, so PostgreSQL and the .NET host are not required. Covered flows: candidate welcome (the timer starts only from Start quiz), one question at a time with Previous/Next, mark for review, and a 375px attempt layout; a muted type badge with points still hidden; drag-and-drop ordering plus Move up / Move down; slot questions answered from dropdowns with “Match each slot”; stored question and option order across refresh; recruiter attempt detail showing option text and Correct / Wrong / Partly correct / Pending review; quiz shuffle checkboxes; candidate preview; and opening owner/handler pickers. A separate `mobile` project at 375×812 (`e2e/mobile-layout.spec.ts`) covers the assignment list, attempt questions, and recruiter lists. Desktop specs stay on the `chromium` project.
 
 ```bash
 cd src/interview-quiz-web

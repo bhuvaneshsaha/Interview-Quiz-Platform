@@ -247,6 +247,8 @@ export interface QuizResponse {
   title: string;
   description: string;
   expectedExperienceYears: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
   tags: Record<string, string>;
   questions: QuestionResponse[];
   originTemplateId: string | null;
@@ -358,6 +360,8 @@ export interface CreateQuizRequest {
   title: string;
   description?: string;
   expectedExperienceYears: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
   tags: Record<string, string>;
   questions: QuestionRequest[];
 }

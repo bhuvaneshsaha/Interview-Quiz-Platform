@@ -16,7 +16,9 @@ public sealed record QuizSnapshotDto(
     IReadOnlyList<QuizSnapshotQuestionDto> Questions,
     uint RowVersion,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool ShuffleQuestions = false,
+    bool ShuffleOptions = false);
 
 public sealed record QuizSnapshotQuestionDto(
     Guid Id,

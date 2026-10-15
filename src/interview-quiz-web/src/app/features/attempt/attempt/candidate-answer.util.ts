@@ -29,6 +29,22 @@ export interface OrderingItemView {
 /** Visible fallback when authored text is missing. Never an id. */
 export const UNTITLED_OPTION = '(untitled option)';
 
+/** Candidate-facing type label. Slot questions stay dropdowns and never say drag. */
+const CANDIDATE_TYPE_BADGES: Record<QuestionType, string> = {
+  multipleChoiceSingle: 'Multiple choice (single)',
+  multipleChoiceMulti: 'Multiple choice (multi)',
+  trueFalse: 'True / false',
+  shortText: 'Short text',
+  longText: 'Long text',
+  dragDropSharedBank: 'Match each slot',
+  dragDropPerSlot: 'Match each slot',
+  ordering: 'Ordering',
+};
+
+export function candidateTypeBadge(type: QuestionType): string {
+  return CANDIDATE_TYPE_BADGES[type] ?? '';
+}
+
 export function displayText(value: unknown): string {
   const text = typeof value === 'string' ? value.trim() : '';
   return text || UNTITLED_OPTION;
@@ -103,9 +119,9 @@ export function answerHint(question: CandidateQuestion): string {
     case 'longText':
       return longTextGuidance(question) || 'Write your answer.';
     case 'dragDropSharedBank':
-      return 'Choose an item for each slot.';
+      return 'Match each slot to an item from the list.';
     case 'dragDropPerSlot':
-      return 'Choose an option for each slot.';
+      return 'Match each slot to one of its options.';
     case 'ordering':
       return 'Drag the items into order, or use Move up and Move down.';
     default:

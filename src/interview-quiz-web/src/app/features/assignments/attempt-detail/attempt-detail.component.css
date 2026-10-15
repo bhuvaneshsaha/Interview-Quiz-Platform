@@ -55,3 +55,111 @@
   font-weight: 500;
   color: var(--color-muted);
 }
+
+.outcome {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  font-weight: 700;
+}
+
+.outcome-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.item.is-correct {
+  background: #e7f6ec;
+  border-color: #1f7a45;
+}
+
+.item.is-correct .outcome-label,
+.item.is-correct .outcome-icon {
+  color: #0f5132;
+}
+
+.item.is-wrong {
+  background: #fdecec;
+  border-color: #b42318;
+}
+
+.item.is-wrong .outcome-label,
+.item.is-wrong .outcome-icon {
+  color: #7a1b14;
+}
+
+.item.is-partial {
+  background: #fff6e0;
+  border-color: #8a5a00;
+}
+
+.item.is-partial .outcome-label,
+.item.is-partial .outcome-icon {
+  color: #6b3f00;
+}
+
+.item.is-pending {
+  background: #f6f7f9;
+  border-color: #8a5a00;
+}
+
+.item.is-pending .outcome-label,
+.item.is-pending .outcome-icon {
+  color: #6b3f00;
+}
+
+@media (prefers-color-scheme: dark) {
+  .item.is-correct {
+    background: #123524;
+    border-color: #8ee0b2;
+  }
+
+  .item.is-wrong {
+    background: #3b1717;
+    border-color: #f3b4b4;
+  }
+
+  .item.is-partial {
+    background: #3a2a10;
+    border-color: #f0c36a;
+  }
+
+  .item.is-pending {
+    background: #2a2e33;
+    border-color: #f0c36a;
+  }
+
+  .item.is-correct .outcome-label,
+  .item.is-correct .outcome-icon,
+  .item.is-correct h2,
+  .item.is-correct .stem,
+  .item.is-correct .answer,
+  .item.is-correct .item-result,
+  .item.is-wrong .outcome-label,
+  .item.is-wrong .outcome-icon,
+  .item.is-wrong h2,
+  .item.is-wrong .stem,
+  .item.is-wrong .answer,
+  .item.is-wrong .item-result,
+  .item.is-partial .outcome-label,
+  .item.is-partial .outcome-icon,
+  .item.is-partial h2,
+  .item.is-partial .stem,
+  .item.is-partial .answer,
+  .item.is-partial .item-result,
+  .item.is-pending .outcome-label,
+  .item.is-pending .outcome-icon,
+  .item.is-pending h2,
+  .item.is-pending .stem,
+  .item.is-pending .answer,
+  .item.is-pending .item-result {
+    color: #f6f7f9;
+  }
+}

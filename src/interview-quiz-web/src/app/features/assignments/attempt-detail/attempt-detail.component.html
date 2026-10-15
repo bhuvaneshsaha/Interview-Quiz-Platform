@@ -68,7 +68,17 @@
   @if (result(); as current) {
     <ol class="items">
       @for (item of current.items; track item.questionId; let i = $index) {
-        <li class="item">
+        <li
+          class="item"
+          [class.is-correct]="outcomeOf(item) === 'correct'"
+          [class.is-wrong]="outcomeOf(item) === 'wrong'"
+          [class.is-partial]="outcomeOf(item) === 'partial'"
+          [class.is-pending]="outcomeOf(item) === 'pending'"
+        >
+          <p class="outcome" data-testid="attempt-outcome" [attr.data-outcome]="outcomeOf(item)">
+            <span class="outcome-icon" aria-hidden="true">{{ outcomeIcon(item) }}</span>
+            <span class="outcome-label">{{ outcomeLabel(item) }}</span>
+          </p>
           <h2>{{ i + 1 }}. {{ typeLabel(item.type) }}</h2>
           <p class="stem">{{ item.stem || 'Question stem unavailable.' }}</p>
           <p class="answer"><span class="answer-label">Answer.</span> {{ formatCandidateAnswer(item.candidateAnswer, item.body) }}</p>

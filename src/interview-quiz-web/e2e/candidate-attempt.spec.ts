@@ -38,8 +38,12 @@ test('welcome page waits for Start quiz before the timer and questions', async (
   await expect(page.getByText('200 OK')).toBeVisible();
 
   const main = await page.locator('#attempt-main').innerText();
-  expect(main).not.toContain('Multiple choice');
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Multiple choice (single)');
+  await expect(page.getByTestId('answered-count')).toBeVisible();
   expect(main).not.toContain('Ordering');
+  expect(main).not.toContain('Correct');
+  expect(main).not.toContain('Wrong');
+  expect(main).not.toContain('Pending review');
   expect(main).not.toMatch(/\bpts\b/);
   await expectNoRawIds(main);
   expect(calls.start).toBe(1);
@@ -107,7 +111,8 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
   await page.goto(`/attempt?token=opaque-token`);
 
   await expect(page.getByRole('heading', { name: slotAttempt.questions[0].stem })).toBeVisible();
-  await expect(page.getByText('Choose an item for each slot.')).toBeVisible();
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Match each slot');
+  await expect(page.getByText('Match each slot to an item from the list.')).toBeVisible();
   await expect(page.getByLabel('GET')).toBeVisible();
   await expect(page.getByLabel('POST')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
@@ -125,11 +130,58 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
 
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByRole('heading', { name: slotAttempt.questions[1].stem })).toBeVisible();
-  await expect(page.getByText('Choose an option for each slot.')).toBeVisible();
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Match each slot');
+  await expect(page.getByText('Match each slot to one of its options.')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
   await expect(page.getByText('Drop an option here')).toHaveCount(0);
   await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
   await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
+});
+
+test('attempt keeps the stored question and option order across refresh', async ({ page }) => {
+  const shuffled = {
+    ...candidateAttempt,
+    questions: [
+      {
+        id: 'q-second',
+        sortOrder: 1,
+        type: 'multipleChoiceSingle',
+        stem: 'Second in the saved quiz.',
+        body: {
+          options: [
+            { id: 'opt-c', text: 'Charlie' },
+            { id: 'opt-a', text: 'Alpha' },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+      {
+        id: 'q-first',
+        sortOrder: 0,
+        type: 'multipleChoiceSingle',
+        stem: 'First in the saved quiz.',
+        body: {
+          options: [
+            { id: 'opt-b', text: 'Bravo' },
+            { id: 'opt-a', text: 'Alpha' },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+    ],
+  };
+  await installCandidateApi(page, inProgressPreview, shuffled);
+  await page.goto(`/attempt?token=opaque-token`);
+  await expect(page.getByRole('heading', { name: 'Second in the saved quiz.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'First in the saved quiz.' })).toHaveCount(0);
+  await expect(page.locator('.choice').nth(0)).toContainText('Charlie');
+  await expect(page.locator('.choice').nth(1)).toContainText('Alpha');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Second in the saved quiz.' })).toBeVisible();
+  await expect(page.getByText('Question 1 of 2')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'First in the saved quiz.' })).toBeVisible();
+  await expect(page.getByText('Question 2 of 2')).toBeVisible();
 });
 
 test('ordering can be dragged and reordered from the keyboard', async ({ page }) => {

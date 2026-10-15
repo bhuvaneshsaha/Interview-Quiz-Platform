@@ -9,7 +9,8 @@ public static class CandidateQuestionRedactor
 {
     public static JsonElement RedactBody(
         QuizSnapshotQuestionDto question,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>> promptOrder)
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>> promptOrder,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? optionOrder = null)
     {
         JsonNode? node;
         try
@@ -32,6 +33,11 @@ public static class CandidateQuestionRedactor
             case QuestionType.MultipleChoiceSingle:
             case QuestionType.MultipleChoiceMulti:
                 StripOptionFlags(obj["options"] as JsonArray);
+                if (optionOrder is not null && optionOrder.TryGetValue(question.Id, out var storedOptions))
+                {
+                    obj["options"] = ReorderNamedArray(obj["options"] as JsonArray, storedOptions);
+                }
+
                 break;
             case QuestionType.TrueFalse:
                 obj.Remove("correct");
@@ -99,6 +105,37 @@ public static class CandidateQuestionRedactor
         }
 
         return result;
+    }
+
+    private static JsonArray ReorderNamedArray(JsonArray? items, IReadOnlyList<string> order)
+    {
+        var byId = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        foreach (var item in (items ?? []).OfType<JsonObject>())
+        {
+            var id = item["id"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            byId[id] = item;
+        }
+
+        var reordered = new JsonArray();
+        foreach (var id in order)
+        {
+            if (byId.Remove(id, out var item))
+            {
+                reordered.Add(item.DeepClone());
+            }
+        }
+
+        foreach (var item in byId.Values)
+        {
+            reordered.Add(item.DeepClone());
+        }
+
+        return reordered;
     }
 
     private static void StripOptionFlags(JsonArray? options)

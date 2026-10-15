@@ -2,6 +2,7 @@ import { CandidateQuestion, QuestionType } from '../../../core/api/contracts';
 import {
   answerHint,
   bankItems,
+  candidateTypeBadge,
   choiceOptions,
   orderingItems,
   perSlots,
@@ -91,9 +92,13 @@ describe('candidate answer utils', () => {
     };
     expect(hints.multipleChoiceMulti).toBe('Select all that apply.');
     expect(hints.longText).toBe('Mention module boundaries.');
-    expect(hints.dragDropSharedBank).toBe('Choose an item for each slot.');
-    expect(hints.dragDropPerSlot).toBe('Choose an option for each slot.');
+    expect(hints.dragDropSharedBank).toBe('Match each slot to an item from the list.');
+    expect(hints.dragDropPerSlot).toBe('Match each slot to one of its options.');
     expect(`${hints.dragDropSharedBank} ${hints.dragDropPerSlot}`).not.toMatch(/drag/i);
+    expect(candidateTypeBadge('dragDropSharedBank')).toBe('Match each slot');
+    expect(candidateTypeBadge('dragDropPerSlot')).toBe('Match each slot');
+    expect(candidateTypeBadge('multipleChoiceSingle')).toBe('Multiple choice (single)');
+    expect(candidateTypeBadge('ordering')).toBe('Ordering');
     expect(hints.ordering).toContain('Move up');
     expect(hints.ordering).toContain('Move down');
     expect(Object.values(hints).join(' ')).not.toMatch(/pts|Multiple choice|Drag and drop/);

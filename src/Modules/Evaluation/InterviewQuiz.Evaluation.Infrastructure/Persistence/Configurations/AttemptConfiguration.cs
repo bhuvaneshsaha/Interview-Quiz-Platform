@@ -39,6 +39,15 @@ public sealed class AttemptConfiguration : IEntityTypeConfiguration<Attempt>
             .HasConversion(JsonDocumentConverter.Converter)
             .Metadata.SetValueComparer(JsonDocumentConverter.Comparer);
 
+        builder.Property(e => e.DisplaySeed).IsRequired().HasDefaultValue(0);
+
+        builder.Property(e => e.DisplayOrderJson)
+            .HasColumnType("jsonb")
+            .HasConversion(JsonDocumentConverter.Converter)
+            .HasDefaultValueSql("'{}'::jsonb");
+        builder.Property(e => e.DisplayOrderJson)
+            .Metadata.SetValueComparer(JsonDocumentConverter.Comparer);
+
         builder.Property(e => e.RowVersion)
             .HasColumnName("row_version")
             .IsConcurrencyToken();

@@ -124,6 +124,8 @@ export class QuizForm implements OnInit {
       0,
       [Validators.required, Validators.min(EXPERIENCE_MIN), Validators.max(EXPERIENCE_MAX)],
     ],
+    shuffleQuestions: [false],
+    shuffleOptions: [false],
     tags: this.fb.array<ReturnType<QuizForm['createTagGroup']>>([]),
     questions: this.fb.array<ReturnType<QuizForm['createQuestionGroup']>>([]),
   });
@@ -669,6 +671,8 @@ export class QuizForm implements OnInit {
       title: draft.title,
       description: draft.description,
       expectedExperienceYears: draft.expectedExperienceYears,
+      shuffleQuestions: draft.shuffleQuestions,
+      shuffleOptions: draft.shuffleOptions,
     });
     this.tags.clear();
     for (const tag of draft.tags) {

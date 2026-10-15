@@ -15,6 +15,8 @@ public sealed class QuizConfiguration : IEntityTypeConfiguration<Quiz>
         builder.Property(e => e.Title).HasMaxLength(Quiz.TitleMaxLength).IsRequired();
         builder.Property(e => e.Description).HasMaxLength(Quiz.DescriptionMaxLength).IsRequired();
         builder.Property(e => e.ExpectedExperienceYears).IsRequired();
+        builder.Property(e => e.ShuffleQuestions).HasDefaultValue(false);
+        builder.Property(e => e.ShuffleOptions).HasDefaultValue(false);
         builder.Property(e => e.CreatedAtUtc).IsRequired();
         builder.Property(e => e.UpdatedAtUtc).IsRequired();
 

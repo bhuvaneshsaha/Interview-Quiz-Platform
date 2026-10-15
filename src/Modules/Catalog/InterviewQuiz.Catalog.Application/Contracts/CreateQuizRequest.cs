@@ -21,4 +21,8 @@ public sealed class CreateQuizRequest
     public Dictionary<string, string> Tags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public List<QuestionRequest> Questions { get; set; } = [];
+
+    public bool ShuffleQuestions { get; set; }
+
+    public bool ShuffleOptions { get; set; }
 }

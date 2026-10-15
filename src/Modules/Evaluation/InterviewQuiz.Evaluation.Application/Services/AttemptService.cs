@@ -81,6 +81,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             ?? throw new DomainException("Overall duration is required for async assignments.");
 
         var promptOrder = CandidateQuestionRedactor.BuildPromptOrder(header.Snapshot);
+        var display = AttemptDisplayOrder.Create(header.Snapshot);
         var attempt = Attempt.Start(
             header.Id,
             header.OpeningId,
@@ -88,7 +89,9 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             header.CandidateEmail,
             duration,
             promptOrder,
-            _clock);
+            _clock,
+            displaySeed: display.Seed,
+            displayOrder: display.Order);
 
         await _attempts.AddAsync(attempt, cancellationToken);
         try
@@ -284,6 +287,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         }
 
         var promptOrder = CandidateQuestionRedactor.BuildPromptOrder(header.Snapshot);
+        var display = AttemptDisplayOrder.Create(header.Snapshot);
         var attempt = Attempt.Start(
             header.Id,
             header.OpeningId,
@@ -291,7 +295,9 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             header.CandidateEmail,
             duration,
             promptOrder,
-            _clock);
+            _clock,
+            displaySeed: display.Seed,
+            displayOrder: display.Order);
 
         await _attempts.AddAsync(attempt, cancellationToken);
         try
@@ -756,16 +762,15 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         LiveSessionView? live = null)
     {
         var promptOrder = CandidateQuestionRedactor.ParsePromptOrder(attempt.PromptOrderJson);
-        var questions = snapshot.Questions
-            .OrderBy(q => q.SortOrder)
-            .ThenBy(q => q.Id)
+        var optionOrder = AttemptDisplayOrder.ParseOptionOrder(attempt.DisplayOrderJson);
+        var questions = AttemptDisplayOrder.OrderQuestions(snapshot.Questions, attempt.DisplayOrderJson)
             .Select(q => new CandidateQuestionDto
             {
                 Id = q.Id,
                 SortOrder = q.SortOrder,
                 Type = q.Type,
                 Stem = q.Stem,
-                Body = CandidateQuestionRedactor.RedactBody(q, promptOrder),
+                Body = CandidateQuestionRedactor.RedactBody(q, promptOrder, optionOrder),
                 SourceQuestionId = q.SourceQuestionId
             })
             .ToList();

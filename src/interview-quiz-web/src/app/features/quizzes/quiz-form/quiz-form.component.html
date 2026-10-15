@@ -104,6 +104,24 @@
     </div>
 
     <fieldset class="tag-fieldset">
+      <legend>Attempt order</legend>
+      <div class="field">
+        <label for="shuffleQuestions">
+          <input id="shuffleQuestions" type="checkbox" formControlName="shuffleQuestions" />
+          Shuffle questions
+        </label>
+        <p class="hint">Each attempt gets its own order. Scoring and recruiter review stay in the saved order.</p>
+      </div>
+      <div class="field">
+        <label for="shuffleOptions">
+          <input id="shuffleOptions" type="checkbox" formControlName="shuffleOptions" />
+          Shuffle multiple-choice options
+        </label>
+        <p class="hint">Single and multi choice only. Ordering, slots, and the answer key stay as authored.</p>
+      </div>
+    </fieldset>
+
+    <fieldset class="tag-fieldset">
       <legend>Tags</legend>
       <p class="hint">Key/value tags. Keys may contain letters, digits, '.', '_' and '-'.</p>
       @for (tag of tags.controls; track $index; let i = $index) {

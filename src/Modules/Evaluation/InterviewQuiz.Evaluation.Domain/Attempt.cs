@@ -29,6 +29,7 @@ public sealed class Attempt
     private Attempt()
     {
         PromptOrderJson = JsonDocument.Parse("{}");
+        DisplayOrderJson = JsonDocument.Parse("{}");
     }
 
     public Guid Id { get; private set; }
@@ -51,6 +52,13 @@ public sealed class Attempt
     /// </summary>
     public decimal? FinalPointsAwarded { get; private set; }
     public JsonDocument PromptOrderJson { get; private set; }
+
+    /// <summary>
+    /// Seed used once at start. The resolved order is <see cref="DisplayOrderJson"/>.
+    /// </summary>
+    public int DisplaySeed { get; private set; }
+
+    public JsonDocument DisplayOrderJson { get; private set; }
     public int RowVersion { get; private set; }
 
     public IReadOnlyList<AttemptAnswer> Answers => _answers;
@@ -68,7 +76,9 @@ public sealed class Attempt
         int overallDurationMinutes,
         JsonDocument promptOrder,
         IClock clock,
-        Guid? id = null)
+        Guid? id = null,
+        int displaySeed = 0,
+        JsonDocument? displayOrder = null)
     {
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(promptOrder);
@@ -90,6 +100,8 @@ public sealed class Attempt
             StartedAtUtc = now,
             DueAtUtc = now.AddMinutes(overallDurationMinutes),
             PromptOrderJson = promptOrder,
+            DisplaySeed = displaySeed,
+            DisplayOrderJson = displayOrder ?? JsonDocument.Parse("{}"),
             RowVersion = 1
         };
     }

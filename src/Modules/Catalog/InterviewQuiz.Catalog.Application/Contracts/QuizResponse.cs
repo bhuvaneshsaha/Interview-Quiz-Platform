@@ -7,6 +7,8 @@ public sealed class QuizResponse
     public required string Title { get; init; }
     public required string Description { get; init; }
     public required int ExpectedExperienceYears { get; init; }
+    public bool ShuffleQuestions { get; init; }
+    public bool ShuffleOptions { get; init; }
     public required IReadOnlyDictionary<string, string> Tags { get; init; }
     public required IReadOnlyList<QuestionResponse> Questions { get; init; }
     public Guid? OriginTemplateId { get; init; }
