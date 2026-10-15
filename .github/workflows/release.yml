@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout the tagged commit
         uses: actions/checkout@v4
-        with:
-          fetch-tags: true
 
       - name: Publish the changelog section
         shell: bash
