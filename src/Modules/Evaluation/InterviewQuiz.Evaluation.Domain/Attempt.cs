@@ -10,6 +10,12 @@ public sealed class Attempt
     public const string AlreadySubmittedMessage = "Attempt already submitted.";
     public const string InProgressConflictMessage = "Attempt already in progress.";
     public const string UnknownQuestionMessage = "Unknown question id.";
+    public const string NotSubmittedMessage = "Attempt is not submitted.";
+    public const string NotReviewableMessage = "Only human-only and AI-assist items can be reviewed.";
+    public const string PointsOutOfRangeMessage = "Points awarded must be between 0 and the question points.";
+    public const string CommentTooLongMessage = "Review comment must be 2000 characters or fewer.";
+    public const string ReviewerRequiredMessage = "Reviewer is required.";
+    public const int ReviewCommentMaxLength = 2000;
 
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptItemResult> _itemResults = [];
@@ -33,6 +39,11 @@ public sealed class Attempt
     public decimal AutoPointsAwarded { get; private set; }
     public decimal AutoPointsAvailable { get; private set; }
     public decimal TotalPointsAvailable { get; private set; }
+
+    /// <summary>
+    /// Sum of awarded points once every item is settled. Null while any item is unsettled.
+    /// </summary>
+    public decimal? FinalPointsAwarded { get; private set; }
     public JsonDocument PromptOrderJson { get; private set; }
     public int RowVersion { get; private set; }
 
@@ -218,9 +229,72 @@ public sealed class Attempt
         AutoPointsAwarded = autoPointsAwarded;
         AutoPointsAvailable = autoPointsAvailable;
         TotalPointsAvailable = totalPointsAvailable;
+        FinalPointsAwarded = resultStatus == global::InterviewQuiz.Evaluation.Domain.ResultStatus.Complete
+            ? autoPointsAwarded
+            : null;
         Status = AttemptStatus.Submitted;
-        SubmittedAtUtc = clock.UtcNow;
+        SubmittedAtUtc = TruncateToMicroseconds(clock.UtcNow);
         RowVersion++;
+    }
+
+    /// <summary>
+    /// Records a human score for one <c>humanOnly</c> or <c>aiAssist</c> item.
+    /// Returns true only when this call is what settles the last unsettled item.
+    /// </summary>
+    public bool ApplyHumanScore(
+        Guid questionId,
+        decimal pointsAwarded,
+        string reviewerUserId,
+        string? comment,
+        IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (!IsSubmitted)
+        {
+            throw new ConcurrencyException(NotSubmittedMessage);
+        }
+
+        var reviewer = reviewerUserId?.Trim() ?? "";
+        if (reviewer.Length == 0)
+        {
+            throw new DomainException(ReviewerRequiredMessage);
+        }
+
+        var item = _itemResults.FirstOrDefault(result => result.QuestionId == questionId)
+            ?? throw new DomainException(UnknownQuestionMessage);
+        if (!item.IsHumanReviewable)
+        {
+            throw new DomainException(NotReviewableMessage);
+        }
+
+        var awarded = decimal.Round(pointsAwarded, 4, MidpointRounding.AwayFromZero);
+        if (awarded < 0 || awarded > item.Points)
+        {
+            throw new DomainException(PointsOutOfRangeMessage);
+        }
+
+        var note = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+        if (note is { Length: > ReviewCommentMaxLength })
+        {
+            throw new DomainException(CommentTooLongMessage);
+        }
+
+        var wasComplete = ResultStatus == global::InterviewQuiz.Evaluation.Domain.ResultStatus.Complete;
+        item.Settle(awarded, reviewer, TruncateToMicroseconds(clock.UtcNow), note);
+        var complete = _itemResults.All(result => result.Status == ItemScoreStatus.Scored);
+        if (complete)
+        {
+            ResultStatus = global::InterviewQuiz.Evaluation.Domain.ResultStatus.Complete;
+            FinalPointsAwarded = _itemResults.Sum(result => result.PointsAwarded ?? 0m);
+        }
+        else
+        {
+            ResultStatus = global::InterviewQuiz.Evaluation.Domain.ResultStatus.Incomplete;
+            FinalPointsAwarded = null;
+        }
+
+        RowVersion++;
+        return complete && !wasComplete;
     }
 
     private void EnsureInProgress()

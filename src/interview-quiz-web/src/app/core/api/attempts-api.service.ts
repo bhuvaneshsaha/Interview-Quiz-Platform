@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AttemptResultResponse,
+  AttemptReviewResponse,
   AttemptSummaryResponse,
   CandidateAttemptPreview,
   CandidateAttemptResponse,
@@ -10,6 +11,7 @@ import {
   PagedResult,
   ReportPositionRequest,
   ReviewFlagDto,
+  ReviewItemRequest,
   SaveAnswersRequest,
   SetReviewFlagsRequest,
 } from './contracts';
@@ -34,6 +36,17 @@ export class AttemptsApi {
 
   get(id: string): Observable<AttemptResultResponse> {
     return this.http.get<AttemptResultResponse>(`/api/attempts/${id}`);
+  }
+
+  getReview(id: string): Observable<AttemptReviewResponse> {
+    return this.http.get<AttemptReviewResponse>(`/api/attempts/${id}/review`);
+  }
+
+  scoreItem(attemptId: string, questionId: string, body: ReviewItemRequest): Observable<AttemptReviewResponse> {
+    return this.http.post<AttemptReviewResponse>(
+      `/api/attempts/${attemptId}/items/${questionId}/review`,
+      body,
+    );
   }
 
   preview(assignmentId: string): Observable<CandidateAttemptPreview> {

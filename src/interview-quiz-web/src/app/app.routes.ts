@@ -196,6 +196,16 @@ export const routes: Routes = [
         title: 'Attempt',
       },
       {
+        path: 'assignments/:assignmentId/attempts/:attemptId/review',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.AttemptsReview },
+        loadComponent: () =>
+          import('./features/assignments/attempt-review/attempt-review.component').then(
+            (m) => m.AttemptReview,
+          ),
+        title: 'Review attempt',
+      },
+      {
         path: 'assignments/:id/live',
         canActivate: [permissionGuard],
         data: {

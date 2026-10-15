@@ -44,12 +44,18 @@ public sealed class ReportingMathTests
     }
 
     [Fact]
-    public void Pass_uses_auto_ratio_at_seventy_percent()
+    public void Pass_uses_auto_ratio_until_a_final_score_exists()
     {
         Assert.True(ReportingMath.Passed(7m, 10m));
         Assert.False(ReportingMath.Passed(6.9m, 10m));
         Assert.Null(ReportingMath.Passed(0m, 0m));
         Assert.Equal(0.5m, ReportingMath.Rate(1, 2));
+
+        Assert.True(ReportingMath.Passed(10m, 10m));
+        Assert.False(ReportingMath.Passed(10m, 10m, finalPointsAwarded: 10m, totalPointsAvailable: 20m));
+        Assert.True(ReportingMath.Passed(10m, 10m, finalPointsAwarded: 14m, totalPointsAvailable: 20m));
+        Assert.True(ReportingMath.Passed(0m, 0m, finalPointsAwarded: 7m, totalPointsAvailable: 10m));
+        Assert.Null(ReportingMath.Passed(0m, 0m, finalPointsAwarded: 0m, totalPointsAvailable: 0m));
     }
 
     [Fact]

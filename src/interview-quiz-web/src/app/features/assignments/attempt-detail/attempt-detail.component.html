@@ -24,6 +24,16 @@
       <dd>{{ current.autoPointsAwarded }} / {{ current.autoPointsAvailable }}</dd>
     </div>
     <div>
+      <dt>Final score</dt>
+      <dd>
+        @if (current.finalPointsAwarded === null || current.finalPointsAwarded === undefined) {
+          Not finalised
+        } @else {
+          {{ current.finalPointsAwarded }} / {{ current.totalPointsAvailable }}
+        }
+      </dd>
+    </div>
+    <div>
       <dt>Submitted</dt>
       <dd>{{ formatDate(current.submittedAtUtc) }}</dd>
     </div>
@@ -34,6 +44,17 @@
       </div>
     }
   </dl>
+  @if (canReview) {
+    <p>
+      <a
+        class="button"
+        data-testid="open-review"
+        [routerLink]="['/assignments', assignmentId(), 'attempts', current.id, 'review']"
+      >
+        Review unsettled answers
+      </a>
+    </p>
+  }
 }
 
 <app-page-status

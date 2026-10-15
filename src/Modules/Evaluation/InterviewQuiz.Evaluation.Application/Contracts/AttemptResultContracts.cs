@@ -16,6 +16,9 @@ public class AttemptSummaryResponse
     public decimal AutoPointsAvailable { get; init; }
     public decimal TotalPointsAvailable { get; init; }
 
+    /// <summary>Null until every item is settled. Recruiters can see this; it is not an answer key.</summary>
+    public decimal? FinalPointsAwarded { get; init; }
+
     /// <summary>
     /// Quiz revision frozen in the assignment snapshot. Do not compare scores across revisions.
     /// </summary>

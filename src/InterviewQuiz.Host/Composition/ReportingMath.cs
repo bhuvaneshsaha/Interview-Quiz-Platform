@@ -1,7 +1,8 @@
 namespace InterviewQuiz.Host.Composition;
 
 /// <summary>
-/// Pure Reporting v1 metrics. Pass uses the auto-score ratio until slice 7 final scores exist.
+/// Pure Reporting v1 metrics. Pass uses the final score when review has settled every item,
+/// and the auto-score ratio until that final score exists.
 /// </summary>
 public static class ReportingMath
 {
@@ -83,8 +84,27 @@ public static class ReportingMath
             ? 0m
             : decimal.Round((decimal)numerator / denominator, 4, MidpointRounding.AwayFromZero);
 
-    public static bool? Passed(decimal autoPointsAwarded, decimal autoPointsAvailable)
+    /// <summary>
+    /// When <paramref name="finalPointsAwarded"/> is set, pass is that total divided by
+    /// <paramref name="totalPointsAvailable"/>. Until then, pass is the auto ratio and
+    /// unsettled human points stay out of the denominator.
+    /// </summary>
+    public static bool? Passed(
+        decimal autoPointsAwarded,
+        decimal autoPointsAvailable,
+        decimal? finalPointsAwarded = null,
+        decimal totalPointsAvailable = 0m)
     {
+        if (finalPointsAwarded is decimal final)
+        {
+            if (totalPointsAvailable <= 0)
+            {
+                return null;
+            }
+
+            return final / totalPointsAvailable >= PassThreshold;
+        }
+
         if (autoPointsAvailable <= 0)
         {
             return null;

@@ -411,6 +411,64 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         return MapResult(attempt, header.Snapshot);
     }
 
+    public async Task<AttemptReviewResponse> GetReviewAsync(Guid attemptId, CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("attempts.review.get");
+        activity?.SetTag("attempt.id", attemptId);
+
+        var attempt = await RequireSubmittedAttemptAsync(attemptId, cancellationToken);
+        var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
+        return MapReview(attempt, header.Snapshot);
+    }
+
+    public async Task<AttemptReviewResponse> ScoreItemAsync(
+        Guid attemptId,
+        Guid questionId,
+        ReviewItemRequest request,
+        string reviewerUserId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using var activity = ActivitySource.StartActivity("attempts.review");
+        activity?.SetTag("attempt.id", attemptId);
+        activity?.SetTag("question.id", questionId);
+
+        var attempt = await RequireSubmittedAttemptAsync(attemptId, cancellationToken);
+        activity?.SetTag("assignment.id", attempt.AssignmentId);
+        var newlyComplete = attempt.ApplyHumanScore(
+            questionId,
+            request.PointsAwarded,
+            reviewerUserId,
+            request.Comment,
+            _clock);
+        await _attempts.SaveChangesAsync(cancellationToken);
+        if (newlyComplete)
+        {
+            await _lifecycle.NotifyReviewCompleted(attempt.AssignmentId, attempt.Id, cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Reviewed item {QuestionId} on attempt {AttemptId} for assignment {AssignmentId}",
+            questionId,
+            attempt.Id,
+            attempt.AssignmentId);
+
+        var header = await RequireAssignmentAsync(attempt.AssignmentId, cancellationToken);
+        return MapReview(attempt, header.Snapshot);
+    }
+
+    private async Task<Attempt> RequireSubmittedAttemptAsync(Guid attemptId, CancellationToken cancellationToken)
+    {
+        var attempt = await _attempts.GetAsync(attemptId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Attempt), attemptId);
+        if (!attempt.IsSubmitted)
+        {
+            throw new ConcurrencyException(Attempt.NotSubmittedMessage);
+        }
+
+        return attempt;
+    }
+
     public async Task CloseInProgressAsync(Guid assignmentId, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("attempts.revoke");
@@ -728,7 +786,8 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             SubmittedAtUtc = attempt.SubmittedAtUtc,
             AutoPointsAwarded = attempt.AutoPointsAwarded,
             AutoPointsAvailable = attempt.AutoPointsAvailable,
-            TotalPointsAvailable = attempt.TotalPointsAvailable
+            TotalPointsAvailable = attempt.TotalPointsAvailable,
+            FinalPointsAwarded = attempt.FinalPointsAwarded
         };
 
     private static AttemptResultResponse MapResult(Attempt attempt, QuizSnapshotDto snapshot)
@@ -773,6 +832,60 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             AutoPointsAwarded = attempt.AutoPointsAwarded,
             AutoPointsAvailable = attempt.AutoPointsAvailable,
             TotalPointsAvailable = attempt.TotalPointsAvailable,
+            FinalPointsAwarded = attempt.FinalPointsAwarded,
+            QuizRowVersion = snapshot.RowVersion,
+            Items = items
+        };
+    }
+
+    private static AttemptReviewResponse MapReview(Attempt attempt, QuizSnapshotDto snapshot)
+    {
+        var questions = snapshot.Questions.ToDictionary(q => q.Id);
+        var answers = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.Value.RootElement.Clone());
+        var emptyOrder = new Dictionary<Guid, IReadOnlyList<string>>();
+        var items = attempt.ItemResults
+            .OrderBy(r => r.SortOrder)
+            .ThenBy(r => r.QuestionId)
+            .Select(r =>
+            {
+                questions.TryGetValue(r.QuestionId, out var question);
+                return new AttemptReviewItemDto
+                {
+                    QuestionId = r.QuestionId,
+                    SortOrder = r.SortOrder,
+                    Type = r.Type,
+                    ScoringMode = r.ScoringMode,
+                    Points = r.Points,
+                    Status = Camel(r.Status),
+                    PointsAwarded = r.PointsAwarded,
+                    CandidateAnswer = answers.TryGetValue(r.QuestionId, out var value) ? value : null,
+                    Stem = question?.Stem,
+                    Body = question is null
+                        ? null
+                        : CandidateQuestionRedactor.RedactBody(question, emptyOrder),
+                    AnswerKey = question is null ? null : question.Body.Clone(),
+                    Reviewable = r.IsHumanReviewable,
+                    ReviewedByUserId = r.ReviewedByUserId,
+                    ReviewedAtUtc = r.ReviewedAtUtc,
+                    ReviewComment = r.ReviewComment
+                };
+            })
+            .ToList();
+
+        return new AttemptReviewResponse
+        {
+            Id = attempt.Id,
+            AssignmentId = attempt.AssignmentId,
+            OpeningId = attempt.OpeningId,
+            CandidateEmail = attempt.CandidateEmail,
+            Status = Camel(attempt.Status),
+            ResultStatus = attempt.ResultStatus is { } status ? Camel(status) : AttemptResultStatuses.Incomplete,
+            StartedAtUtc = attempt.StartedAtUtc,
+            SubmittedAtUtc = attempt.SubmittedAtUtc,
+            AutoPointsAwarded = attempt.AutoPointsAwarded,
+            AutoPointsAvailable = attempt.AutoPointsAvailable,
+            TotalPointsAvailable = attempt.TotalPointsAvailable,
+            FinalPointsAwarded = attempt.FinalPointsAwarded,
             QuizRowVersion = snapshot.RowVersion,
             Items = items
         };

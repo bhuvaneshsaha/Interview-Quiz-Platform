@@ -14,9 +14,9 @@ There is no live start, pause, or monitor. There is no human or AI review, no En
 |------------------|--------------------------|
 | Live on the create form | Slice 5 left the choice disabled. Slice 6 enables it, requires a duration (1–480), and runs the session from the assignment. Create still omits `inviteUrl`. |
 | SMTP / email | Async issue and resend send mail. Development defaults to a file sink. Mailpit or real SMTP is configuration (`InviteMail__Mode`). Tests do not open SMTP. The recruiter can still copy `inviteUrl`. Ticketing is out of scope. |
-| Result `pendingReview` | At least one item is unsettled (`aiAssist` or `humanOnly`). Auto totals are not a final decision. Human or AI-assist review is slice 7. |
+| Result `pendingReview` | At least one item is unsettled (`aiAssist` or `humanOnly`). Auto totals are not a final decision. A reviewer with `attempts.review` scores those items. AI suggestion drafts are not implemented. |
 | `sessions.live.run` | Seeded on Dev Recruiter. **Active in slice 6** for start, pause, resume, and end. |
-| `attempts.review` | Seeded on Dev Reviewer. **Inactive until slice 7.** |
+| `attempts.review` | Seeded on Dev Reviewer. **Active** for human scoring. It does not call an LLM. |
 
 ## Invite and session
 
@@ -26,6 +26,6 @@ The candidate access token is a JWT (`Jwt__CandidateAccessTokenMinutes`, default
 
 ## Results
 
-Employee results use `attempts.read` only. They are auto points plus per-question status. Unsettled items are **awaiting human review**, not a fail and not zero points. `completed` means every item auto-scored. `pendingReview` means slice 7 still has to review.
+Employee results use `attempts.read` only. They are auto points, and a final score once every item is settled. Unsettled items are **awaiting human review**, not a fail and not zero points. Answer keys are not on that screen. `pendingReview` means a reviewer still has unsettled `humanOnly` or `aiAssist` items. `completed` means every item is settled, either because they were all auto-scored or because review finished.
 
-`sessions.live.run` and `attempts.review` stay in the catalog and in Development seeds so later slices do not invent new codes. Granting them now does not unlock a workflow. Operator note: [permissions.md](permissions.md).
+`sessions.live.run` and `attempts.review` are catalog codes. Both now have a workflow. Operator note: [permissions.md](permissions.md).

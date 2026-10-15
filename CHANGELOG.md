@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Reviewers with `attempts.review` score `humanOnly` and `aiAssist` items on `GET/POST /api/attempts/{id}/review`. The last unsettled item moves the assignment from `pendingReview` to `completed` and stores a final score. Answer keys stay on the review payload. Reporting pass/fail uses that final score when it exists, and the auto-score ratio until then. AI suggestion drafts are not included (#21).
+
 ## [0.2.0] - 2026-10-15
 
 ### Added

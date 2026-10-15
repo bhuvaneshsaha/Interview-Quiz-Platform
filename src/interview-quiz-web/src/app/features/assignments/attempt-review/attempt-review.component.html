@@ -1,0 +1,106 @@
+<div class="page-heading">
+  <h1>Review attempt</h1>
+  @if (assignmentId()) {
+    <a [routerLink]="['/assignments', assignmentId()]">Back to assignment</a>
+  }
+</div>
+
+@if (review(); as current) {
+  <dl class="summary">
+    <div>
+      <dt>Candidate</dt>
+      <dd>{{ current.candidateEmail }}</dd>
+    </div>
+    <div>
+      <dt>Result</dt>
+      <dd>{{ resultStatusLabel(current.resultStatus) }}</dd>
+    </div>
+    <div>
+      <dt>Auto score</dt>
+      <dd>{{ current.autoPointsAwarded }} / {{ current.autoPointsAvailable }}</dd>
+    </div>
+    <div>
+      <dt>Final score</dt>
+      <dd data-testid="final-score">
+        @if (current.finalPointsAwarded === null || current.finalPointsAwarded === undefined) {
+          Not finalised
+        } @else {
+          {{ current.finalPointsAwarded }} / {{ current.totalPointsAvailable }}
+        }
+      </dd>
+    </div>
+  </dl>
+  <p class="hint">Answer keys are shown here for scoring. They stay off the recruiter results page.</p>
+}
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  [empty]="showEmpty()"
+  emptyMessage="No question results for this attempt."
+  loadingMessage="Loading review."
+>
+  @if (review(); as current) {
+    @if (saveError()) {
+      <p class="status status-error" role="alert">{{ saveError() }}</p>
+    }
+    <ol class="items">
+      @for (item of current.items; track item.questionId; let i = $index) {
+        <li class="item">
+          <h2>{{ i + 1 }}. {{ typeLabel(item.type) }}</h2>
+          <p class="stem">{{ item.stem || 'Question stem unavailable.' }}</p>
+          <p class="answer">
+            <span class="answer-label">Answer.</span>
+            {{ formatCandidateAnswer(item.candidateAnswer, item.body) }}
+          </p>
+          @if (item.reviewable) {
+            <p class="key" data-testid="answer-key">
+              <span class="answer-label">Key.</span>
+              {{ formatAnswerKey(item.type, item.answerKey) }}
+            </p>
+            <form class="score-form" (ngSubmit)="save(item)">
+              <div class="field">
+                <label [attr.for]="'points-' + item.questionId">Points awarded (0–{{ item.points }})</label>
+                <input
+                  [id]="'points-' + item.questionId"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  [max]="item.points"
+                  step="0.01"
+                  [attr.data-testid]="'review-points-' + item.questionId"
+                  [ngModel]="draft(item).points"
+                  (ngModelChange)="updateDraft(item.questionId, { points: $event })"
+                  [name]="'points-' + item.questionId"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label [attr.for]="'comment-' + item.questionId">Comment (optional)</label>
+                <textarea
+                  [id]="'comment-' + item.questionId"
+                  rows="3"
+                  maxlength="2000"
+                  [ngModel]="draft(item).comment"
+                  (ngModelChange)="updateDraft(item.questionId, { comment: $event })"
+                  [name]="'comment-' + item.questionId"
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                class="button"
+                [attr.data-testid]="'save-score-' + item.questionId"
+                [disabled]="savingId() === item.questionId"
+              >
+                {{ savingId() === item.questionId ? 'Saving…' : 'Save score' }}
+              </button>
+            </form>
+          } @else {
+            <p class="item-result">{{ itemResultLabel(item.status, item.pointsAwarded, item.points) }}</p>
+          }
+        </li>
+      }
+    </ol>
+  }
+</app-page-status>

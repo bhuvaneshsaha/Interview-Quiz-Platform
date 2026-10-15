@@ -311,6 +311,9 @@ public sealed class AttemptServiceStartTests
             Submitted.Add(attemptId);
             return Task.CompletedTask;
         }
+
+        public Task NotifyReviewCompleted(Guid assignmentId, Guid attemptId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class FlaggedInvite(bool revoked) : IInviteContinuation

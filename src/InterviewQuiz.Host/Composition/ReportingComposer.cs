@@ -145,7 +145,7 @@ public sealed class ReportingComposer
         var scope = await LoadAsync(ReportKeys.Scores, criteria, cancellationToken);
         var rows = BuildScoreRows(scope);
         var points = rows.Select(row => row.AutoPointsAwarded).ToArray();
-        var denominator = rows.Where(row => row.AutoPointsAvailable > 0).ToArray();
+        var denominator = rows.Where(row => row.Passed is not null).ToArray();
         var passed = denominator.Count(row => row.Passed == true);
         var histogram = new int[10];
         foreach (var row in denominator)
@@ -509,8 +509,14 @@ public sealed class ReportingComposer
                     AutoPointsAwarded = attempt.AutoPointsAwarded,
                     AutoPointsAvailable = attempt.AutoPointsAvailable,
                     TotalPointsAvailable = attempt.TotalPointsAvailable,
+                    FinalPointsAwarded = attempt.FinalPointsAwarded,
+                    ScoreBasis = attempt.FinalPointsAwarded is null ? "auto" : "final",
                     UnsettledCount = attempt.UnsettledCount,
-                    Passed = ReportingMath.Passed(attempt.AutoPointsAwarded, attempt.AutoPointsAvailable),
+                    Passed = ReportingMath.Passed(
+                        attempt.AutoPointsAwarded,
+                        attempt.AutoPointsAvailable,
+                        attempt.FinalPointsAwarded,
+                        attempt.TotalPointsAvailable),
                     SnapshotId = assignment.SnapshotId,
                     QuizRowVersion = assignment.QuizRowVersion
                 });
@@ -795,7 +801,8 @@ public sealed class ReportingComposer
     [
         "openingId", "openingTitle", "quizId", "quizTitle", "assignmentId", "attemptId", "snapshotId",
         "quizRowVersion", "candidateEmail", "mode", "status", "resultStatus", "autoPointsAwarded",
-        "autoPointsAvailable", "totalPointsAvailable", "unsettledCount", "passed"
+        "autoPointsAvailable", "totalPointsAvailable", "finalPointsAwarded", "scoreBasis",
+        "unsettledCount", "passed"
     ];
 
     private static readonly string[] TimeHeaders =
@@ -858,6 +865,8 @@ public sealed class ReportingComposer
             Dec(row.AutoPointsAwarded),
             Dec(row.AutoPointsAvailable),
             Dec(row.TotalPointsAvailable),
+            row.FinalPointsAwarded is { } final ? Dec(final) : "",
+            row.ScoreBasis,
             row.UnsettledCount.ToString(CultureInfo.InvariantCulture),
             row.Passed switch { true => "true", false => "false", _ => "" }
         }).ToList();

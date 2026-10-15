@@ -22,6 +22,7 @@ public sealed record ReportAttemptRow(
     decimal AutoPointsAwarded,
     decimal AutoPointsAvailable,
     decimal TotalPointsAvailable,
+    decimal? FinalPointsAwarded,
     int UnsettledCount,
     IReadOnlyList<ReportAttemptItem> Items);
 

@@ -146,10 +146,17 @@
   }
 
   @if (scores(); as data) {
-    <p>Pass rate {{ rate(data.passRate) }} ({{ data.passCount }} of {{ data.passDenominator }}) at a {{ rate(data.passThreshold) }} auto-score threshold.</p>
+    <p>
+      Pass rate {{ rate(data.passRate) }} ({{ data.passCount }} of {{ data.passDenominator }}) at
+      {{ rate(data.passThreshold) }}. A final score is used when review has settled every item.
+      Until then, pass uses the auto score only.
+    </p>
     @if (data.items.length > 0) {
       <table class="data-table" data-testid="report-table">
-        <caption>Auto scores for submitted attempts. This table is the text alternative to the chart.</caption>
+        <caption>
+          Scores for submitted attempts. Pass uses the final score when it exists. This table is the
+          text alternative to the chart.
+        </caption>
         <thead>
           <tr>
             <th>Candidate</th>
@@ -158,6 +165,8 @@
             <th>Auto points</th>
             <th>Available</th>
             <th>Total available</th>
+            <th>Final</th>
+            <th>Basis</th>
             <th>Unsettled</th>
             <th>Passed</th>
           </tr>
@@ -171,6 +180,8 @@
               <td>{{ row.autoPointsAwarded }}</td>
               <td>{{ row.autoPointsAvailable }}</td>
               <td>{{ row.totalPointsAvailable }}</td>
+              <td>{{ row.finalPointsAwarded ?? '—' }}</td>
+              <td>{{ row.scoreBasis === 'final' ? 'Final' : 'Auto' }}</td>
               <td>{{ row.unsettledCount }}</td>
               <td>{{ passedLabel(row.passed) }}</td>
             </tr>

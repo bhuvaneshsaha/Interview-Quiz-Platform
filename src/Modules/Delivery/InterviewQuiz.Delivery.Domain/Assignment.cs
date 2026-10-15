@@ -72,7 +72,9 @@ public sealed class Assignment
 
     /// <summary>
     /// Legal moves: notStarted → inProgress; notStarted|inProgress → pendingReview (incomplete)
-    /// or completed (complete). Start while inProgress is a no-op. Terminal states do not move.
+    /// or completed (complete); pendingReview → completed when human review settles the attempt.
+    /// Start while inProgress is a no-op. completed does not move. pendingReview stays closed
+    /// for invites and new starts.
     /// </summary>
     public static bool CanTransition(AssignmentStatus from, AssignmentStatus to)
         => (from, to) switch
@@ -83,6 +85,7 @@ public sealed class Assignment
             (AssignmentStatus.InProgress, AssignmentStatus.PendingReview) => true,
             (AssignmentStatus.NotStarted, AssignmentStatus.Completed) => true,
             (AssignmentStatus.InProgress, AssignmentStatus.Completed) => true,
+            (AssignmentStatus.PendingReview, AssignmentStatus.Completed) => true,
             _ => false
         };
 
@@ -185,6 +188,26 @@ public sealed class Assignment
 
         EnsureTransition(target);
         Status = target;
+        Touch(clock);
+    }
+
+    /// <summary>
+    /// Human review finished the last unsettled item. Already completed is a no-op.
+    /// </summary>
+    public void CompleteReview(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (Status == AssignmentStatus.Completed)
+        {
+            return;
+        }
+
+        if (Status != AssignmentStatus.PendingReview)
+        {
+            throw new ConcurrencyException(TransitionDeniedMessage(Status, AssignmentStatus.Completed));
+        }
+
+        Status = AssignmentStatus.Completed;
         Touch(clock);
     }
 

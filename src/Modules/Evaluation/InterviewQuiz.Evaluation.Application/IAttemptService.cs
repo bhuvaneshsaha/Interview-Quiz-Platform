@@ -31,4 +31,13 @@ public interface IAttemptService
         CancellationToken cancellationToken);
 
     Task<AttemptResultResponse> GetResultAsync(Guid attemptId, CancellationToken cancellationToken);
+
+    Task<AttemptReviewResponse> GetReviewAsync(Guid attemptId, CancellationToken cancellationToken);
+
+    Task<AttemptReviewResponse> ScoreItemAsync(
+        Guid attemptId,
+        Guid questionId,
+        ReviewItemRequest request,
+        string reviewerUserId,
+        CancellationToken cancellationToken);
 }
