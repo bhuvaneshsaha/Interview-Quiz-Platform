@@ -35,6 +35,8 @@ public static class CatalogModule
         services.AddScoped<IQuizService>(sp => sp.GetRequiredService<QuizService>());
         services.AddScoped<IQuizSnapshotReader>(sp => sp.GetRequiredService<QuizService>());
         services.AddScoped<ITemplateService, TemplateService>();
+        services.AddScoped<IAiDraftRepository, AiDraftRepository>();
+        services.AddScoped<IAiDraftService, AiDraftService>();
         services.AddScoped<IBankQuestionService, BankQuestionService>();
         services.AddScoped<DevelopmentQuizSeeder>();
         services.AddScoped<DevelopmentBankQuestionSeeder>();

@@ -268,6 +268,43 @@ export interface QuestionRequest {
   sourceQuestionId?: string | null;
 }
 
+export interface CreateAiDraftRequest {
+  openingId: string;
+  resumeText?: string | null;
+  rulesText?: string | null;
+  templateId?: string | null;
+  templateVersionId?: string | null;
+}
+
+export interface AiDraftResponse {
+  id: string;
+  openingId: string;
+  title: string;
+  expectedExperienceYears: number;
+  resumeText: string | null;
+  rulesText: string | null;
+  templateId: string | null;
+  templateVersionId: string | null;
+  model: string;
+  status: string;
+  questions: QuestionResponse[];
+  acceptedQuizId: string | null;
+  createdAtUtc: string;
+}
+
+export interface AcceptAiDraftRequest {
+  title: string;
+  description: string;
+  expectedExperienceYears: number;
+  questions: QuestionRequest[];
+}
+
+export interface AiDraftAcceptResponse {
+  draftId: string;
+  quizId: string;
+  title: string;
+}
+
 export interface BankQuestionResponse {
   id: string;
   title: string;

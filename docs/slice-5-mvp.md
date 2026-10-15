@@ -6,7 +6,7 @@ What slice 5 executes. Live run shipped afterwards in [ADR 0010](adr/0010-live-q
 
 Slice 5 runs **async** assignments. A recruiter creates an assignment, copies an invite URL, and the candidate opens `/attempt?token=`, answers, and submits. Auto-scored items produce totals. The recruiter reads those totals, then opens the attempt for each question’s stem, the candidate’s answer, and points. That screen does not include answer keys.
 
-There is no live start, pause, or monitor. There is no human or AI review, no Entra login, and no AI authoring drafts. Invite email is implemented behind `IInviteMailer` (Development sink or SMTP). See [ADR 0009](adr/0009-invite-expiry-email-and-template-assign.md).
+There is no live start, pause, or monitor. There is no human or AI review, no Entra login, and no AI authoring drafts. Those boundaries are slice 5 only: live mode shipped in slice 6, human review and AI suggestion drafts in slice 7, and AI authoring drafts in slice 8. Invite email is implemented behind `IInviteMailer` (Development sink or SMTP). See [ADR 0009](adr/0009-invite-expiry-email-and-template-assign.md).
 
 ## Easy to misread
 

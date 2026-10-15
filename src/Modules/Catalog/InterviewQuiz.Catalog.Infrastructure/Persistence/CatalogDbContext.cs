@@ -14,6 +14,7 @@ public sealed class CatalogDbContext : DbContext
     public DbSet<Template> Templates => Set<Template>();
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
     public DbSet<BankQuestion> BankQuestions => Set<BankQuestion>();
+    public DbSet<AiDraft> AiDrafts => Set<AiDraft>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -33,10 +33,7 @@ public sealed class OpenAiSuggestionClientTests
             ["Ai:Model"] = "local-model",
             ["Ai:ApiKey"] = "super-secret-key-value"
         }).Build();
-        var client = new OpenAiCompatibleSuggestionClient(
-            new HttpClient(handler),
-            configuration,
-            NullLogger<OpenAiCompatibleSuggestionClient>.Instance);
+        var client = SuggestionClient(new HttpClient(handler), configuration);
 
         var draft = await client.SuggestAsync(
             new AiSuggestionRequest(
@@ -71,10 +68,9 @@ public sealed class OpenAiSuggestionClientTests
             ["Ai:Model"] = "local-model",
             ["Ai:ApiKey"] = "super-secret-key-value"
         }).Build();
-        var client = new OpenAiCompatibleSuggestionClient(
+        var client = SuggestionClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://llm.example/v1/") },
-            configuration,
-            NullLogger<OpenAiCompatibleSuggestionClient>.Instance);
+            configuration);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() => client.SuggestAsync(
             new AiSuggestionRequest(Guid.NewGuid(), "longText", 5, "Stem", default, null),
@@ -82,6 +78,15 @@ public sealed class OpenAiSuggestionClientTests
 
         Assert.Equal(Attempt.SuggestionFailedMessage, exception.Message);
         Assert.DoesNotContain("super-secret-key-value", exception.Message, StringComparison.Ordinal);
+    }
+
+    private static OpenAiCompatibleSuggestionClient SuggestionClient(HttpClient http, IConfiguration configuration)
+    {
+        var completion = new OpenAiChatCompletionClient(
+            http,
+            configuration,
+            NullLogger<OpenAiChatCompletionClient>.Instance);
+        return new OpenAiCompatibleSuggestionClient(completion);
     }
 
     private sealed class StubHandler : HttpMessageHandler

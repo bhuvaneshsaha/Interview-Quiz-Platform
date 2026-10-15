@@ -1,4 +1,5 @@
 using InterviewQuiz.Evaluation.Application.Ai;
+using InterviewQuiz.Kernel.Ai;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,12 +18,13 @@ public static class AiSuggestionRegistration
         if (mode == AiSuggestionMode.Fake)
         {
             services.AddSingleton<IAiSuggestionClient, FakeAiSuggestionClient>();
+            services.AddSingleton<IAiCompletionClient, FakeAiCompletionClient>();
             return services;
         }
 
         if (mode == AiSuggestionMode.OpenAiCompatible)
         {
-            services.AddHttpClient<IAiSuggestionClient, OpenAiCompatibleSuggestionClient>(client =>
+            services.AddHttpClient<OpenAiChatCompletionClient>(client =>
             {
                 var baseUrl = configuration["Ai:BaseUrl"]!.Trim().TrimEnd('/') + "/";
                 client.BaseAddress = new Uri(baseUrl);
@@ -31,10 +33,13 @@ public static class AiSuggestionRegistration
                     client.Timeout = TimeSpan.FromSeconds(Math.Min(seconds, 120));
                 }
             });
+            services.AddTransient<IAiCompletionClient>(sp => sp.GetRequiredService<OpenAiChatCompletionClient>());
+            services.AddTransient<IAiSuggestionClient, OpenAiCompatibleSuggestionClient>();
             return services;
         }
 
         services.AddSingleton<IAiSuggestionClient, DisabledAiSuggestionClient>();
+        services.AddSingleton<IAiCompletionClient, DisabledAiCompletionClient>();
         return services;
     }
 }

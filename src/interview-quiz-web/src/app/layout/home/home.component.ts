@@ -25,6 +25,7 @@ export class Home {
       PermissionCodes.UsersManage,
       PermissionCodes.QuizzesRead,
       PermissionCodes.QuizzesWrite,
+      PermissionCodes.AiDraftUse,
       PermissionCodes.TemplatesRead,
       PermissionCodes.QuestionsRead,
       PermissionCodes.AssignmentsRead,

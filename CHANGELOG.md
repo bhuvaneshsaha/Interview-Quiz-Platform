@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Authors with `ai.draft.use` can generate a quiz draft from an opening, an optional pasted resume, optional rules text, and an optional template version (`POST /api/ai-drafts`). Saving it (`POST /api/ai-drafts/{id}/accept`) also requires `quizzes.write` and a change to the questions. The result is a quiz on that opening. Nothing is assigned. The same `Ai:Provider` switch as review suggestions is used, including the deterministic fake. Company rule-set CRUD is not included (#26).
+
 ## [0.4.0] - 2026-10-16
 
 ### Added

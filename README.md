@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch, plus live sessions, **Reporting v1**, and **human review** of unsettled attempts: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score/review, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 shipped as v0.2.0. Human review shipped as v0.3.0. AI suggestion drafts for review are in this branch when configured. AI authoring drafts and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch, plus live sessions, **Reporting v1**, and **human review** of unsettled attempts: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score/review, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 shipped as v0.2.0. Human review shipped as v0.3.0. AI suggestion drafts for review and AI authoring drafts are in this branch when configured. Entra ID is not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Releases
 
@@ -144,11 +144,11 @@ Do not pass `--with-deps` on Windows. That flag installs Linux system packages. 
 | `InviteMail__Smtp__Password` | Optional SMTP password. Do not commit a real password |
 | `Bootstrap__SuperAdminEmail` | Optional mailbox for the first Super Admin. Empty seeds the role and no user. No password is stored in git |
 | `Bootstrap__ResetSuperAdminSetup` | `true` re-issues the one-time password token on startup while the user still must set a password |
-| `Ai__Provider` | `None` (default), `Fake`, or `OpenAiCompatible`. Development and Testing use `Fake`. Suggestions stay off unless this is `Fake`, or `OpenAiCompatible` with a base URL, model, and API key |
+| `Ai__Provider` | `None` (default), `Fake`, or `OpenAiCompatible`. Development and Testing use `Fake`. Review suggestions and authoring drafts stay off unless this is `Fake`, or `OpenAiCompatible` with a base URL, model, and API key |
 | `Ai__BaseUrl` | OpenAI-compatible origin, for example `https://llm.example/v1`. Not a secret. Required only for `OpenAiCompatible` |
 | `Ai__Model` | Model name sent to that endpoint |
 | `Ai__ApiKey` | Bearer token for that endpoint. Set this in the environment. Do not commit a real key |
-| `Ai__TimeoutSeconds` | HTTP timeout for a suggestion. Default `30`, capped at 120 |
+| `Ai__TimeoutSeconds` | HTTP timeout for a suggestion or an authoring draft. Default `30`, capped at 120 |
 
 Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
@@ -304,6 +304,9 @@ In-process: `IOpeningLookup.GetOpeningAsync(id)` for Catalog and Delivery. Other
 | `PUT` | `/api/questions/{id}` | `questions.write` |
 | `POST` | `/api/questions/{id}/archive` | `questions.write` |
 | `POST` | `/api/questions/{id}/unarchive` | `questions.write` |
+| `POST` | `/api/ai-drafts` | `ai.draft.use` |
+| `GET` | `/api/ai-drafts/{id}` | `ai.draft.use` (creator only; other callers get 404) |
+| `POST` | `/api/ai-drafts/{id}/accept` | `ai.draft.use` **and** `quizzes.write` |
 
 Quiz list query: `openingId`, `keyword`, `experienceMinYears`, `experienceMaxYears`, `tags` (JSON object), `criteria` (full JSON — same shape Search persists for `target: "quizzes"`), `page`, `pageSize` (capped at 100). JSON is camelCase. Eight question `type` values: `multipleChoiceSingle`, `multipleChoiceMulti`, `trueFalse`, `shortText`, `longText`, `dragDropSharedBank`, `dragDropPerSlot`, `ordering`. Scoring: `auto` / `aiAssist` / `humanOnly`. `creditMode` (`partial` / `allOrNothing`) is required only for `multipleChoiceMulti` and `ordering`. PUT replaces the full question list and requires `rowVersion`. Create may send an empty `questions` array. Unknown `openingId` returns 400 `"Opening does not exist."` (Catalog calls `IOpeningLookup` in-process; it does not read the `openings` schema).
 
@@ -318,6 +321,8 @@ Include body `IncludeQuestionsRequest`: `questionIds` (required, unique, non-emp
 Concurrency: integer `row_version` on Quiz and BankQuestion (incremented on update), same pattern as Opening. Publish also increments the quiz `rowVersion`. Include increments the quiz `rowVersion`.
 
 In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable DTO of questions, keys, and scoring for Delivery to copy at assign time. `IQuestionBankReader.GetByIdAsync(id)` is registered and used **only** by include (not quiz create/update/publish/clone). GetById returns archived rows so include can reject them.
+
+AI authoring draft (`POST /api/ai-drafts`): body `openingId` (required), optional `resumeText` (paste, max 8000), optional `rulesText` (max 4000), and optional `templateId` plus `templateVersionId` (both or neither). The response is a draft. It does not create a quiz or an assignment. `POST /api/ai-drafts/{id}/accept` body is `title`, `description`, `expectedExperienceYears`, and `questions`. The opening id stays the draft’s opening. Accept is **400** `Edit the draft before saving it as a quiz.` when the question list still matches the generated questions. A second accept is **409** `This draft was already saved as a quiz.` A caller who did not create the draft gets **404**. Unconfigured AI is **400** `AI drafts are not configured.` and writes no row. Development uses the same deterministic fake as review suggestions (`Ai:Provider` = `Fake`). Angular: `/ai-drafts/new` for `ai.draft.use`. Save as quiz is shown only with `quizzes.write`. There is no assign action on this screen. `GET|POST|PUT /api/ai-rule-sets` is not implemented.
 
 ## Delivery API (slice 5 — assignments)
 
@@ -405,7 +410,7 @@ curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e50
 
 Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. `attempts.read` does not return answer keys or review comments. A reviewer with `attempts.review` opens `/assignments/{assignmentId}/attempts/{attemptId}/review`, scores each `humanOnly` or `aiAssist` item from 0 through that item’s points, and may leave a comment of up to 2000 characters. Auto items cannot be re-scored. When every item is settled, the attempt stores `finalPointsAwarded` and the assignment moves from `pendingReview` to `completed`. Dev Reviewer (`reviewer.dev@example.com` / `Dev.Reviewer!1`) has this permission in Development. For an `aiAssist` item the same permission can request a suggestion. The draft (points, feedback, actor, model, time) stays after the reviewer saves a score, including when they edit the points. `humanOnly` items have no suggestion. Development uses a deterministic fake (empty answer scores 0; any other answer scores half the item points). Set `Ai__Provider` to `OpenAiCompatible` plus `Ai__BaseUrl`, `Ai__Model`, and `Ai__ApiKey` to call an operator endpoint. If those are missing, suggestions are off and scoring still works. The suggestion is not on `GET /api/attempts/{id}`.
 
-Still later: AI authoring drafts and Entra. Invite email is in [Invite email](#invite-email).
+Still later: Entra. AI authoring drafts are in [Catalog API](#catalog-api-slices-24--quizzes-templates-question-bank). Invite email is in [Invite email](#invite-email).
 
 ## Search API (slice 3 — saved filters)
 
@@ -452,11 +457,12 @@ Employee routes used in slices 2–5 (permission on the route, same codes as the
 | `/assignments/:id` | `assignments.read` | Assignment detail, join or invite link (`assignments.write`), **Open live session** when the mode is live, basic results if `attempts.read` |
 | `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress. Start, pause, resume, and end require `sessions.live.run` |
 | `/reports` | `reports.read` | Reporting v1 hub |
+| `/ai-drafts/new` | `ai.draft.use` | Generate an AI quiz draft. Save as quiz requires `quizzes.write` and a question edit. Nothing is assigned |
 | `/reports/:reportKey` | `reports.read` | Funnel, scores, time, questions, candidates, or pending review |
 
 Candidate (outside the employee shell): `/attempt?token=` — `POST /api/auth/magic-link/consume`, then `GET .../attempts/preview`. A welcome page (quiz, opening, duration, question count, rules) calls start only from **Start quiz**, which sets `dueAtUtc`. An in-progress or submitted attempt skips welcome. Isolated in-memory `CandidateSession` (not employee `TokenStore`). No candidate password. The attempt hides question type and points. Ordering uses pointer drag plus Move up and Move down. Shared-bank and per-slot questions use a dropdown for each slot.
 
-Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, to **Question bank** when `questions.read`, to **Assignments** when `assignments.read`, and to **Reporting** when `reports.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live assignments require a duration (1–480). Create does not return an invite URL. `assignments.write` issues a join link from the assignment. The host runs the session at `/assignments/:id/live` (`sessions.live.run`). The candidate waits in a lobby until the host starts. Decisions: [ADR 0010](docs/adr/0010-live-quiz-sessions.md). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
+Shell nav and home link to Quizzes when the user has `quizzes.read`, to **AI draft** when `ai.draft.use`, to Templates when `templates.read`, to **Question bank** when `questions.read`, to **Assignments** when `assignments.read`, and to **Reporting** when `reports.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live assignments require a duration (1–480). Create does not return an invite URL. `assignments.write` issues a join link from the assignment. The host runs the session at `/assignments/:id/live` (`sessions.live.run`). The candidate waits in a lobby until the host starts. Decisions: [ADR 0010](docs/adr/0010-live-quiz-sessions.md). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
 
 ### Exercise slices 2–5 locally (Development-only)
 
