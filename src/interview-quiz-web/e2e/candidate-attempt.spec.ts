@@ -38,7 +38,8 @@ test('welcome page waits for Start quiz before the timer and questions', async (
   await expect(page.getByText('200 OK')).toBeVisible();
 
   const main = await page.locator('#attempt-main').innerText();
-  expect(main).not.toContain('Multiple choice');
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Multiple choice (single)');
+  await expect(page.getByTestId('answered-count')).toBeVisible();
   expect(main).not.toContain('Ordering');
   expect(main).not.toMatch(/\bpts\b/);
   await expectNoRawIds(main);
@@ -107,7 +108,8 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
   await page.goto(`/attempt?token=opaque-token`);
 
   await expect(page.getByRole('heading', { name: slotAttempt.questions[0].stem })).toBeVisible();
-  await expect(page.getByText('Choose an item for each slot.')).toBeVisible();
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Match each slot');
+  await expect(page.getByText('Match each slot to an item from the list.')).toBeVisible();
   await expect(page.getByLabel('GET')).toBeVisible();
   await expect(page.getByLabel('POST')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
@@ -125,7 +127,8 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
 
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByRole('heading', { name: slotAttempt.questions[1].stem })).toBeVisible();
-  await expect(page.getByText('Choose an option for each slot.')).toBeVisible();
+  await expect(page.getByTestId('question-type-badge')).toHaveText('Match each slot');
+  await expect(page.getByText('Match each slot to one of its options.')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
   await expect(page.getByText('Drop an option here')).toHaveCount(0);
   await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });

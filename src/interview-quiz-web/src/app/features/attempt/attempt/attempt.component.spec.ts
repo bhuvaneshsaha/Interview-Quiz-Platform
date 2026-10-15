@@ -285,7 +285,7 @@ describe('Attempt', () => {
     expect(started).toContain('Health checks');
     expect(started).toContain('Question 1 of 2');
     expect(started).toContain('Answered 1 of 2');
-    expect(started).not.toContain('Multiple choice');
+    expect(started).toContain('Multiple choice (multi)');
     expect(started).not.toContain('pts');
     expect(started).not.toContain('opt-kestrel');
     expect(started).not.toContain('(untitled option)');
@@ -323,7 +323,9 @@ describe('Attempt', () => {
     await render();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('Choose an item for each slot.');
+    expect(root.textContent).toContain('Match each slot to an item from the list.');
+    expect(root.textContent).toContain('Match each slot');
+    expect(root.textContent).not.toMatch(/drag/i);
     expect(root.textContent).toContain('Match each HTTP method to what it typically does.');
     expectDropdownOnlySlots(root);
     const sharedSelects = [...root.querySelectorAll('select')] as HTMLSelectElement[];
@@ -348,7 +350,7 @@ describe('Attempt', () => {
     next.click();
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Choose an option for each slot.');
+    expect(root.textContent).toContain('Match each slot to one of its options.');
     expectDropdownOnlySlots(root);
     const perSelect = root.querySelector('#per-q-per-slot-slot-401') as HTMLSelectElement;
     expect(perSelect).not.toBeNull();
@@ -375,7 +377,9 @@ describe('Attempt', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('Choose an item for each slot.');
+    expect(root.textContent).toContain('Match each slot to an item from the list.');
+    expect(root.textContent).toContain('Match each slot');
+    expect(root.textContent).not.toMatch(/drag/i);
     expectDropdownOnlySlots(root);
     const select = root.querySelector('#shared-q-shared-slot-get') as HTMLSelectElement;
     chooseOption(select, 'item-read');

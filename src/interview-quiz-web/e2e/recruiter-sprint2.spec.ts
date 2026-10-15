@@ -291,7 +291,7 @@ test('candidate preview answers slot questions from dropdowns', async ({ page })
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page.getByText('Candidate preview')).toBeVisible();
-  await expect(page.getByText('Choose an item for each slot.')).toBeVisible();
+  await expect(page.getByText('Match each slot to an item from the list.')).toBeVisible();
   await expect(page.getByLabel('GET')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
   await expect(page.getByText('Drop an item here')).toHaveCount(0);
@@ -299,7 +299,7 @@ test('candidate preview answers slot questions from dropdowns', async ({ page })
   await expect(page.getByLabel('GET')).toHaveValue('item-read');
 
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByText('Choose an option for each slot.')).toBeVisible();
+  await expect(page.getByText('Match each slot to one of its options.')).toBeVisible();
   await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
   await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
   await expect(page.getByLabel('401')).toHaveValue('opt-unauth');

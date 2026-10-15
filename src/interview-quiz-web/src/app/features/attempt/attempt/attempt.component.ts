@@ -31,6 +31,7 @@ import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.c
 import {
   answerHint,
   bankItems,
+  candidateTypeBadge,
   boolValueOf,
   choiceOptions,
   initialAnswer,
@@ -204,6 +205,7 @@ export class Attempt implements OnInit {
   }
 
   answerHint = answerHint;
+  candidateTypeBadge = candidateTypeBadge;
   options = choiceOptions;
   sharedSlots = sharedSlots;
   bankItems = bankItems;

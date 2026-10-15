@@ -85,7 +85,7 @@
     }
     @if (attempt(); as current) {
       <p class="meta">
-        Answered {{ answeredCount() }} of {{ current.questions.length }}
+        <span data-testid="answered-count">Answered {{ answeredCount() }} of {{ current.questions.length }}</span>
         @if (!submitted()) {
           ·
           <span
@@ -192,7 +192,12 @@
         @for (question of current.questions; track question.id; let i = $index) {
           @if (i === currentIndex()) {
           <li class="question">
-            <p class="question-kicker">Question {{ i + 1 }} of {{ current.questions.length }}</p>
+            <p class="question-kicker">
+              Question {{ i + 1 }} of {{ current.questions.length }}
+              <span class="type-badge" data-testid="question-type-badge">{{
+                candidateTypeBadge(question.type)
+              }}</span>
+            </p>
             <h2 id="question-heading" tabindex="-1">{{ question.stem }}</h2>
             @if (answerHint(question); as hint) {
               <p class="hint">{{ hint }}</p>
