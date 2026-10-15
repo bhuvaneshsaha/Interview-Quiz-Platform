@@ -1,0 +1,121 @@
+import { expect, test } from '@playwright/test';
+import {
+  assignmentId,
+  candidateAttempt,
+  expectNoRawIds,
+  inProgressPreview,
+  installCandidateApi,
+  screenshotPath,
+  welcomePreview,
+} from './fixtures';
+
+test('welcome page waits for Start quiz before the timer and questions', async ({ page }) => {
+  const calls = await installCandidateApi(page, welcomePreview);
+
+  await page.goto(`/attempt?token=opaque-token`);
+  await expect(page.getByRole('heading', { name: 'Welcome' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(welcomePreview.quizTitle);
+  await expect(page.getByText(welcomePreview.openingName)).toBeVisible();
+  await expect(page.getByText(`${welcomePreview.durationMinutes} minutes`)).toBeVisible();
+  await expect(page.getByText(String(welcomePreview.questionCount), { exact: true })).toBeVisible();
+  await expect(page.getByText('You have a single attempt.')).toBeVisible();
+  await expect(page.getByText("Don't close this tab during the quiz.")).toBeVisible();
+  await expect(page.getByRole('timer')).toHaveCount(0);
+  await expect(page.getByText(candidateAttempt.questions[0].stem)).toHaveCount(0);
+  expect(calls.start).toBe(0);
+  expect(calls.preview).toBe(1);
+  expect(calls.current).toBe(0);
+
+  await page.screenshot({ path: screenshotPath('after-welcome.png'), fullPage: true });
+
+  await page.getByRole('button', { name: 'Start quiz' }).click();
+  await expect(page.getByRole('timer')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Question 1' })).toBeVisible();
+  await expect(page.getByText(candidateAttempt.questions[0].stem)).toBeVisible();
+  await expect(page.getByText('Select one answer.')).toBeVisible();
+  await expect(page.getByText('201 Created')).toBeVisible();
+  await expect(page.getByText('200 OK')).toBeVisible();
+
+  const main = await page.locator('#attempt-main').innerText();
+  expect(main).not.toContain('Multiple choice');
+  expect(main).not.toContain('Ordering');
+  expect(main).not.toMatch(/\bpts\b/);
+  await expectNoRawIds(main);
+  expect(calls.start).toBe(1);
+  expect(calls.current).toBe(0);
+
+  await page.screenshot({ path: screenshotPath('after-attempt-questions.png'), fullPage: true });
+});
+
+test('an in-progress refresh skips welcome and keeps the server timer', async ({ page }) => {
+  const calls = await installCandidateApi(page, inProgressPreview);
+
+  await page.goto(`/attempt?token=opaque-token`);
+  await expect(page.getByRole('timer')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start quiz' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Welcome' })).toHaveCount(0);
+  await expect(page.getByText(candidateAttempt.questions[0].stem)).toBeVisible();
+  expect(calls.start).toBe(0);
+  expect(calls.current).toBe(1);
+  expect(calls.preview).toBe(1);
+});
+
+test('ordering can be dragged and reordered from the keyboard', async ({ page }) => {
+  await installCandidateApi(page, inProgressPreview);
+  await page.goto(`/attempt?token=opaque-token`);
+
+  const texts = page.locator('.order-text');
+  await expect(texts).toHaveText(['Authentication', 'Authorization', 'Endpoint']);
+  await expect(page.getByText('Drag the items into order, or use Move up and Move down.')).toBeVisible();
+
+  const handle = page.getByRole('button', { name: 'Drag Authentication' });
+  await expect(handle).toBeVisible();
+  await expect(handle).toHaveCSS('touch-action', 'none');
+
+  await dragOrderingItem(page, 0, 1);
+  await expect(texts).toHaveText(['Authorization', 'Authentication', 'Endpoint']);
+
+  await page.getByRole('button', { name: 'Move Authentication up' }).click();
+  await expect(texts).toHaveText(['Authentication', 'Authorization', 'Endpoint']);
+  await page.getByRole('button', { name: 'Move Authentication down' }).click();
+  await expect(texts).toHaveText(['Authorization', 'Authentication', 'Endpoint']);
+
+  const main = await page.locator('#attempt-main').innerText();
+  await expectNoRawIds(main);
+  expect(main).not.toContain('pts');
+
+  await page.screenshot({ path: screenshotPath('after-attempt-ordering.png'), fullPage: true });
+});
+
+test('candidate routes stay outside the employee shell', async ({ page }) => {
+  await installCandidateApi(page, welcomePreview);
+  await page.goto(`/attempt?token=opaque-token`);
+  await expect(page.getByRole('button', { name: 'Start quiz' })).toBeVisible();
+  await expect(page.locator('app-shell')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+  expect(page.url()).toContain('/attempt');
+  expect(page.url()).toContain('token=');
+  expect(page.url()).not.toContain(`/assignments/${assignmentId}`);
+});
+
+async function dragOrderingItem(
+  page: import('@playwright/test').Page,
+  from: number,
+  to: number,
+): Promise<void> {
+  const rows = page.locator('.order-item');
+  const handle = rows.nth(from).locator('.drag-handle');
+  await rows.nth(to).scrollIntoViewIfNeeded();
+  const source = await handle.boundingBox();
+  const target = await rows.nth(to).boundingBox();
+  if (!source || !target) {
+    throw new Error('Ordering rows are not visible.');
+  }
+  const startX = source.x + source.width / 2;
+  const startY = source.y + source.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, startY + 12, { steps: 4 });
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 20 });
+  await page.mouse.up();
+}

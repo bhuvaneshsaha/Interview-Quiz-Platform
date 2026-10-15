@@ -557,18 +557,22 @@ export interface CandidateQuestion {
   sortOrder: number;
   type: QuestionType;
   stem: string;
-  scoringMode: ScoringMode;
-  creditMode: CreditMode | null;
-  points: number;
   body: Record<string, unknown>;
   sourceQuestionId: string | null;
 }
 
 export interface CandidateItemResult {
   questionId: string;
-  scoringMode: string;
   status: 'scored' | 'unsettled' | string;
   pointsAwarded: number | null;
+}
+
+export interface CandidateAttemptPreview {
+  attemptStatus: 'notStarted' | 'inProgress' | 'submitted' | string;
+  quizTitle: string;
+  openingName: string;
+  durationMinutes: number;
+  questionCount: number;
 }
 
 export interface CandidateAttemptResponse {
@@ -622,6 +626,8 @@ export interface AttemptResultItem {
   pointsAwarded: number | null;
   candidateAnswer?: unknown;
   stem?: string | null;
+  /** Redacted snapshot body used to label option and item ids. */
+  body?: unknown;
 }
 
 export interface AttemptResultResponse extends AttemptSummaryResponse {

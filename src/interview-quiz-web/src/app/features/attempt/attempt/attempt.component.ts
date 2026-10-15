@@ -1,3 +1,4 @@
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +8,7 @@ import { debounceTime } from 'rxjs/operators';
 import {
   AnswerDto,
   AnswerValue,
+  CandidateAttemptPreview,
   CandidateAttemptResponse,
   CandidateItemResult,
   CandidateQuestion,
@@ -18,14 +20,14 @@ import { CandidateSession } from '../../../core/auth/candidate-session.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { itemResultLabel, resultStatusLabel } from '../../../shared/labels/status-labels';
 import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.component';
-import { QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
 import {
+  answerHint,
   bankItems,
+  BankItemView,
   boolValueOf,
   choiceOptions,
   initialAnswer,
   itemIdsOf,
-  longTextGuidance,
   longTextMaxLength,
   optionIdOf,
   optionIdsOf,
@@ -36,12 +38,13 @@ import {
   slotItemId,
   slotOptionId,
   textOf,
+  UNTITLED_OPTION,
 } from './candidate-answer.util';
 import { nextTimerAnnouncement, timerUrgency, TimerAnnouncementState } from './timer-urgency';
 
 @Component({
   selector: 'app-attempt',
-  imports: [FormsModule, PageStatus, OfflineBanner],
+  imports: [FormsModule, PageStatus, OfflineBanner, CdkDropList, CdkDrag, CdkDragHandle],
   templateUrl: './attempt.component.html',
   styleUrl: './attempt.component.css',
 })
@@ -56,9 +59,10 @@ export class Attempt implements OnInit {
   private autoSubmitStarted = false;
   private timerAnnounced: TimerAnnouncementState = { five: false, one: false };
 
-  readonly typeLabels = QUESTION_TYPE_LABELS;
   readonly resultStatusLabel = resultStatusLabel;
   readonly loading = signal(true);
+  readonly starting = signal(false);
+  readonly preview = signal<CandidateAttemptPreview | null>(null);
   readonly saving = signal(false);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -119,7 +123,7 @@ export class Attempt implements OnInit {
     this.magicLinks.consume(token).subscribe({
       next: (tokens) => {
         this.candidate.setSession(tokens);
-        this.startAttempt(tokens.assignmentId);
+        this.loadPreview(tokens.assignmentId);
       },
       error: (err: unknown) => this.fail(err),
     });
@@ -135,16 +139,12 @@ export class Attempt implements OnInit {
     return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
   }
 
-  typeLabel(question: CandidateQuestion): string {
-    return this.typeLabels[question.type] ?? question.type;
-  }
-
+  answerHint = answerHint;
   options = choiceOptions;
   sharedSlots = sharedSlots;
   bankItems = bankItems;
   perSlots = perSlots;
   orderingItems = orderingItems;
-  longTextGuidance = longTextGuidance;
   longTextMaxLength = longTextMaxLength;
   optionIdOf = optionIdOf;
   optionIdsOf = optionIdsOf;
@@ -162,7 +162,53 @@ export class Attempt implements OnInit {
   }
 
   orderingItemText(question: CandidateQuestion, id: string): string {
-    return orderingItems(question).find((item) => item.id === id)?.text ?? id;
+    return orderingItems(question).find((item) => item.id === id)?.text ?? UNTITLED_OPTION;
+  }
+
+  bankListId(question: CandidateQuestion): string {
+    return `bank-${question.id}`;
+  }
+
+  slotListId(question: CandidateQuestion, slotId: string): string {
+    return `slot-${question.id}-${slotId}`;
+  }
+
+  sharedConnections(question: CandidateQuestion): string[] {
+    return [
+      this.bankListId(question),
+      ...sharedSlots(question).map((slot) => this.slotListId(question, slot.id)),
+    ];
+  }
+
+  perOptionListId(question: CandidateQuestion, slotId: string): string {
+    return `per-opts-${question.id}-${slotId}`;
+  }
+
+  perSlotDropId(question: CandidateQuestion, slotId: string): string {
+    return `per-slot-${question.id}-${slotId}`;
+  }
+
+  unassignedBank(question: CandidateQuestion): BankItemView[] {
+    const used = new Set(
+      sharedSlots(question)
+        .map((slot) => this.slotItemId(this.answer(question.id), slot.id))
+        .filter((id) => id.length > 0),
+    );
+    return bankItems(question).filter((item) => !used.has(item.id));
+  }
+
+  assignedBankItem(question: CandidateQuestion, slotId: string): BankItemView | null {
+    const id = this.slotItemId(this.answer(question.id), slotId);
+    return bankItems(question).find((item) => item.id === id) ?? null;
+  }
+
+  chosenPerSlotText(question: CandidateQuestion, slotId: string): string {
+    const optionId = this.slotOptionId(this.answer(question.id), slotId);
+    if (!optionId) {
+      return '';
+    }
+    const slot = perSlots(question).find((item) => item.id === slotId);
+    return slot?.options.find((option) => option.id === optionId)?.text ?? UNTITLED_OPTION;
   }
 
   resultFor(questionId: string): CandidateItemResult | undefined {
@@ -200,11 +246,60 @@ export class Attempt implements OnInit {
   }
 
   setSharedSlot(question: CandidateQuestion, slotId: string, itemId: string): void {
-    const slots = sharedSlots(question).map((slot) => ({
-      slotId: slot.id,
-      itemId: slot.id === slotId ? itemId : this.slotItemId(this.answer(question.id), slot.id),
-    }));
+    const slots = sharedSlots(question).map((slot) => {
+      const current = this.slotItemId(this.answer(question.id), slot.id);
+      if (slot.id === slotId) {
+        return { slotId: slot.id, itemId };
+      }
+      if (itemId && current === itemId) {
+        return { slotId: slot.id, itemId: '' };
+      }
+      return { slotId: slot.id, itemId: current };
+    });
     this.patchAnswer(question.id, { slots });
+  }
+
+  dropOrder(question: CandidateQuestion, event: { previousIndex: number; currentIndex: number }): void {
+    if (this.submitted() || event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const ids = [...this.orderedIds(question)];
+    moveItemInArray(ids, event.previousIndex, event.currentIndex);
+    this.patchAnswer(question.id, { itemIds: ids });
+  }
+
+  dropShared(
+    question: CandidateQuestion,
+    event: { item: { data: unknown } },
+    slotId: string | null,
+  ): void {
+    const itemId = typeof event.item.data === 'string' ? event.item.data : '';
+    if (!itemId || this.submitted()) {
+      return;
+    }
+    if (slotId === null) {
+      const slots = sharedSlots(question).map((slot) => ({
+        slotId: slot.id,
+        itemId: this.slotItemId(this.answer(question.id), slot.id) === itemId
+          ? ''
+          : this.slotItemId(this.answer(question.id), slot.id),
+      }));
+      this.patchAnswer(question.id, { slots });
+      return;
+    }
+    this.setSharedSlot(question, slotId, itemId);
+  }
+
+  dropPerSlot(question: CandidateQuestion, slotId: string, event: { item: { data: unknown } }): void {
+    const optionId = typeof event.item.data === 'string' ? event.item.data : '';
+    if (!optionId || this.submitted()) {
+      return;
+    }
+    const slot = perSlots(question).find((item) => item.id === slotId);
+    if (!slot?.options.some((option) => option.id === optionId)) {
+      return;
+    }
+    this.setPerSlot(question, slotId, optionId);
   }
 
   setPerSlot(question: CandidateQuestion, slotId: string, optionId: string): void {
@@ -285,8 +380,42 @@ export class Attempt implements OnInit {
       });
   }
 
-  private startAttempt(assignmentId: string): void {
+  beginQuiz(): void {
+    const info = this.preview();
+    const assignmentId = this.candidate.assignmentId();
+    if (!info || info.attemptStatus !== 'notStarted' || !assignmentId || this.starting()) {
+      return;
+    }
+    this.starting.set(true);
+    this.bannerError.set(null);
     this.attemptsApi.start(assignmentId).subscribe({
+      next: (attempt) => {
+        this.starting.set(false);
+        this.applyAttempt(attempt);
+      },
+      error: (err: unknown) => {
+        this.starting.set(false);
+        this.fail(err, false, false);
+      },
+    });
+  }
+
+  private loadPreview(assignmentId: string): void {
+    this.attemptsApi.preview(assignmentId).subscribe({
+      next: (preview) => {
+        this.preview.set(preview);
+        if (preview.attemptStatus === 'notStarted') {
+          this.loading.set(false);
+          return;
+        }
+        this.loadCurrent(assignmentId);
+      },
+      error: (err: unknown) => this.fail(err),
+    });
+  }
+
+  private loadCurrent(assignmentId: string): void {
+    this.attemptsApi.getCurrent(assignmentId).subscribe({
       next: (attempt) => this.applyAttempt(attempt),
       error: (err: unknown) => this.fail(err),
     });

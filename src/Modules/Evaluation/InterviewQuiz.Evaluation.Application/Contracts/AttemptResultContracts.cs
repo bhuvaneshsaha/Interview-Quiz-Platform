@@ -28,6 +28,9 @@ public sealed class AttemptResultItemDto
     public decimal? PointsAwarded { get; init; }
     public JsonElement? CandidateAnswer { get; init; }
     public string? Stem { get; init; }
+
+    /// <summary>Redacted snapshot body (option and item text, no answer keys) so recruiters can label ids.</summary>
+    public JsonElement? Body { get; init; }
 }
 
 public sealed class AttemptResultResponse : AttemptSummaryResponse

@@ -101,7 +101,7 @@ public sealed class MagicLinkApiTests
     }
 
     [RequiresDatabaseFact]
-    public async Task Consume_when_not_invitable_is_bad_request()
+    public async Task Consume_after_submit_returns_a_view_token_and_start_does_not_open_another_attempt()
     {
         var created = await CreateAsyncAssignmentAsync();
         var raw = TokenFromInviteUrl(created.InviteUrl!);
@@ -120,8 +120,18 @@ public sealed class MagicLinkApiTests
         var consume = await client.PostAsJsonAsync(
             "/api/auth/magic-link/consume",
             new ConsumeMagicLinkRequest { Token = raw });
-        Assert.Equal(HttpStatusCode.BadRequest, consume.StatusCode);
-        Assert.Contains("Invite is not valid.", await consume.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, consume.StatusCode);
+        var tokens = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
+        Assert.NotNull(tokens);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+        var start = await client.PostAsync($"/api/assignments/{created.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.Conflict, start.StatusCode);
+        Assert.Contains(
+            "Attempt limit reached.",
+            await start.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
     }
 
     [RequiresDatabaseFact]

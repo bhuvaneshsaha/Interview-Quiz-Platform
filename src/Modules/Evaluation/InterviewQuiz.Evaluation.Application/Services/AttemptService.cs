@@ -60,7 +60,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
         }
 
         var submittedCount = await _attempts.CountSubmittedAsync(assignmentId, cancellationToken);
-        if (submittedCount >= header.AttemptLimit)
+        if (IsClosed(header.Status) || submittedCount >= header.AttemptLimit)
         {
             throw new ConcurrencyException(Attempt.LimitReachedMessage);
         }
@@ -104,6 +104,39 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
             header.SnapshotId);
 
         return (MapCandidate(attempt, header.Snapshot), true);
+    }
+
+    public async Task<CandidateAttemptPreviewResponse> GetPreviewAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("attempts.preview");
+        activity?.SetTag("assignment.id", assignmentId);
+
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        EnsureAsync(header);
+
+        var inProgress = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        string attemptStatus;
+        if (inProgress is not null)
+        {
+            attemptStatus = "inProgress";
+        }
+        else
+        {
+            var latest = await _attempts.GetLatestAsync(assignmentId, cancellationToken);
+            attemptStatus = latest is null ? "notStarted" : "submitted";
+        }
+
+        var openingName = string.IsNullOrWhiteSpace(header.OpeningTitle) ? "Opening" : header.OpeningTitle.Trim();
+        return new CandidateAttemptPreviewResponse
+        {
+            AttemptStatus = attemptStatus,
+            QuizTitle = header.Snapshot.Title,
+            OpeningName = openingName,
+            DurationMinutes = header.OverallDurationMinutes ?? 0,
+            QuestionCount = header.Snapshot.Questions.Count
+        };
     }
 
     public async Task<CandidateAttemptResponse> GetCurrentAsync(
@@ -301,6 +334,11 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
         }
     }
 
+    private static bool IsClosed(string status)
+        => status.Equals("submitted", StringComparison.OrdinalIgnoreCase)
+           || status.Equals("pendingReview", StringComparison.OrdinalIgnoreCase)
+           || status.Equals("completed", StringComparison.OrdinalIgnoreCase);
+
     private CandidateAttemptResponse MapCandidate(Attempt attempt, QuizSnapshotDto snapshot)
     {
         var promptOrder = CandidateQuestionRedactor.ParsePromptOrder(attempt.PromptOrderJson);
@@ -313,9 +351,6 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
                 SortOrder = q.SortOrder,
                 Type = q.Type,
                 Stem = q.Stem,
-                ScoringMode = q.ScoringMode,
-                CreditMode = q.CreditMode,
-                Points = q.Points,
                 Body = CandidateQuestionRedactor.RedactBody(q, promptOrder),
                 SourceQuestionId = q.SourceQuestionId
             })
@@ -336,7 +371,6 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
                 .Select(r => new CandidateItemResultDto
                 {
                     QuestionId = r.QuestionId,
-                    ScoringMode = r.ScoringMode,
                     Status = Camel(r.Status),
                     PointsAwarded = r.PointsAwarded
                 })
@@ -374,7 +408,6 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
             ItemResults = attempt.ItemResults.Select(r => new CandidateItemResultDto
             {
                 QuestionId = r.QuestionId,
-                ScoringMode = r.ScoringMode,
                 Status = Camel(r.Status),
                 PointsAwarded = r.PointsAwarded
             }).ToList()
@@ -398,22 +431,30 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
 
     private static AttemptResultResponse MapResult(Attempt attempt, QuizSnapshotDto snapshot)
     {
-        var stems = snapshot.Questions.ToDictionary(q => q.Id, q => q.Stem);
+        var questions = snapshot.Questions.ToDictionary(q => q.Id);
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.Value.RootElement.Clone());
+        var emptyOrder = new Dictionary<Guid, IReadOnlyList<string>>();
         var items = attempt.ItemResults
             .OrderBy(r => r.SortOrder)
             .ThenBy(r => r.QuestionId)
-            .Select(r => new AttemptResultItemDto
+            .Select(r =>
             {
-                QuestionId = r.QuestionId,
-                SortOrder = r.SortOrder,
-                Type = r.Type,
-                ScoringMode = r.ScoringMode,
-                Points = r.Points,
-                Status = Camel(r.Status),
-                PointsAwarded = r.PointsAwarded,
-                CandidateAnswer = answers.TryGetValue(r.QuestionId, out var value) ? value : null,
-                Stem = stems.GetValueOrDefault(r.QuestionId)
+                questions.TryGetValue(r.QuestionId, out var question);
+                return new AttemptResultItemDto
+                {
+                    QuestionId = r.QuestionId,
+                    SortOrder = r.SortOrder,
+                    Type = r.Type,
+                    ScoringMode = r.ScoringMode,
+                    Points = r.Points,
+                    Status = Camel(r.Status),
+                    PointsAwarded = r.PointsAwarded,
+                    CandidateAnswer = answers.TryGetValue(r.QuestionId, out var value) ? value : null,
+                    Stem = question?.Stem,
+                    Body = question is null
+                        ? null
+                        : CandidateQuestionRedactor.RedactBody(question, emptyOrder)
+                };
             })
             .ToList();
 

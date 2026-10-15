@@ -44,7 +44,7 @@
         <li class="item">
           <h2>{{ i + 1 }}. {{ typeLabel(item.type) }}</h2>
           <p class="stem">{{ item.stem || 'Question stem unavailable.' }}</p>
-          <p class="answer"><span class="answer-label">Answer.</span> {{ formatCandidateAnswer(item.candidateAnswer) }}</p>
+          <p class="answer"><span class="answer-label">Answer.</span> {{ formatCandidateAnswer(item.candidateAnswer, item.body) }}</p>
           <p class="item-result" [class.is-unsettled]="item.status === 'unsettled'">
             {{ itemResultLabel(item.status, item.pointsAwarded, item.points) }}
           </p>

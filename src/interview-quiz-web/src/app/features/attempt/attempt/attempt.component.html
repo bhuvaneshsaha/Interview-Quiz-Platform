@@ -5,7 +5,7 @@
   <p class="attempt-tagline">Candidate attempt</p>
 </header>
 <main id="attempt-main" class="attempt-main">
-  <h1>Quiz attempt</h1>
+  <h1>{{ preview()?.quizTitle || 'Quiz attempt' }}</h1>
 
   <app-page-status
     [loading]="loading()"
@@ -15,6 +15,39 @@
   >
     @if (bannerError()) {
       <p class="status status-error" role="alert">{{ bannerError() }}</p>
+    }
+    @if (!attempt() && preview(); as info) {
+      @if (info.attemptStatus === 'notStarted') {
+        <section class="welcome" aria-labelledby="welcome-title">
+          <h2 id="welcome-title">Welcome</h2>
+          <p class="welcome-opening">{{ info.openingName }}</p>
+          <dl class="welcome-facts">
+            <div>
+              <dt>Duration</dt>
+              <dd>{{ info.durationMinutes }} minutes</dd>
+            </div>
+            <div>
+              <dt>Questions</dt>
+              <dd>{{ info.questionCount }}</dd>
+            </div>
+          </dl>
+          <h3>Before you start</h3>
+          <ul class="rules">
+            <li>You have a single attempt. Start only when you are ready.</li>
+            <li>
+              The timer starts when you click Start quiz. When time runs out, the quiz submits
+              automatically and you can't change your answers.
+            </li>
+            <li>
+              Don't close this tab during the quiz. Refreshing returns you to the same attempt with
+              the time you have left.
+            </li>
+          </ul>
+          <button type="button" class="button" [disabled]="starting()" (click)="beginQuiz()">
+            {{ starting() ? 'Starting…' : 'Start quiz' }}
+          </button>
+        </section>
+      }
     }
     @if (attempt(); as current) {
       <p class="meta">
@@ -59,11 +92,11 @@
       <ol class="questions">
         @for (question of current.questions; track question.id; let i = $index) {
           <li class="question">
-            <h2>
-              {{ i + 1 }}. {{ typeLabel(question) }}
-              <span class="points">({{ question.points }} pts)</span>
-            </h2>
+            <h2>Question {{ i + 1 }}</h2>
             <p class="stem">{{ question.stem }}</p>
+            @if (answerHint(question); as hint) {
+              <p class="hint">{{ hint }}</p>
+            }
 
             @if (submitted()) {
               @if (resultFor(question.id); as result) {
@@ -133,9 +166,6 @@
                 }
                 @case ('longText') {
                   <label class="field-inline" [attr.for]="'long-' + question.id">Answer</label>
-                  @if (longTextGuidance(question)) {
-                    <p class="hint">{{ longTextGuidance(question) }}</p>
-                  }
                   <textarea
                     [id]="'long-' + question.id"
                     rows="6"
@@ -145,9 +175,45 @@
                   ></textarea>
                 }
                 @case ('dragDropSharedBank') {
+                  <div
+                    class="drag-bank"
+                    cdkDropList
+                    [id]="bankListId(question)"
+                    [cdkDropListConnectedTo]="sharedConnections(question)"
+                    [cdkDropListData]="unassignedBank(question)"
+                    (cdkDropListDropped)="dropShared(question, $event, null)"
+                  >
+                    <p class="drag-caption">Items</p>
+                    @for (item of unassignedBank(question); track item.id) {
+                      <div class="drag-chip" cdkDrag [cdkDragData]="item.id" [cdkDragDisabled]="submitted()">
+                        {{ item.text }}
+                      </div>
+                    } @empty {
+                      <p class="hint">All items are placed.</p>
+                    }
+                  </div>
                   @for (slot of sharedSlots(question); track slot.id) {
                     <div class="field">
-                      <label [attr.for]="'shared-' + question.id + '-' + slot.id">{{ slot.label }}</label>
+                      <p class="slot-label" [id]="'shared-label-' + question.id + '-' + slot.id">{{ slot.label }}</p>
+                      <div
+                        class="slot-drop"
+                        cdkDropList
+                        [id]="slotListId(question, slot.id)"
+                        [cdkDropListConnectedTo]="sharedConnections(question)"
+                        [attr.aria-labelledby]="'shared-label-' + question.id + '-' + slot.id"
+                        (cdkDropListDropped)="dropShared(question, $event, slot.id)"
+                      >
+                        @if (assignedBankItem(question, slot.id); as placed) {
+                          <div class="drag-chip" cdkDrag [cdkDragData]="placed.id" [cdkDragDisabled]="submitted()">
+                            {{ placed.text }}
+                          </div>
+                        } @else {
+                          <p class="hint">Drop an item here</p>
+                        }
+                      </div>
+                      <label class="keyboard-label" [attr.for]="'shared-' + question.id + '-' + slot.id">
+                        Choose {{ slot.label }}
+                      </label>
                       <select
                         [id]="'shared-' + question.id + '-' + slot.id"
                         [ngModel]="slotItemId(answer(question.id), slot.id)"
@@ -164,7 +230,37 @@
                 @case ('dragDropPerSlot') {
                   @for (slot of perSlots(question); track slot.id) {
                     <div class="field">
-                      <label [attr.for]="'per-' + question.id + '-' + slot.id">{{ slot.label }}</label>
+                      <p class="slot-label" [id]="'per-label-' + question.id + '-' + slot.id">{{ slot.label }}</p>
+                      <ul
+                        class="drag-bank"
+                        cdkDropList
+                        cdkDropListSortingDisabled
+                        [id]="perOptionListId(question, slot.id)"
+                        [cdkDropListConnectedTo]="[perSlotDropId(question, slot.id)]"
+                      >
+                        @for (option of slot.options; track option.id) {
+                          <li class="drag-chip" cdkDrag [cdkDragData]="option.id" [cdkDragDisabled]="submitted()">
+                            {{ option.text }}
+                          </li>
+                        }
+                      </ul>
+                      <div
+                        class="slot-drop"
+                        cdkDropList
+                        [id]="perSlotDropId(question, slot.id)"
+                        [cdkDropListConnectedTo]="[perOptionListId(question, slot.id)]"
+                        [attr.aria-labelledby]="'per-label-' + question.id + '-' + slot.id"
+                        (cdkDropListDropped)="dropPerSlot(question, slot.id, $event)"
+                      >
+                        @if (chosenPerSlotText(question, slot.id); as chosen) {
+                          <p class="placed">{{ chosen }}</p>
+                        } @else {
+                          <p class="hint">Drop an option here</p>
+                        }
+                      </div>
+                      <label class="keyboard-label" [attr.for]="'per-' + question.id + '-' + slot.id">
+                        Choose {{ slot.label }}
+                      </label>
                       <select
                         [id]="'per-' + question.id + '-' + slot.id"
                         [ngModel]="slotOptionId(answer(question.id), slot.id)"
@@ -179,14 +275,27 @@
                   }
                 }
                 @case ('ordering') {
-                  <ol class="order-list">
+                  <ol
+                    class="order-list"
+                    cdkDropList
+                    (cdkDropListDropped)="dropOrder(question, $event)"
+                  >
                     @for (id of orderedIds(question); track id; let index = $index) {
-                      <li>
-                        <span>{{ orderingItemText(question, id) }}</span>
+                      <li class="order-item" cdkDrag [cdkDragDisabled]="submitted()">
+                        <button
+                          type="button"
+                          class="drag-handle"
+                          cdkDragHandle
+                          [attr.aria-label]="'Drag ' + orderingItemText(question, id)"
+                        >
+                          <span aria-hidden="true">⠿</span>
+                        </button>
+                        <span class="order-text">{{ orderingItemText(question, id) }}</span>
                         <button
                           type="button"
                           class="button button-quiet"
                           [disabled]="index === 0"
+                          [attr.aria-label]="'Move ' + orderingItemText(question, id) + ' up'"
                           (click)="moveOrder(question, index, -1)"
                         >
                           Move up
@@ -195,6 +304,7 @@
                           type="button"
                           class="button button-quiet"
                           [disabled]="index === orderedIds(question).length - 1"
+                          [attr.aria-label]="'Move ' + orderingItemText(question, id) + ' down'"
                           (click)="moveOrder(question, index, 1)"
                         >
                           Move down

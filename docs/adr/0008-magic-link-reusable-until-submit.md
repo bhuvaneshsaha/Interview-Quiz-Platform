@@ -20,15 +20,15 @@ No SMTP provider is in v1. Development must still let a recruiter copy a URL. No
 1. **The URL carries an opaque invite, not the session JWT.**  
    Recruiter issue (`POST /api/assignments/{id}/invite`, and the async create response) returns `inviteUrl` **once per issue**. The token in the query string is a high-entropy opaque value. Access stores only a **hash** (same idea as `access.refresh_tokens`). `POST /api/auth/magic-link/consume` exchanges it for a **JWT bearer** resource-scoped to that assignment (and `attempt_id` when an attempt exists). APIs authorize the JWT, never the invite string.
 
-2. **The invite is reusable until first submit** (or explicit rotate).  
-   Consume does **not** burn the invite. The candidate may consume again (new access token) until the bound assignment has a **submitted** attempt, or the recruiter issues a new invite (previous hashes stop working). Submitted, revoked, or live-mode assignments reject consume. This is **not** a one-time link.
+2. **The invite is reusable until the recruiter rotates it.**  
+   Consume does **not** burn the invite and does **not** start the attempt. The candidate may consume again (new access token) before start, while in progress, and after submit (to view the submitted summary). A recruiter issue replaces the hash (previous tokens stop working). Live-mode assignments reject consume. A new invite cannot be issued once the assignment is submitted. This is **not** a one-time link.
 
 3. **Consume is POST**, body `{ "token": "<opaque>" }`, `[AllowAnonymous]`. Do not consume on GET of the landing page (prefetch would mint sessions).
 
 4. **Candidate JWT permission set is exactly** `candidate.attempt.participate`.  
    Claims include existing `sub` / email / `permission`, plus `assignment_id` (required) and `attempt_id` (when an attempt exists). **Never** union employee role permissions, even if the email matches an employee Identity user. Employee password login is a separate token. `candidate.attempt.participate` stays out of the employee role editor (`IncludeInEmployeeRoleEditor: false`).
 
-5. **No candidate refresh token in slice 5.** Re-consume the still-valid invite. Lifetime: `Jwt__CandidateAccessTokenMinutes` (default 60, same 1–180 cap family as `Jwt__AccessTokenMinutes`). Quiz timing is enforced on the attempt (`dueAtUtc`), not by the JWT expiry.
+5. **No candidate refresh token in slice 5.** Re-consume the still-valid invite. Lifetime: `Jwt__CandidateAccessTokenMinutes` (default 60, same 1–180 cap family as `Jwt__AccessTokenMinutes`). Quiz timing is enforced on the attempt (`dueAtUtc`), which is set only when the candidate starts, not when they open the link or consume the invite.
 
 6. **No SMTP in slice 5.** Issue responses return `inviteUrl` for the recruiter to copy. `PublicBaseUrl` builds the origin. No secrets in git. Rotate with a new `POST .../invite` if the URL leaked.
 
@@ -36,7 +36,8 @@ Landing path (Angular): `{PublicBaseUrl}/attempt?token=...` — see `docs/archit
 
 ## Consequences
 
-- Auth implemented hashed invites, consume, and candidate JWT claims. Delivery owns whether the assignment is still invitable (async, not submitted). Evaluation owns attempt identity for `attempt_id`.
+- Auth implemented hashed invites, consume, and candidate JWT claims. Delivery owns whether a new invite can be issued (async, not submitted). Evaluation owns attempt identity for `attempt_id`.
+- **View after submit:** consume still exchanges a valid invite for a candidate JWT after the attempt is submitted, so a refresh of `/attempt?token=` can show the submitted summary. Consume does not create an attempt and does not set `dueAtUtc`. A second start is rejected (`Attempt limit reached.`). Issuing a new invite still fails once the assignment is submitted, and rotating an invite still invalidates the previous token. Live mode still rejects consume.
 - Security threat-models invite theft and prefetch; this ADR chooses POST consume + hashed storage + rotate-to-revoke so Architecture does not invent a mail vendor.
 - Angular keeps the **candidate** access token apart from the employee session so a logged-in recruiter opening the invite cannot send `assignments.write` to candidate APIs, and the candidate token cannot call employee assignment write.
 - Service worker: still **no** `/api` data groups (ADR 0004). Invite consume, assignment, and attempt URLs are never cached.

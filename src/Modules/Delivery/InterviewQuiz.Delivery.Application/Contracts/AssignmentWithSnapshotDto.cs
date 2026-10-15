@@ -15,4 +15,5 @@ public sealed record AssignmentWithSnapshotDto(
     int? OverallDurationMinutes,
     int AttemptLimit,
     string Status,
-    QuizSnapshotDto Snapshot);
+    QuizSnapshotDto Snapshot,
+    string OpeningTitle = "");

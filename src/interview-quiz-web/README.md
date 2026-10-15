@@ -52,7 +52,7 @@ Do not put JWT signing keys, connection strings, or dummy passwords into environ
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit). Async 201 shows `inviteUrl` (`data-testid="invite-url"`) and the note that the link works until submit or a new link, and that an expired sign-in session can reopen it. Live has no invite copy (slice 6) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, issue invite (`assignments.write`, async not submitted), results table if `attempts.read` |
 | `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail from a results row: stem, candidate answer, points or “Awaiting human review”. No answer keys |
-| `/attempt?token=` | none (outside employee shell) | Candidate magic-link: POST consume, start/save/submit. Isolated candidate access token |
+| `/attempt?token=` | none (outside employee shell) | Candidate magic-link: POST consume, then a welcome page. The timer and attempt start only from Start quiz. Isolated candidate access token |
 
 Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `quizzes.write`, **no** `questions.*`) can browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read`) can clone a version into a quiz (opening picker needs `openings.read`, otherwise an opening id field). After clone the client navigates to `/quizzes/{id}`. Publish as template is hidden without `templates.write` and is not shown on create-new.
 
@@ -75,7 +75,29 @@ ng test --watch=false
 
 Production build registers the Angular service worker. Dev `ng serve` does not (service worker `enabled: !isDevMode()`).
 
-The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. Specialists reported `npm test` **74 passed** — not re-counted in this docs pass.
+The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. `npm test` reports **108 passed**.
+
+## End-to-end tests (Playwright)
+
+Sprint 1 flows run in Chromium with the API mocked, so PostgreSQL and the .NET host are not required: candidate welcome (the timer starts only from Start quiz), hidden question type and points, drag-and-drop ordering plus Move up / Move down, and recruiter attempt detail showing option text.
+
+```bash
+cd src/interview-quiz-web
+npm install
+npx playwright install chromium
+npm run e2e
+```
+
+On Windows, use the same browser install. Do not pass `--with-deps`; that flag installs Linux system packages and is not for Windows:
+
+```powershell
+cd src\interview-quiz-web
+npm install
+npx playwright install chromium
+npm run e2e
+```
+
+Playwright reuses an `ng serve` already listening on port 4200. Set `CI` (`$env:CI = "1"` in PowerShell) when you want the config to start its own server. Screenshots are written to `e2e\screenshots` unless `E2E_SCREENSHOT_DIR` points somewhere else. Open the HTML report with `npx playwright show-report`.
 
 ## Storybook
 

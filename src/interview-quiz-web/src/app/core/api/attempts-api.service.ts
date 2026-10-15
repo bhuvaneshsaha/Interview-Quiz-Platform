@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AttemptResultResponse,
   AttemptSummaryResponse,
+  CandidateAttemptPreview,
   CandidateAttemptResponse,
   CandidateSubmitResponse,
   PagedResult,
@@ -30,6 +31,10 @@ export class AttemptsApi {
 
   get(id: string): Observable<AttemptResultResponse> {
     return this.http.get<AttemptResultResponse>(`/api/attempts/${id}`);
+  }
+
+  preview(assignmentId: string): Observable<CandidateAttemptPreview> {
+    return this.http.get<CandidateAttemptPreview>(`/api/assignments/${assignmentId}/attempts/preview`);
   }
 
   start(assignmentId: string): Observable<CandidateAttemptResponse> {
