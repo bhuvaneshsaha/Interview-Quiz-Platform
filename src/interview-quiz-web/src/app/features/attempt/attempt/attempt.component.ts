@@ -1,4 +1,4 @@
-import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +31,6 @@ import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.c
 import {
   answerHint,
   bankItems,
-  BankItemView,
   boolValueOf,
   choiceOptions,
   initialAnswer,
@@ -393,52 +392,6 @@ export class Attempt implements OnInit {
     return orderingItems(question).find((item) => item.id === id)?.text ?? UNTITLED_OPTION;
   }
 
-  bankListId(question: CandidateQuestion): string {
-    return `bank-${question.id}`;
-  }
-
-  slotListId(question: CandidateQuestion, slotId: string): string {
-    return `slot-${question.id}-${slotId}`;
-  }
-
-  sharedConnections(question: CandidateQuestion): string[] {
-    return [
-      this.bankListId(question),
-      ...sharedSlots(question).map((slot) => this.slotListId(question, slot.id)),
-    ];
-  }
-
-  perOptionListId(question: CandidateQuestion, slotId: string): string {
-    return `per-opts-${question.id}-${slotId}`;
-  }
-
-  perSlotDropId(question: CandidateQuestion, slotId: string): string {
-    return `per-slot-${question.id}-${slotId}`;
-  }
-
-  unassignedBank(question: CandidateQuestion): BankItemView[] {
-    const used = new Set(
-      sharedSlots(question)
-        .map((slot) => this.slotItemId(this.answer(question.id), slot.id))
-        .filter((id) => id.length > 0),
-    );
-    return bankItems(question).filter((item) => !used.has(item.id));
-  }
-
-  assignedBankItem(question: CandidateQuestion, slotId: string): BankItemView | null {
-    const id = this.slotItemId(this.answer(question.id), slotId);
-    return bankItems(question).find((item) => item.id === id) ?? null;
-  }
-
-  chosenPerSlotText(question: CandidateQuestion, slotId: string): string {
-    const optionId = this.slotOptionId(this.answer(question.id), slotId);
-    if (!optionId) {
-      return '';
-    }
-    const slot = perSlots(question).find((item) => item.id === slotId);
-    return slot?.options.find((option) => option.id === optionId)?.text ?? UNTITLED_OPTION;
-  }
-
   resultFor(questionId: string): CandidateItemResult | undefined {
     return this.itemResults().find((item) => item.questionId === questionId);
   }
@@ -474,16 +427,10 @@ export class Attempt implements OnInit {
   }
 
   setSharedSlot(question: CandidateQuestion, slotId: string, itemId: string): void {
-    const slots = sharedSlots(question).map((slot) => {
-      const current = this.slotItemId(this.answer(question.id), slot.id);
-      if (slot.id === slotId) {
-        return { slotId: slot.id, itemId };
-      }
-      if (itemId && current === itemId) {
-        return { slotId: slot.id, itemId: '' };
-      }
-      return { slotId: slot.id, itemId: current };
-    });
+    const slots = sharedSlots(question).map((slot) => ({
+      slotId: slot.id,
+      itemId: slot.id === slotId ? itemId : this.slotItemId(this.answer(question.id), slot.id),
+    }));
     this.patchAnswer(question.id, { slots });
   }
 
@@ -494,40 +441,6 @@ export class Attempt implements OnInit {
     const ids = [...this.orderedIds(question)];
     moveItemInArray(ids, event.previousIndex, event.currentIndex);
     this.patchAnswer(question.id, { itemIds: ids });
-  }
-
-  dropShared(
-    question: CandidateQuestion,
-    event: { item: { data: unknown } },
-    slotId: string | null,
-  ): void {
-    const itemId = typeof event.item.data === 'string' ? event.item.data : '';
-    if (!itemId || this.submitted()) {
-      return;
-    }
-    if (slotId === null) {
-      const slots = sharedSlots(question).map((slot) => ({
-        slotId: slot.id,
-        itemId: this.slotItemId(this.answer(question.id), slot.id) === itemId
-          ? ''
-          : this.slotItemId(this.answer(question.id), slot.id),
-      }));
-      this.patchAnswer(question.id, { slots });
-      return;
-    }
-    this.setSharedSlot(question, slotId, itemId);
-  }
-
-  dropPerSlot(question: CandidateQuestion, slotId: string, event: { item: { data: unknown } }): void {
-    const optionId = typeof event.item.data === 'string' ? event.item.data : '';
-    if (!optionId || this.submitted()) {
-      return;
-    }
-    const slot = perSlots(question).find((item) => item.id === slotId);
-    if (!slot?.options.some((option) => option.id === optionId)) {
-      return;
-    }
-    this.setPerSlot(question, slotId, optionId);
   }
 
   setPerSlot(question: CandidateQuestion, slotId: string, optionId: string): void {

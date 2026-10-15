@@ -103,9 +103,9 @@ export function answerHint(question: CandidateQuestion): string {
     case 'longText':
       return longTextGuidance(question) || 'Write your answer.';
     case 'dragDropSharedBank':
-      return 'Match each slot. Drag an item onto each slot, or choose it from the list.';
+      return 'Choose an item for each slot.';
     case 'dragDropPerSlot':
-      return 'Match each slot. Drag an option onto each slot, or choose it from the list.';
+      return 'Choose an option for each slot.';
     case 'ordering':
       return 'Drag the items into order, or use Move up and Move down.';
     default:

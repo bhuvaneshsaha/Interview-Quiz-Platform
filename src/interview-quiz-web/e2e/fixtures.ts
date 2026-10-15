@@ -178,6 +178,7 @@ export interface AttemptCalls {
 export async function installCandidateApi(
   page: Page,
   preview: typeof welcomePreview,
+  attempt: unknown = candidateAttempt,
 ): Promise<AttemptCalls> {
   const calls: AttemptCalls = { start: 0, preview: 0, current: 0 };
   const flagged = new Set<string>();
@@ -198,16 +199,16 @@ export async function installCandidateApi(
     }
     if (method === 'GET' && pathname.endsWith('/attempts/current')) {
       calls.current += 1;
-      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
+      await json(route, withFlags(attempt, flagged));
       return;
     }
     if (method === 'POST' && /\/attempts$/.test(pathname)) {
       calls.start += 1;
-      await json(route, candidateAttempt, 201);
+      await json(route, attempt, 201);
       return;
     }
     if (method === 'PUT' && pathname.endsWith('/answers')) {
-      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
+      await json(route, withFlags(attempt, flagged));
       return;
     }
     if (method === 'PUT' && pathname.endsWith('/flags')) {
@@ -218,7 +219,7 @@ export async function installCandidateApi(
           flagged.add(flag.questionId);
         }
       }
-      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
+      await json(route, withFlags(attempt, flagged));
       return;
     }
     if (method === 'PUT' && pathname.endsWith('/position')) {
@@ -267,6 +268,13 @@ export async function expectNoRawIds(text: string): Promise<void> {
   expect(text).not.toMatch(/\bopt-[a-z0-9-]+\b/);
   expect(text).not.toMatch(/\bitem-[a-z0-9-]+\b/);
   expect(text).not.toMatch(/\bslot-[a-z0-9-]+\b/);
+}
+
+function withFlags(attempt: unknown, flagged: ReadonlySet<string>): unknown {
+  if (typeof attempt === 'object' && attempt !== null) {
+    return { ...attempt, flaggedQuestionIds: [...flagged] };
+  }
+  return attempt;
 }
 
 async function json(route: Route, body: unknown, status = 200): Promise<void> {

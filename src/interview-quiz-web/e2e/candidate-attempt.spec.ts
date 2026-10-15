@@ -61,6 +61,77 @@ test('an in-progress refresh skips welcome and keeps the server timer', async ({
   expect(calls.preview).toBe(1);
 });
 
+test('slot questions use dropdowns and have no drag handles or drop zones', async ({ page }) => {
+  const slotAttempt = {
+    ...candidateAttempt,
+    questions: [
+      {
+        id: 'q-shared',
+        sortOrder: 0,
+        type: 'dragDropSharedBank',
+        stem: 'Match each HTTP method to what it typically does.',
+        body: {
+          slots: [
+            { id: 'slot-get', label: 'GET' },
+            { id: 'slot-post', label: 'POST' },
+          ],
+          bank: [
+            { id: 'item-read', text: 'Read a resource' },
+            { id: 'item-create', text: 'Create a resource' },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+      {
+        id: 'q-per-slot',
+        sortOrder: 1,
+        type: 'dragDropPerSlot',
+        stem: 'Match each status code.',
+        body: {
+          slots: [
+            {
+              id: 'slot-401',
+              label: '401',
+              options: [
+                { id: 'opt-unauth', text: 'Unauthenticated' },
+                { id: 'opt-forbid', text: 'Forbidden' },
+              ],
+            },
+          ],
+        },
+        sourceQuestionId: null,
+      },
+    ],
+  };
+  await installCandidateApi(page, inProgressPreview, slotAttempt);
+  await page.goto(`/attempt?token=opaque-token`);
+
+  await expect(page.getByRole('heading', { name: slotAttempt.questions[0].stem })).toBeVisible();
+  await expect(page.getByText('Choose an item for each slot.')).toBeVisible();
+  await expect(page.getByLabel('GET')).toBeVisible();
+  await expect(page.getByLabel('POST')).toBeVisible();
+  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
+  await expect(page.getByText('Drop an item here')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Drag / })).toHaveCount(0);
+
+  await page.getByLabel('GET').selectOption({ label: 'Read a resource' });
+  await page.getByLabel('POST').selectOption({ label: 'Create a resource' });
+  await expect(page.getByLabel('GET')).toHaveValue('item-read');
+  await expect(page.getByLabel('POST')).toHaveValue('item-create');
+
+  const shared = await page.locator('#attempt-main').innerText();
+  await expectNoRawIds(shared);
+  await page.screenshot({ path: screenshotPath('after-slot-dropdowns.png'), fullPage: true });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: slotAttempt.questions[1].stem })).toBeVisible();
+  await expect(page.getByText('Choose an option for each slot.')).toBeVisible();
+  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
+  await expect(page.getByText('Drop an option here')).toHaveCount(0);
+  await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
+  await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
+});
+
 test('ordering can be dragged and reordered from the keyboard', async ({ page }) => {
   await installCandidateApi(page, inProgressPreview);
   await page.goto(`/attempt?token=opaque-token`);
