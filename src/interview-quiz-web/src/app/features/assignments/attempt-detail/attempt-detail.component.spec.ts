@@ -44,6 +44,23 @@ const detail: AttemptResultResponse = {
       stem: 'Describe how a snapshot freezes the quiz.',
       candidateAnswer: { text: 'The assign step copies the quiz.' },
     },
+    {
+      questionId: 'q-choice',
+      sortOrder: 2,
+      type: 'multipleChoiceMulti',
+      scoringMode: 'auto',
+      points: 2,
+      status: 'scored',
+      pointsAwarded: 2,
+      stem: 'Which of these are ASP.NET Core hosting concerns?',
+      candidateAnswer: { optionIds: ['opt-kestrel', 'opt-health'] },
+      body: {
+        options: [
+          { id: 'opt-kestrel', text: 'Kestrel' },
+          { id: 'opt-health', text: 'Health checks' },
+        ],
+      },
+    },
   ],
 };
 
@@ -92,6 +109,9 @@ describe('AttemptDetail', () => {
     expect(text).toContain('1 / 1 points');
     expect(text).toContain('Describe how a snapshot freezes the quiz.');
     expect(text).toContain('The assign step copies the quiz.');
+    expect(text).toContain('Kestrel, Health checks');
+    expect(text).not.toContain('opt-kestrel');
+    expect(text).not.toContain('opt-health');
     expect(text).toContain('Awaiting human review');
     expect(text).not.toContain('isCorrect');
     expect(text).not.toContain('failed');

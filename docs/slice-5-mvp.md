@@ -20,7 +20,7 @@ There is no live start, pause, or monitor. There is no human or AI review, no SM
 
 ## Invite and session
 
-The invite link works until the candidate submits, or until the recruiter issues a new link. Issuing a new link stops the previous one. The link is not burned on first open.
+The invite link works until the recruiter issues a new link. Issuing a new link stops the previous one. The link is not burned on first open, and opening it does not start the timer. After submit, the same link still opens the submitted summary; it does not start another attempt. A new invite cannot be issued once the assignment is submitted.
 
 The candidate access token is a JWT (`Jwt__CandidateAccessTokenMinutes`, default 60 minutes). There is no candidate refresh token. If that session expires before submit, the candidate opens the **same** invite link again and receives a new access token. Quiz time is the attempt `dueAtUtc`, not the JWT lifetime. Protocol: [ADR 0008](adr/0008-magic-link-reusable-until-submit.md).
 

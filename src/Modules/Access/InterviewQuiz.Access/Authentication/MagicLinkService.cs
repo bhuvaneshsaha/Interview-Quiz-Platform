@@ -87,7 +87,7 @@ public sealed class MagicLinkService : IMagicLinkService
         activity?.SetTag("assignment.id", assignmentId.Value);
 
         var info = await _assignments.GetAsync(assignmentId.Value, cancellationToken);
-        if (info is null || !IsInvitable(info))
+        if (info is null || !IsConsumable(info))
         {
             _logger.LogInformation(
                 "Magic-link consume rejected for assignment {AssignmentId}",
@@ -137,9 +137,12 @@ public sealed class MagicLinkService : IMagicLinkService
         }
     }
 
-    private static bool IsInvitable(AssignmentInviteInfoDto info)
-        => string.Equals(info.Mode, "async", StringComparison.OrdinalIgnoreCase)
-           && !IsTerminalStatus(info.Status);
+    /// <summary>
+    /// Consume stays available after submit so a refresh can show the submitted summary.
+    /// Issuing a new invite still rejects terminal assignments.
+    /// </summary>
+    private static bool IsConsumable(AssignmentInviteInfoDto info)
+        => string.Equals(info.Mode, "async", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTerminalStatus(string? status)
         => status is not null && TerminalStatuses.Contains(status);

@@ -48,8 +48,11 @@ public sealed class AttemptsApiTests
         var started = await start.Content.ReadFromJsonAsync<CandidateAttemptResponse>(JsonOptions);
         Assert.NotNull(started);
         Assert.Equal("inProgress", started!.Status);
-        Assert.DoesNotContain("isCorrect", await start.Content.ReadAsStringAsync(), StringComparison.Ordinal);
-        Assert.DoesNotContain("\"correct\"", await start.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        var startJson = await start.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("isCorrect", startJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"correct\"", startJson, StringComparison.Ordinal);
+        AssertCandidatePayloadOmitsWeights(startJson);
+        Assert.Contains("\"type\"", startJson, StringComparison.Ordinal);
 
         var save = await client.PutAsJsonAsync(
             $"/api/assignments/{assignment.Id}/attempts/current/answers",
@@ -161,6 +164,258 @@ public sealed class AttemptsApiTests
 
         var start = await client.PostAsync($"/api/assignments/{other.Assignment.Id}/attempts", null);
         Assert.Equal(HttpStatusCode.Forbidden, start.StatusCode);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Consume_leaves_no_attempt_and_start_sets_due_once()
+    {
+        var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite,
+            PermissionCodes.Catalog.QuizzesRead,
+            PermissionCodes.Catalog.QuizzesWrite,
+            PermissionCodes.Evaluation.AttemptsRead));
+        var quizId = await CreateAutoQuizAsync(recruiter);
+        var post = await recruiter.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
+        {
+            OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
+            QuizId = quizId,
+            CandidateEmail = $"welcome.{Guid.NewGuid():N}@example.com",
+            Mode = "async",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 45 }
+        });
+        var assignment = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
+        Assert.NotNull(assignment);
+        var token = MagicLinkApiTests.TokenFromInviteUrl(assignment!.InviteUrl!);
+
+        var client = _factory.CreateClient();
+        var consume = await client.PostAsJsonAsync(
+            "/api/auth/magic-link/consume",
+            new ConsumeMagicLinkRequest { Token = token });
+        Assert.Equal(HttpStatusCode.OK, consume.StatusCode);
+        var candidate = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", candidate!.AccessToken);
+
+        var before = await recruiter.GetFromJsonAsync<PagedResult<AttemptSummaryResponse>>(
+            $"/api/assignments/{assignment.Id}/attempts",
+            JsonOptions);
+        Assert.NotNull(before);
+        Assert.Empty(before!.Items);
+
+        var preview = await client.GetAsync($"/api/assignments/{assignment.Id}/attempts/preview");
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        var previewJson = await preview.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("\"questions\"", previewJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("dueAtUtc", previewJson, StringComparison.Ordinal);
+        using (var previewDoc = JsonDocument.Parse(previewJson))
+        {
+            Assert.Equal("notStarted", previewDoc.RootElement.GetProperty("attemptStatus").GetString());
+            Assert.Equal(45, previewDoc.RootElement.GetProperty("durationMinutes").GetInt32());
+            Assert.Equal(1, previewDoc.RootElement.GetProperty("questionCount").GetInt32());
+            Assert.Equal("Auto-only slice 5 quiz", previewDoc.RootElement.GetProperty("quizTitle").GetString());
+            Assert.Equal("Senior backend engineer", previewDoc.RootElement.GetProperty("openingName").GetString());
+        }
+
+        var missing = await client.GetAsync($"/api/assignments/{assignment.Id}/attempts/current");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+
+        var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+        var started = await start.Content.ReadFromJsonAsync<CandidateAttemptResponse>(JsonOptions);
+        Assert.NotNull(started);
+        Assert.Equal(started!.StartedAtUtc.AddMinutes(45), started.DueAtUtc);
+        AssertCandidatePayloadOmitsWeights(await start.Content.ReadAsStringAsync());
+
+        var second = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        var again = await second.Content.ReadFromJsonAsync<CandidateAttemptResponse>(JsonOptions);
+        Assert.Equal(started.Id, again!.Id);
+        Assert.Equal(started.DueAtUtc, again.DueAtUtc);
+
+        var list = await recruiter.GetFromJsonAsync<PagedResult<AttemptSummaryResponse>>(
+            $"/api/assignments/{assignment.Id}/attempts",
+            JsonOptions);
+        Assert.Single(list!.Items);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Assigned_snapshot_stays_immutable_after_source_quiz_is_edited()
+    {
+        var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Delivery.AssignmentsWrite,
+            PermissionCodes.Catalog.QuizzesRead,
+            PermissionCodes.Catalog.QuizzesWrite,
+            PermissionCodes.Evaluation.AttemptsRead));
+
+        var createJson = $$"""
+            {
+              "openingId": "{{DevelopmentOpeningSeeder.SampleOpeningBackend}}",
+              "title": "Snapshot freeze quiz",
+              "expectedExperienceYears": 1,
+              "questions": [
+                {
+                  "type": "trueFalse",
+                  "stem": "Frozen stem: a quiz belongs to one opening.",
+                  "scoringMode": "auto",
+                  "points": 1,
+                  "body": { "correct": true }
+                },
+                {
+                  "type": "multipleChoiceSingle",
+                  "stem": "Frozen choice stem.",
+                  "scoringMode": "auto",
+                  "points": 1,
+                  "body": {
+                    "options": [
+                      { "id": "opt-old", "text": "Frozen option text", "isCorrect": true },
+                      { "id": "opt-other", "text": "Other frozen text", "isCorrect": false }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+        var createdResponse = await recruiter.PostAsync(
+            "/api/quizzes",
+            new StringContent(createJson, Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
+        var quiz = await createdResponse.Content.ReadFromJsonAsync<QuizResponse>(JsonOptions);
+        Assert.NotNull(quiz);
+
+        var assignmentResponse = await recruiter.PostAsJsonAsync("/api/assignments", new CreateAssignmentRequest
+        {
+            OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
+            QuizId = quiz!.Id,
+            CandidateEmail = $"freeze.{Guid.NewGuid():N}@example.com",
+            Mode = "async",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 20 }
+        });
+        var assignment = await assignmentResponse.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
+        Assert.NotNull(assignment);
+
+        var trueFalse = quiz.Questions.Single(q => q.Type == QuestionType.TrueFalse);
+        var choice = quiz.Questions.Single(q => q.Type == QuestionType.MultipleChoiceSingle);
+        var updateJson = $$"""
+            {
+              "id": "{{quiz.Id}}",
+              "openingId": "{{DevelopmentOpeningSeeder.SampleOpeningBackend}}",
+              "title": "Snapshot freeze quiz",
+              "expectedExperienceYears": 1,
+              "rowVersion": {{quiz.RowVersion}},
+              "questions": [
+                {
+                  "id": "{{trueFalse.Id}}",
+                  "type": "trueFalse",
+                  "stem": "Edited stem: the live quiz changed.",
+                  "scoringMode": "auto",
+                  "points": 4,
+                  "body": { "correct": false }
+                },
+                {
+                  "id": "{{choice.Id}}",
+                  "type": "multipleChoiceSingle",
+                  "stem": "Edited choice stem.",
+                  "scoringMode": "auto",
+                  "points": 9,
+                  "body": {
+                    "options": [
+                      { "id": "opt-old", "text": "Edited option text", "isCorrect": false },
+                      { "id": "opt-new", "text": "Brand new option", "isCorrect": true }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+        var updatedResponse = await recruiter.PutAsync(
+            $"/api/quizzes/{quiz.Id}",
+            new StringContent(updateJson, Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
+        var edited = await recruiter.GetFromJsonAsync<QuizResponse>($"/api/quizzes/{quiz.Id}", JsonOptions);
+        Assert.Equal("Edited stem: the live quiz changed.", edited!.Questions.Single(q => q.Id == trueFalse.Id).Stem);
+
+        var client = _factory.CreateClient();
+        var consume = await client.PostAsJsonAsync(
+            "/api/auth/magic-link/consume",
+            new ConsumeMagicLinkRequest { Token = MagicLinkApiTests.TokenFromInviteUrl(assignment!.InviteUrl!) });
+        var candidate = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", candidate!.AccessToken);
+
+        var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        var startJson = await start.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+        Assert.Contains("Frozen stem: a quiz belongs to one opening.", startJson, StringComparison.Ordinal);
+        Assert.Contains("Frozen option text", startJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edited stem", startJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edited option text", startJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Brand new option", startJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("isCorrect", startJson, StringComparison.Ordinal);
+        AssertCandidatePayloadOmitsWeights(startJson);
+
+        var save = await client.PutAsJsonAsync(
+            $"/api/assignments/{assignment.Id}/attempts/current/answers",
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = trueFalse.Id,
+                        Value = JsonSerializer.SerializeToElement(new { value = true }, JsonOptions)
+                    },
+                    new AnswerDto
+                    {
+                        QuestionId = choice.Id,
+                        Value = JsonSerializer.SerializeToElement(new { optionId = "opt-old" }, JsonOptions)
+                    }
+                ]
+            });
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+
+        var submit = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts/current/submit", null);
+        var submitted = await submit.Content.ReadFromJsonAsync<CandidateSubmitResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        Assert.Equal(2m, submitted!.AutoPointsAwarded);
+        Assert.Equal(2m, submitted.AutoPointsAvailable);
+
+        var result = await recruiter.GetAsync($"/api/attempts/{submitted.Id}");
+        var resultJson = await result.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Contains("Frozen stem: a quiz belongs to one opening.", resultJson, StringComparison.Ordinal);
+        Assert.Contains("Frozen option text", resultJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("isCorrect", resultJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edited stem", resultJson, StringComparison.Ordinal);
+    }
+
+    private static void AssertCandidatePayloadOmitsWeights(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        Walk(document.RootElement);
+
+        static void Walk(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        Assert.False(
+                            property.Name is "points" or "scoringMode" or "creditMode",
+                            $"Candidate payload included '{property.Name}'.");
+                        Walk(property.Value);
+                    }
+                    break;
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        Walk(item);
+                    }
+                    break;
+            }
+        }
     }
 
     private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync()

@@ -26,6 +26,14 @@ export interface OrderingItemView {
   text: string;
 }
 
+/** Visible fallback when authored text is missing. Never an id. */
+export const UNTITLED_OPTION = '(untitled option)';
+
+export function displayText(value: unknown): string {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || UNTITLED_OPTION;
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -44,21 +52,21 @@ export function choiceOptions(question: CandidateQuestion): ChoiceOptionView[] {
   return asArray(question.body['options'])
     .map((item) => asObject(item))
     .filter((item) => asString(item['id']))
-    .map((item) => ({ id: asString(item['id']), text: asString(item['text']) }));
+    .map((item) => ({ id: asString(item['id']), text: displayText(item['text']) }));
 }
 
 export function sharedSlots(question: CandidateQuestion): SharedSlotView[] {
   return asArray(question.body['slots'])
     .map((item) => asObject(item))
     .filter((item) => asString(item['id']))
-    .map((item) => ({ id: asString(item['id']), label: asString(item['label']) }));
+    .map((item) => ({ id: asString(item['id']), label: displayText(item['label']) }));
 }
 
 export function bankItems(question: CandidateQuestion): BankItemView[] {
   return asArray(question.body['bank'])
     .map((item) => asObject(item))
     .filter((item) => asString(item['id']))
-    .map((item) => ({ id: asString(item['id']), text: asString(item['text']) }));
+    .map((item) => ({ id: asString(item['id']), text: displayText(item['text']) }));
 }
 
 export function perSlots(question: CandidateQuestion): PerSlotView[] {
@@ -67,11 +75,11 @@ export function perSlots(question: CandidateQuestion): PerSlotView[] {
     .filter((item) => asString(item['id']))
     .map((item) => ({
       id: asString(item['id']),
-      label: asString(item['label']),
+      label: displayText(item['label']),
       options: asArray(item['options'])
         .map((option) => asObject(option))
         .filter((option) => asString(option['id']))
-        .map((option) => ({ id: asString(option['id']), text: asString(option['text']) })),
+        .map((option) => ({ id: asString(option['id']), text: displayText(option['text']) })),
     }));
 }
 
@@ -79,7 +87,30 @@ export function orderingItems(question: CandidateQuestion): OrderingItemView[] {
   return asArray(question.body['items'])
     .map((item) => asObject(item))
     .filter((item) => asString(item['id']))
-    .map((item) => ({ id: asString(item['id']), text: asString(item['text']) }));
+    .map((item) => ({ id: asString(item['id']), text: displayText(item['text']) }));
+}
+
+export function answerHint(question: CandidateQuestion): string {
+  switch (question.type) {
+    case 'multipleChoiceSingle':
+      return 'Select one answer.';
+    case 'multipleChoiceMulti':
+      return 'Select all that apply.';
+    case 'trueFalse':
+      return 'Choose true or false.';
+    case 'shortText':
+      return 'Enter a short answer.';
+    case 'longText':
+      return longTextGuidance(question) || 'Write your answer.';
+    case 'dragDropSharedBank':
+      return 'Drag an item onto each slot, or choose it from the list.';
+    case 'dragDropPerSlot':
+      return 'Drag an option onto each slot, or choose it from the list.';
+    case 'ordering':
+      return 'Drag the items into order, or use Move up and Move down.';
+    default:
+      return '';
+  }
 }
 
 export function longTextGuidance(question: CandidateQuestion): string {

@@ -182,3 +182,19 @@ select:focus-visible {
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgb(27 31 36 / 18%);
+  background: #fff;
+  padding: 0.45rem 0.7rem;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.35;
+}
+
+.cdk-drag-animating {
+  transition: transform 200ms ease;
+}

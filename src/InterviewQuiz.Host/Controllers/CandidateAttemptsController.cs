@@ -36,6 +36,17 @@ public sealed class CandidateAttemptsController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("preview")]
+    [HasPermission(PermissionCodes.Candidate.AttemptParticipate)]
+    public async Task<ActionResult<CandidateAttemptPreviewResponse>> Preview(
+        Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        User.EnsureAssignmentScope(assignmentId);
+        var response = await _attempts.GetPreviewAsync(assignmentId, cancellationToken);
+        return Ok(response);
+    }
+
     [HttpGet("current")]
     [HasPermission(PermissionCodes.Candidate.AttemptParticipate)]
     public async Task<ActionResult<CandidateAttemptResponse>> GetCurrent(

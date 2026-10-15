@@ -171,6 +171,7 @@ public sealed class AssignmentService :
             return null;
         }
 
+        var opening = await _openings.GetOpeningAsync(assignment.OpeningId, cancellationToken);
         return new AssignmentWithSnapshotDto(
             assignment.Id,
             assignment.OpeningId,
@@ -181,7 +182,8 @@ public sealed class AssignmentService :
             assignment.OverallDurationMinutes,
             assignment.AttemptLimit,
             Camel(assignment.Status),
-            SnapshotJson.ToDto(assignment.Snapshot.Payload));
+            SnapshotJson.ToDto(assignment.Snapshot.Payload),
+            opening?.Title ?? "");
     }
 
     public async Task NotifyAttemptStarted(Guid assignmentId, Guid attemptId, CancellationToken cancellationToken)

@@ -65,9 +65,23 @@ public sealed class MagicLinkServiceTests
     }
 
     [Fact]
-    public async Task Consume_when_not_invitable_is_invalid()
+    public async Task Consume_after_submit_still_issues_a_view_token()
     {
         var harness = Harness.Create(status: "submitted");
+        var raw = await IssueBypassingRulesAsync(harness);
+
+        var response = await harness.MagicLinks.ConsumeAsync(
+            new ConsumeMagicLinkRequest { Token = raw },
+            CancellationToken.None);
+
+        Assert.Equal(AssignmentId, response.AssignmentId);
+        Assert.False(string.IsNullOrWhiteSpace(response.AccessToken));
+    }
+
+    [Fact]
+    public async Task Consume_live_mode_is_invalid()
+    {
+        var harness = Harness.Create(mode: "live");
         var raw = await IssueBypassingRulesAsync(harness);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>

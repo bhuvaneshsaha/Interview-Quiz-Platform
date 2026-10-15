@@ -245,6 +245,7 @@ curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e50
 | Method | Path | Permission |
 |--------|------|------------|
 | `POST` | `/api/assignments/{id}/attempts` | `candidate.attempt.participate` + `assignment_id` claim |
+| `GET` | `/api/assignments/{id}/attempts/preview` | `candidate.attempt.participate` + `assignment_id` claim |
 | `GET` | `/api/assignments/{id}/attempts/current` | `candidate.attempt.participate` + `assignment_id` claim |
 | `PUT` | `/api/assignments/{id}/attempts/current/answers` | `candidate.attempt.participate` + `assignment_id` claim |
 | `POST` | `/api/assignments/{id}/attempts/current/submit` | `candidate.attempt.participate` + `assignment_id` claim |
@@ -298,7 +299,7 @@ Employee routes used in slices 2–5 (permission on the route, same codes as the
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
 
-Candidate (outside the employee shell): `/attempt?token=` — `POST /api/auth/magic-link/consume`, then start/save/submit. Isolated in-memory `CandidateSession` (not employee `TokenStore`). No candidate password.
+Candidate (outside the employee shell): `/attempt?token=` — `POST /api/auth/magic-link/consume`, then `GET .../attempts/preview`. A welcome page (quiz, opening, duration, question count, rules) calls start only from **Start quiz**, which sets `dueAtUtc`. An in-progress or submitted attempt skips welcome. Isolated in-memory `CandidateSession` (not employee `TokenStore`). No candidate password. The attempt hides question type and points. Ordering and drag-and-drop questions use pointer drag plus a keyboard control.
 
 Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, to **Question bank** when `questions.read`, and to **Assignments** when `assignments.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live mode may be stored on create; invite/attempt for live is **not** executed (slice 6). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
 
@@ -309,7 +310,7 @@ Dummy users and passwords are in the table under **Sign in locally** above — d
 - `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), question bank (`questions.read` + `questions.write`), include from an existing quiz (`quizzes.write` + `questions.read`), save filters (`filters.write`). Typically **cannot** assign.
 - `recruiter.dev@example.com` (Dev Recruiter) for **assignments** (`assignments.write`): list/create, copy invite (`POST /api/assignments/{id}/invite`), basic results (`attempts.read`). Also **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone. **No** `questions.*` — no bank nav, no include panel.
 
-Candidates: open `{PublicBaseUrl}/attempt?token=` after the recruiter copies `inviteUrl`. **No** candidate password.
+Candidates: open `{PublicBaseUrl}/attempt?token=` after the recruiter copies `inviteUrl`. The link shows instructions first; the timer starts on **Start quiz**. **No** candidate password. After submit, the same link shows the submitted summary.
 
 Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live bank questions (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text), and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`). Invite raw tokens are **not** seeded. **Never seeded in Production.**
 
@@ -339,13 +340,20 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules, Delivery assignment rules, Evaluation auto-score). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). Specialists reported `dotnet test` **173 passed** with the database set, and `npm test` **74 passed** — not re-counted in this docs pass.
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules, Delivery assignment rules, Evaluation auto-score). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **181 passed** (unit plus host integration). `npm test` reports **108 passed**.
 
 Angular (Vitest):
 
 ```bash
 cd src/interview-quiz-web
 ng test --watch=false
+```
+
+Playwright covers the Sprint 1 candidate welcome, hidden type and points, ordering drag-and-drop (including the keyboard alternative), and recruiter attempt detail. It mocks `/api`, so the database is not required. On Windows, install Chromium with `npx playwright install chromium` and do not pass `--with-deps`. Full steps are in `src/interview-quiz-web/README.md`.
+
+```bash
+cd src/interview-quiz-web
+npm run e2e
 ```
 
 ## Solution layout

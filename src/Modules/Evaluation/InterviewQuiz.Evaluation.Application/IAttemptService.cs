@@ -9,6 +9,13 @@ public interface IAttemptService
         Guid assignmentId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Welcome facts and attempt phase. Does not create an attempt and does not set <c>dueAtUtc</c>.
+    /// </summary>
+    Task<CandidateAttemptPreviewResponse> GetPreviewAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken);
+
     Task<CandidateAttemptResponse> GetCurrentAsync(Guid assignmentId, CancellationToken cancellationToken);
 
     Task<CandidateAttemptResponse> SaveAnswersAsync(

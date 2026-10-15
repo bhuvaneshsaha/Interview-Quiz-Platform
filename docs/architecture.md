@@ -727,7 +727,7 @@ Activities: `assignments.list`, `assignments.get`, `assignments.create`, `assign
 
 **`ConsumeMagicLinkRequest`:** `token` (opaque string from the query). **POST only** — do not consume on GET `/attempt`.
 
-**`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume until first submit.
+**`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume while the attempt is not started or in progress, and again after submit so the candidate can reopen the link and see the submitted summary. Consume never creates an attempt and never sets `dueAtUtc`. Live mode and a rotated/unknown token still reject consume. A new invite cannot be issued once the assignment is submitted.
 
 **Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, created/rotated at, revoked at. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match). Other modules do not read Access or Delivery tables across the boundary.
 
@@ -755,12 +755,15 @@ Resource: path `{id}` must equal JWT `assignment_id`. Permission: `candidate.att
 
 | Method | Path | Result |
 |--------|------|--------|
+| `GET` | `/api/assignments/{id}/attempts/preview` | `CandidateAttemptPreviewResponse`. Read-only. Does **not** create an attempt and does **not** return questions or `dueAtUtc`. |
 | `POST` | `/api/assignments/{id}/attempts` | Start or return in-progress. `CandidateAttemptResponse` 201 on first start, 200 if already in progress (idempotent). |
 | `GET` | `/api/assignments/{id}/attempts/current` | `CandidateAttemptResponse`. 404 if never started. |
 | `PUT` | `/api/assignments/{id}/attempts/current/answers` | Save; `CandidateAttemptResponse` 200 |
 | `POST` | `/api/assignments/{id}/attempts/current/submit` | Submit + auto-score; `CandidateSubmitResponse` 200 |
 
-**Start:** creates `evaluation.attempts` row; `startedAtUtc` = clock; `dueAtUtc` = start + `overallDurationMinutes`; notifies `IAssignmentLifecycle.NotifyAttemptStarted`. Questions from **snapshot only**. **Strip keys** in the candidate payload (below). Freeze **ordering** item order on the attempt (`promptOrder`) so refresh is stable and **not** the keyed order. Second start after submit: if attempts used ≥ `attemptLimit` → **409** `Attempt limit reached.` Live mode → 400.
+**Preview:** `attemptStatus` is `notStarted` \| `inProgress` \| `submitted`, plus `quizTitle`, `openingName`, `durationMinutes`, `questionCount`. No questions, no answers, no `dueAtUtc`. Opening the invite and calling preview leaves zero attempt rows.
+
+**Start:** creates `evaluation.attempts` row; `startedAtUtc` = clock; `dueAtUtc` = start + `overallDurationMinutes`; notifies `IAssignmentLifecycle.NotifyAttemptStarted`. Questions from **snapshot only**. **Strip keys** in the candidate payload (below). Freeze **ordering** item order on the attempt (`promptOrder`) so refresh is stable and **not** the keyed order. Second start while in progress returns the same attempt (200). Second start after submit, or when the assignment is already `submitted` / `pendingReview` / `completed`: **409** `Attempt limit reached.` Live mode → 400.
 
 **Timer:** **lazy expiry**. First candidate GET/PUT/submit after `dueAtUtc` auto-submits **last saved** answers (unanswered stay empty) if not already submitted, then behaves as submitted (PUT → 409 `Attempt already submitted.`). Explicit submit before due is the happy path.
 
@@ -778,9 +781,9 @@ Resource: path `{id}` must equal JWT `assignment_id`. Permission: `candidate.att
 | `dragDropPerSlot` | `{ "slots": [ { "slotId": "...", "optionId": "..." } ] }` |
 | `ordering` | `{ "itemIds": ["id1","id2"] }` candidate order |
 
-**Candidate question redaction (Evaluation owns stripping from snapshot `body`):** omit `isCorrect`, `correct`, `acceptableAnswers`, slot `correctItemId` / correct option flags, and keyed ordering. Stems, option **text**, drag **bank tokens** (including distractors), and `points` / `scoringMode` stay. Do **not** send keys to the client.
+**Candidate question redaction (Evaluation owns stripping from snapshot `body`):** omit `isCorrect`, `correct`, `acceptableAnswers`, slot `correctItemId` / correct option flags, and keyed ordering. Stems, option **text**, and drag **bank tokens** (including distractors) stay. Do **not** send keys, per-question `points`, `scoringMode`, or `creditMode` to the candidate. `type` stays so the client can render controls.
 
-**`CandidateAttemptResponse`:** `id` (attempt), `assignmentId`, `status` (`inProgress` \| `submitted`), `startedAtUtc`, `dueAtUtc`, `submittedAtUtc` (nullable), `questions` (redacted), `answers` (saved values), `remainingSeconds` (0 if due). After submit, questions stay redacted; include auto-score **marks** only as `itemResults` with `questionId`, `scoringMode`, `status` (`scored` \| `unsettled`), `pointsAwarded` (null if unsettled) — not official review.
+**`CandidateAttemptResponse`:** `id` (attempt), `assignmentId`, `status` (`inProgress` \| `submitted`), `startedAtUtc`, `dueAtUtc`, `submittedAtUtc` (nullable), `questions` (redacted; each question is `id`, `sortOrder`, `type`, `stem`, `body`, `sourceQuestionId`), `answers` (saved values), `remainingSeconds` (0 if due). After submit, questions stay redacted; include auto-score **marks** only as `itemResults` with `questionId`, `status` (`scored` \| `unsettled`), `pointsAwarded` (null if unsettled) — not official review, and not the question weight. Aggregate `autoPointsAwarded` / `autoPointsAvailable` / `totalPointsAvailable` are on the submit response only.
 
 **Submit:** lock answers; activity `attempts.submit` then `attempts.score`. For each snapshot question with `scoringMode == auto`, score from **snapshot keys** (not live catalog). `aiAssist` / `humanOnly` remain **unsettled** (no points). Notify `IAssignmentLifecycle.NotifyAttemptSubmitted`:
 
@@ -814,7 +817,7 @@ Do not call an LLM. Long text cannot be `auto` (already Catalog-validated).
 
 **`AttemptSummaryResponse`:** `id`, `assignmentId`, `openingId`, `candidateEmail`, `status`, `resultStatus` (`incomplete` \| `complete`), `startedAtUtc`, `submittedAtUtc`, `autoPointsAwarded`, `autoPointsAvailable`, `totalPointsAvailable`.
 
-**`AttemptResultResponse`:** summary plus `items[]`: `questionId`, `sortOrder`, `type`, `scoringMode`, `points`, `status` (`scored` \| `unsettled`), `pointsAwarded`, `candidateAnswer` (the `value` JSON). **May include stems** for recruiter context on this employee endpoint; **do not include keys** on `attempts.read` (keys are for review in slice 7). Logs still omit stems/answers.
+**`AttemptResultResponse`:** summary plus `items[]`: `questionId`, `sortOrder`, `type`, `scoringMode`, `points`, `status` (`scored` \| `unsettled`), `pointsAwarded`, `candidateAnswer` (the `value` JSON), `stem`, and redacted `body` (option and item **text** only, same key strip as the candidate payload). Recruiters resolve `optionId` / `optionIds` / `itemIds` / slot answers to those texts. **Do not include keys** on `attempts.read` (keys are for review in slice 7). Logs still omit stems/answers.
 
 Unknown attempt → 404. No list-all-attempts global search in slice 5 (`GET /api/attempts` without assignment filter is **out** — use nested list).
 
@@ -890,7 +893,7 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 
 Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id`, `/assignments/:assignmentId/attempts/:attemptId` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control) plus the note that the link works until submit or a new link, and that an expired candidate session can reopen it. Invite button calls `POST .../invite`. Results panel if `attempts.read`; each row opens `GET /api/attempts/{id}` (stem, answer, points or “Awaiting human review”; no keys). Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live mode is stored on create; invite/attempt for live is **not** executed (slice 6). Boundary one-pager: [slice-5-mvp.md](slice-5-mvp.md).
 
-Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → start/save/submit with isolated in-memory `CandidateSession` (not `TokenStore`). Online-only.
+Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → `GET .../attempts/preview`. `notStarted` shows a welcome page (quiz title, opening, duration, question count, rules) and calls start only from **Start quiz**. `inProgress` and `submitted` skip welcome and load `GET .../attempts/current` (remaining time comes from `dueAtUtc`). Isolated in-memory `CandidateSession` (not `TokenStore`). Online-only. The attempt page shows question number, stem, an answering hint, and controls — not the type label or points. Ordering is drag-and-drop with move up / move down as the keyboard path. Drag-and-drop questions accept a drag onto each slot and keep a select for keyboard users. Submitted answers stay `{ itemIds }` and `{ slots: [...] }`.
 
 No Ionic, no Nx. No new commercial UI kit. Reuse playbook primitives (`PageStatus`, `HasPermission`). No new shared playbook primitive in this slice.
 

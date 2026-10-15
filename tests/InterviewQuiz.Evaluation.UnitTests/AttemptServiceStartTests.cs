@@ -87,6 +87,51 @@ public sealed class AttemptServiceStartTests
         Assert.Empty(lifecycle.Submitted);
     }
 
+    [Fact]
+    public async Task Preview_before_start_does_not_create_an_attempt()
+    {
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+        var attempts = new InMemoryAttempts();
+        var header = Header();
+        var service = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(header),
+            new RecordingLifecycle(),
+            clock,
+            NullLogger<AttemptService>.Instance);
+
+        var preview = await service.GetPreviewAsync(AssignmentId, CancellationToken.None);
+
+        Assert.Equal("notStarted", preview.AttemptStatus);
+        Assert.Equal("Seed quiz", preview.QuizTitle);
+        Assert.Equal("Opening", preview.OpeningName);
+        Assert.Equal(30, preview.DurationMinutes);
+        Assert.Equal(1, preview.QuestionCount);
+        Assert.Null(await attempts.GetInProgressAsync(AssignmentId, CancellationToken.None));
+        Assert.Null(await attempts.GetLatestAsync(AssignmentId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Start_sets_due_to_start_plus_duration_and_second_start_is_the_same_attempt()
+    {
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+        var attempts = new InMemoryAttempts();
+        var service = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(Header()),
+            new RecordingLifecycle(),
+            clock,
+            NullLogger<AttemptService>.Instance);
+
+        var (first, created) = await service.StartAsync(AssignmentId, CancellationToken.None);
+        var (second, createdAgain) = await service.StartAsync(AssignmentId, CancellationToken.None);
+
+        Assert.True(created);
+        Assert.False(createdAgain);
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal(first.StartedAtUtc.AddMinutes(30), first.DueAtUtc);
+    }
+
     private static AssignmentWithSnapshotDto Header()
     {
         var snapshot = new QuizSnapshotDto(
