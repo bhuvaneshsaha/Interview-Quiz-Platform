@@ -27,6 +27,12 @@
       <dt>Submitted</dt>
       <dd>{{ formatDate(current.submittedAtUtc) }}</dd>
     </div>
+    @if (current.quizRowVersion) {
+      <div>
+        <dt>Quiz revision</dt>
+        <dd>Quiz revision {{ current.quizRowVersion }}. Results are not comparable across revisions.</dd>
+      </div>
+    }
   </dl>
 }
 

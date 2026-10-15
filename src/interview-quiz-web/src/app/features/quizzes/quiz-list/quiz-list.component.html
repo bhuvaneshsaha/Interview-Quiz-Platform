@@ -45,7 +45,7 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading quizzes."
 >
-  <table class="data-table">
+  <table class="data-table stack-table">
     <thead>
       <tr>
         <th scope="col">Title</th>
@@ -53,6 +53,7 @@
         <th scope="col">Experience</th>
         <th scope="col">Questions</th>
         <th scope="col">Updated</th>
+        <th scope="col">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -61,10 +62,14 @@
           <th scope="row">
             <a [routerLink]="['/quizzes', quiz.id]">{{ quiz.title }}</a>
           </th>
-          <td>{{ openingTitle(quiz.openingId) }}</td>
-          <td>{{ quiz.expectedExperienceYears }}</td>
-          <td>{{ quiz.questions.length }}</td>
-          <td>{{ formatUpdated(quiz.updatedAtUtc) }}</td>
+          <td data-label="Opening">{{ openingTitle(quiz.openingId) }}</td>
+          <td data-label="Experience">{{ quiz.expectedExperienceYears }}</td>
+          <td data-label="Questions">{{ quiz.questions.length }}</td>
+          <td data-label="Updated">{{ formatUpdated(quiz.updatedAtUtc) }}</td>
+          <td class="row-actions" data-label="Actions">
+            <a [routerLink]="['/quizzes', quiz.id]">View</a>
+            <a *hasPermission="codes.QuizzesWrite" [routerLink]="['/quizzes', quiz.id]">Edit</a>
+          </td>
         </tr>
       }
     </tbody>

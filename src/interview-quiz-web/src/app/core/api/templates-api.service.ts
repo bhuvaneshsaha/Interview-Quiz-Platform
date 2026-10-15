@@ -2,6 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CandidatePreviewScoreResponse,
+  CandidateQuizPreviewResponse,
   CloneTemplateVersionRequest,
   PagedResult,
   QuizResponse,
@@ -50,5 +52,22 @@ export class TemplatesApi {
 
   clone(id: string, versionId: string, body: CloneTemplateVersionRequest): Observable<QuizResponse> {
     return this.http.post<QuizResponse>(`/api/templates/${id}/versions/${versionId}/clone`, body);
+  }
+
+  previewVersion(id: string, versionId: string): Observable<CandidateQuizPreviewResponse> {
+    return this.http.get<CandidateQuizPreviewResponse>(
+      `/api/templates/${id}/versions/${versionId}/candidate-preview`,
+    );
+  }
+
+  scorePreview(
+    id: string,
+    versionId: string,
+    answers: { questionId: string; value: unknown }[],
+  ): Observable<CandidatePreviewScoreResponse> {
+    return this.http.post<CandidatePreviewScoreResponse>(
+      `/api/templates/${id}/versions/${versionId}/candidate-preview/score`,
+      { answers },
+    );
   }
 }

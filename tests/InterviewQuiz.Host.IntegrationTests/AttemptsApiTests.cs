@@ -9,6 +9,7 @@ using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Contracts;
+using InterviewQuiz.Evaluation.Application.Scoring;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
@@ -294,6 +295,20 @@ public sealed class AttemptsApiTests
         });
         var assignment = await assignmentResponse.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
         Assert.NotNull(assignment);
+        Assert.Equal(quiz.RowVersion, assignment!.SnapshotQuizRowVersion);
+
+        var client = _factory.CreateClient();
+        var consume = await client.PostAsJsonAsync(
+            "/api/auth/magic-link/consume",
+            new ConsumeMagicLinkRequest { Token = MagicLinkApiTests.TokenFromInviteUrl(assignment.InviteUrl!) });
+        var candidate = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", candidate!.AccessToken);
+
+        var startedBeforeEdit = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
+        Assert.Equal(HttpStatusCode.Created, startedBeforeEdit.StatusCode);
+        var inProgress = await startedBeforeEdit.Content.ReadAsStringAsync();
+        Assert.Contains("Frozen stem: a quiz belongs to one opening.", inProgress, StringComparison.Ordinal);
 
         var trueFalse = quiz.Questions.Single(q => q.Type == QuestionType.TrueFalse);
         var choice = quiz.Questions.Single(q => q.Type == QuestionType.MultipleChoiceSingle);
@@ -335,18 +350,25 @@ public sealed class AttemptsApiTests
         Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
         var edited = await recruiter.GetFromJsonAsync<QuizResponse>($"/api/quizzes/{quiz.Id}", JsonOptions);
         Assert.Equal("Edited stem: the live quiz changed.", edited!.Questions.Single(q => q.Id == trueFalse.Id).Stem);
+        Assert.Equal(trueFalse.Id, edited.Questions.Single(q => q.Type == QuestionType.TrueFalse).Id);
+        Assert.Equal(choice.Id, edited.Questions.Single(q => q.Type == QuestionType.MultipleChoiceSingle).Id);
+        Assert.NotEqual(quiz.RowVersion, edited.RowVersion);
+        Assert.True(edited.AssignmentCount >= 1);
 
-        var client = _factory.CreateClient();
-        var consume = await client.PostAsJsonAsync(
-            "/api/auth/magic-link/consume",
-            new ConsumeMagicLinkRequest { Token = MagicLinkApiTests.TokenFromInviteUrl(assignment!.InviteUrl!) });
-        var candidate = await consume.Content.ReadFromJsonAsync<CandidateTokenResponse>(JsonOptions);
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", candidate!.AccessToken);
+        var frozenAssignment = await recruiter.GetFromJsonAsync<AssignmentResponse>(
+            $"/api/assignments/{assignment.Id}",
+            JsonOptions);
+        Assert.Equal(quiz.RowVersion, frozenAssignment!.SnapshotQuizRowVersion);
+
+        var current = await client.GetAsync($"/api/assignments/{assignment.Id}/attempts/current");
+        var currentJson = await current.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+        Assert.Contains("Frozen stem: a quiz belongs to one opening.", currentJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edited stem", currentJson, StringComparison.Ordinal);
 
         var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
         var startJson = await start.Content.ReadAsStringAsync();
-        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, start.StatusCode);
         Assert.Contains("Frozen stem: a quiz belongs to one opening.", startJson, StringComparison.Ordinal);
         Assert.Contains("Frozen option text", startJson, StringComparison.Ordinal);
         Assert.DoesNotContain("Edited stem", startJson, StringComparison.Ordinal);
@@ -388,6 +410,10 @@ public sealed class AttemptsApiTests
         Assert.Contains("Frozen option text", resultJson, StringComparison.Ordinal);
         Assert.DoesNotContain("isCorrect", resultJson, StringComparison.Ordinal);
         Assert.DoesNotContain("Edited stem", resultJson, StringComparison.Ordinal);
+        using (var resultDoc = JsonDocument.Parse(resultJson))
+        {
+            Assert.Equal((long)quiz.RowVersion, resultDoc.RootElement.GetProperty("quizRowVersion").GetInt64());
+        }
     }
 
     private static void AssertCandidatePayloadOmitsWeights(string json)
@@ -416,6 +442,38 @@ public sealed class AttemptsApiTests
                     break;
             }
         }
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Candidate_preview_redacts_the_quiz_and_persists_nothing()
+    {
+        var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
+            PermissionCodes.Delivery.AssignmentsRead,
+            PermissionCodes.Catalog.QuizzesRead,
+            PermissionCodes.Catalog.QuizzesWrite));
+        var quizId = await CreateAutoQuizAsync(recruiter);
+
+        var preview = await recruiter.GetAsync($"/api/quizzes/{quizId}/candidate-preview");
+        var previewJson = await preview.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        Assert.DoesNotContain("isCorrect", previewJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"correct\"", previewJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("points", previewJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A quiz belongs to exactly one opening.", previewJson, StringComparison.Ordinal);
+
+        var assignments = await recruiter.GetFromJsonAsync<PagedResult<AssignmentSummaryResponse>>(
+            $"/api/assignments?quizId={quizId}",
+            JsonOptions);
+        Assert.NotNull(assignments);
+        Assert.Empty(assignments!.Items);
+
+        var score = await recruiter.PostAsJsonAsync(
+            $"/api/quizzes/{quizId}/candidate-preview/score",
+            new PreviewScoreRequest { Answers = [] });
+        Assert.Equal(HttpStatusCode.OK, score.StatusCode);
+        var scored = await score.Content.ReadFromJsonAsync<CandidatePreviewScoreResponse>(JsonOptions);
+        Assert.Equal(0m, scored!.AutoPointsAwarded);
+        Assert.Equal(1m, scored.AutoPointsAvailable);
     }
 
     private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync()

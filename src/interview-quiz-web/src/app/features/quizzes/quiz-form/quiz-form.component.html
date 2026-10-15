@@ -1,6 +1,9 @@
 <div class="page-heading">
   <h1>{{ isNew() ? 'Create quiz' : 'Quiz' }}</h1>
-  <a routerLink="/quizzes">Back to quizzes</a>
+  <div class="heading-actions">
+    <button type="button" class="button button-quiet" (click)="previewAsCandidate()">Preview as candidate</button>
+    <a routerLink="/quizzes">Back to quizzes</a>
+  </div>
 </div>
 
 <app-page-status
@@ -9,6 +12,15 @@
   [correlationId]="correlationId()"
   loadingMessage="Loading quiz."
 >
+  @if (!isNew() && !canWrite) {
+    <p class="status" role="status">You have view access only.</p>
+  }
+  @if (!isNew() && assignmentCount() > 0) {
+    <p class="status" role="status">
+      {{ assignmentBanner() }}
+      <a [routerLink]="['/assignments']" [queryParams]="{ quizId: quizId }">View assignments</a>
+    </p>
+  }
   <form id="quiz-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <div class="field">
       @if (canReadOpenings) {
@@ -786,3 +798,26 @@
     </button>
   </form>
 </app-page-status>
+
+@if (confirmEdit()) {
+  <div class="dialog-backdrop" (click)="cancelEditConfirm()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="edit-confirm-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelEditConfirm()"
+    >
+      <h2 id="edit-confirm-title">Save changes to an assigned quiz?</h2>
+      <p>{{ assignmentBanner() }} Snapshots already assigned stay frozen.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" (click)="cancelEditConfirm()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-quiz-edit" (click)="confirmEditAndSave()">
+          Save quiz
+        </button>
+      </div>
+    </div>
+  </div>
+}

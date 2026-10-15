@@ -17,6 +17,11 @@ public sealed class OpeningListCriteria
     };
 
     public string? Owner { get; set; }
+
+    /// <summary>Resolved user ids for <see cref="Owner"/> search text. Not part of saved-filter JSON.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<string>? OwnerUserIds { get; set; }
+
     public int? ExperienceMinYears { get; set; }
     public int? ExperienceMaxYears { get; set; }
     public DateOnly? StartDateFrom { get; set; }

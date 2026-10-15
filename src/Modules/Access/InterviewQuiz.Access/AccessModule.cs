@@ -1,4 +1,5 @@
 using InterviewQuiz.Access.Application;
+using InterviewQuiz.Kernel.Users;
 using InterviewQuiz.Access.Application.Services;
 using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Authorization;
@@ -84,6 +85,7 @@ public static class AccessModule
         services.AddScoped<ICurrentUserQuery, CurrentUserQuery>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IAssignableUserLookup, AssignableUserLookup>();
         services.AddScoped<DevelopmentAccessSeeder>();
 
         return services;

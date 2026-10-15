@@ -8,6 +8,8 @@ import {
   PagedResult,
   PublishTemplateResponse,
   QuizListCriteria,
+  CandidatePreviewScoreResponse,
+  CandidateQuizPreviewResponse,
   QuizResponse,
   UpdateQuizRequest,
 } from './contracts';
@@ -42,5 +44,32 @@ export class QuizzesApi {
 
   includeQuestions(quizId: string, body: IncludeQuestionsRequest): Observable<QuizResponse> {
     return this.http.post<QuizResponse>(`/api/quizzes/${quizId}/include-questions`, body);
+  }
+
+  preview(id: string): Observable<CandidateQuizPreviewResponse> {
+    return this.http.get<CandidateQuizPreviewResponse>(`/api/quizzes/${id}/candidate-preview`);
+  }
+
+  previewDraft(body: CreateQuizRequest): Observable<CandidateQuizPreviewResponse> {
+    return this.http.post<CandidateQuizPreviewResponse>('/api/quizzes/candidate-preview', body);
+  }
+
+  scorePreview(
+    id: string,
+    answers: { questionId: string; value: unknown }[],
+  ): Observable<CandidatePreviewScoreResponse> {
+    return this.http.post<CandidatePreviewScoreResponse>(`/api/quizzes/${id}/candidate-preview/score`, {
+      answers,
+    });
+  }
+
+  scoreDraftPreview(
+    quiz: CreateQuizRequest,
+    answers: { questionId: string; value: unknown }[],
+  ): Observable<CandidatePreviewScoreResponse> {
+    return this.http.post<CandidatePreviewScoreResponse>('/api/quizzes/candidate-preview/score', {
+      quiz,
+      answers,
+    });
   }
 }

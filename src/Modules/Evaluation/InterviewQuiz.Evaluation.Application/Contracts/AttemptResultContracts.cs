@@ -15,6 +15,11 @@ public class AttemptSummaryResponse
     public decimal AutoPointsAwarded { get; init; }
     public decimal AutoPointsAvailable { get; init; }
     public decimal TotalPointsAvailable { get; init; }
+
+    /// <summary>
+    /// Quiz revision frozen in the assignment snapshot. Do not compare scores across revisions.
+    /// </summary>
+    public long QuizRowVersion { get; init; }
 }
 
 public sealed class AttemptResultItemDto

@@ -1,6 +1,7 @@
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
+using InterviewQuiz.Kernel.Users;
 using InterviewQuiz.Openings.Application;
 using InterviewQuiz.Openings.Application.Contracts;
 using InterviewQuiz.Openings.Application.Services;
@@ -91,6 +92,21 @@ public sealed class OpeningServiceTests
         Assert.Equal("A", page.Items[0].Title);
     }
 
+    [Fact]
+    public async Task CreateAsync_rejects_unknown_user()
+    {
+        var service = new OpeningService(
+            new FakeOpeningRepository(),
+            _clock,
+            NullLogger<OpeningService>.Instance,
+            new KnownUsers("user-owner"));
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(ValidCreate(owner: "missing-user"), CancellationToken.None));
+
+        Assert.Equal("Unknown user.", ex.Message);
+    }
+
     private static CreateOpeningRequest ValidCreate(string owner = "owner@example.com", string title = "Platform engineer")
         => new()
         {
@@ -134,7 +150,11 @@ public sealed class OpeningServiceTests
             CancellationToken cancellationToken)
         {
             IEnumerable<Opening> query = Items;
-            if (!string.IsNullOrWhiteSpace(criteria.Owner))
+            if (criteria.OwnerUserIds is { Count: > 0 } ids)
+            {
+                query = query.Where(o => ids.Contains(o.Owner));
+            }
+            else if (!string.IsNullOrWhiteSpace(criteria.Owner))
             {
                 query = query.Where(o => o.Owner.Equals(criteria.Owner, StringComparison.OrdinalIgnoreCase));
             }
@@ -148,5 +168,32 @@ public sealed class OpeningServiceTests
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class KnownUsers : IAssignableUserLookup
+    {
+        private readonly HashSet<string> _ids;
+
+        public KnownUsers(params string[] ids) => _ids = ids.ToHashSet(StringComparer.Ordinal);
+
+        public Task<IReadOnlyList<AssignableUserDto>> SearchAsync(
+            string? query,
+            int limit,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<AssignableUserDto>>(
+                _ids.Where(id => query is null || id.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .Take(limit)
+                    .Select(id => new AssignableUserDto(id, id, id + "@example.com"))
+                    .ToArray());
+
+        public Task<IReadOnlyDictionary<string, AssignableUserDto>> GetByIdsAsync(
+            IReadOnlyCollection<string> userIds,
+            CancellationToken cancellationToken)
+        {
+            var map = userIds
+                .Where(id => _ids.Contains(id))
+                .ToDictionary(id => id, id => new AssignableUserDto(id, id, id + "@example.com"), StringComparer.Ordinal);
+            return Task.FromResult<IReadOnlyDictionary<string, AssignableUserDto>>(map);
+        }
     }
 }

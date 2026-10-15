@@ -11,11 +11,16 @@ import {
   CandidateAttemptPreview,
   CandidateAttemptResponse,
   CandidateItemResult,
+  CandidatePreviewScoreResponse,
   CandidateQuestion,
+  CandidateQuizPreviewResponse,
   CandidateSubmitResponse,
+  CreateQuizRequest,
 } from '../../../core/api/contracts';
 import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
+import { QuizzesApi } from '../../../core/api/quizzes-api.service';
+import { TemplatesApi } from '../../../core/api/templates-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import { itemResultLabel, resultStatusLabel } from '../../../shared/labels/status-labels';
@@ -27,6 +32,7 @@ import {
   boolValueOf,
   choiceOptions,
   initialAnswer,
+  isQuestionAnswered,
   itemIdsOf,
   longTextMaxLength,
   optionIdOf,
@@ -42,6 +48,8 @@ import {
 } from './candidate-answer.util';
 import { nextTimerAnnouncement, timerUrgency, TimerAnnouncementState } from './timer-urgency';
 
+type PreviewKind = 'quiz' | 'draft' | 'template';
+
 @Component({
   selector: 'app-attempt',
   imports: [FormsModule, PageStatus, OfflineBanner, CdkDropList, CdkDrag, CdkDragHandle],
@@ -52,12 +60,18 @@ export class Attempt implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly magicLinks = inject(MagicLinkApi);
   private readonly attemptsApi = inject(AttemptsApi);
+  private readonly quizzesApi = inject(QuizzesApi);
+  private readonly templatesApi = inject(TemplatesApi);
   private readonly candidate = inject(CandidateSession);
   private readonly destroyRef = inject(DestroyRef);
   private readonly saves = new Subject<void>();
   private timerId: ReturnType<typeof setInterval> | null = null;
   private autoSubmitStarted = false;
   private timerAnnounced: TimerAnnouncementState = { five: false, one: false };
+  private enteredCandidate = false;
+  private authorPreview: CandidateQuizPreviewResponse | null = null;
+  private draftRequest: CreateQuizRequest | null = null;
+  private pausedRemainingSeconds = 0;
 
   readonly resultStatusLabel = resultStatusLabel;
   readonly loading = signal(true);
@@ -76,12 +90,23 @@ export class Attempt implements OnInit {
   readonly autoSubmitted = signal(false);
   readonly timerAnnouncement = signal('');
   readonly now = signal(Date.now());
+  readonly previewMode = signal(false);
+  readonly previewKind = signal<PreviewKind | null>(null);
+  readonly paused = signal(false);
+  readonly checking = signal(false);
+  readonly previewScore = signal<CandidatePreviewScoreResponse | null>(null);
+  readonly currentIndex = signal(0);
+  readonly marked = signal<ReadonlySet<string>>(new Set());
+  readonly drawerOpen = signal(false);
 
   readonly remainingSeconds = computed(() => {
     const attempt = this.attempt();
     this.now();
     if (!attempt) {
       return 0;
+    }
+    if (this.previewMode() && this.paused()) {
+      return this.pausedRemainingSeconds;
     }
     const due = Date.parse(attempt.dueAtUtc);
     if (Number.isNaN(due)) {
@@ -103,10 +128,15 @@ export class Attempt implements OnInit {
   });
 
   constructor() {
-    this.candidate.enterAttempt();
+    if (!this.route.snapshot.data?.['previewKind']) {
+      this.candidate.enterAttempt();
+      this.enteredCandidate = true;
+    }
     this.destroyRef.onDestroy(() => {
       this.stopTimer();
-      this.candidate.leaveAttempt();
+      if (this.enteredCandidate) {
+        this.candidate.leaveAttempt();
+      }
     });
     this.saves.pipe(debounceTime(800), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.flushAnswers();
@@ -114,6 +144,13 @@ export class Attempt implements OnInit {
   }
 
   ngOnInit(): void {
+    const kind = this.route.snapshot.data?.['previewKind'] as PreviewKind | undefined;
+    if (kind === 'quiz' || kind === 'draft' || kind === 'template') {
+      this.previewMode.set(true);
+      this.previewKind.set(kind);
+      this.loadAuthorPreview(kind);
+      return;
+    }
     const token = this.route.snapshot.queryParamMap.get('token')?.trim() ?? '';
     if (!token) {
       this.error.set('Invite token is missing. Open the invite link you were sent.');
@@ -155,6 +192,158 @@ export class Attempt implements OnInit {
 
   answer(questionId: string): AnswerValue | undefined {
     return this.answers()[questionId];
+  }
+
+  isAnswered(question: CandidateQuestion): boolean {
+    return isQuestionAnswered(question, this.answer(question.id));
+  }
+
+  isMarked(questionId: string): boolean {
+    return this.marked().has(questionId);
+  }
+
+  answeredCount(): number {
+    const attempt = this.attempt();
+    if (!attempt) {
+      return 0;
+    }
+    return attempt.questions.filter((question) => this.isAnswered(question)).length;
+  }
+
+  unansweredCount(): number {
+    const attempt = this.attempt();
+    return attempt ? Math.max(0, attempt.questions.length - this.answeredCount()) : 0;
+  }
+
+  markedCount(): number {
+    return this.marked().size;
+  }
+
+  questionStatus(question: CandidateQuestion, index: number): string {
+    const parts = [`Question ${index + 1}`];
+    parts.push(this.isAnswered(question) ? 'answered' : 'unanswered');
+    if (this.isMarked(question.id)) {
+      parts.push('marked for review');
+    }
+    if (index === this.currentIndex()) {
+      parts.push('current');
+    }
+    return parts.join(', ');
+  }
+
+  goTo(index: number): void {
+    const questions = this.attempt()?.questions ?? [];
+    if (index < 0 || index >= questions.length) {
+      return;
+    }
+    if (index !== this.currentIndex()) {
+      this.flushAnswers();
+      this.currentIndex.set(index);
+      queueMicrotask(() => document.getElementById('question-heading')?.focus());
+    }
+    this.drawerOpen.set(false);
+  }
+
+  toggleDrawer(): void {
+    this.drawerOpen.update((open) => !open);
+  }
+
+  toggleMark(): void {
+    const attempt = this.attempt();
+    const question = attempt?.questions[this.currentIndex()];
+    if (!attempt || !question || this.submitted()) {
+      return;
+    }
+    const next = new Set(this.marked());
+    if (next.has(question.id)) {
+      next.delete(question.id);
+    } else {
+      next.add(question.id);
+    }
+    this.marked.set(next);
+    this.persistMarks(attempt.assignmentId, next);
+  }
+
+  onAttemptKeydown(event: KeyboardEvent): void {
+    if (!this.attempt() || this.submitted() || this.confirmSubmit()) {
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    ) {
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.goTo(this.currentIndex() + 1);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.goTo(this.currentIndex() - 1);
+    }
+  }
+
+  togglePause(): void {
+    if (!this.previewMode() || this.submitted() || !this.attempt()) {
+      return;
+    }
+    if (this.paused()) {
+      const due = Date.now() + this.pausedRemainingSeconds * 1000;
+      this.attempt.update((current) =>
+        current ? { ...current, dueAtUtc: new Date(due).toISOString() } : current,
+      );
+      this.paused.set(false);
+      this.startTimer();
+      return;
+    }
+    this.pausedRemainingSeconds = this.remainingSeconds();
+    this.stopTimer();
+    this.paused.set(true);
+  }
+
+  checkAnswers(): void {
+    const attempt = this.attempt();
+    if (!attempt || !this.previewMode() || this.checking()) {
+      return;
+    }
+    const answers = this.buildSavePayload(attempt);
+    const kind = this.previewKind();
+    const quizId = this.route.snapshot.paramMap.get('id');
+    const versionId = this.route.snapshot.paramMap.get('versionId');
+    const request$ =
+      kind === 'draft' && this.draftRequest
+        ? this.quizzesApi.scoreDraftPreview(this.draftRequest, answers)
+        : kind === 'template' && quizId && versionId
+          ? this.templatesApi.scorePreview(quizId, versionId, answers)
+          : kind === 'quiz' && quizId
+            ? this.quizzesApi.scorePreview(quizId, answers)
+            : null;
+    if (!request$) {
+      this.bannerError.set('Check answers is available after the quiz is saved.');
+      return;
+    }
+    this.checking.set(true);
+    this.bannerError.set(null);
+    request$.subscribe({
+      next: (score) => {
+        this.previewScore.set(score);
+        this.itemResults.set(
+          score.items.map((item) => ({
+            questionId: item.questionId,
+            status: item.status,
+            pointsAwarded: item.pointsAwarded,
+          })),
+        );
+        this.checking.set(false);
+      },
+      error: (err: unknown) => {
+        this.checking.set(false);
+        this.fail(err, false, false);
+      },
+    });
   }
 
   orderedIds(question: CandidateQuestion): string[] {
@@ -343,6 +532,17 @@ export class Attempt implements OnInit {
     if (!attempt || this.submitted() || this.submitting()) {
       return;
     }
+    if (this.previewMode()) {
+      this.confirmSubmit.set(false);
+      this.stopTimer();
+      if (source === 'timeout') {
+        this.autoSubmitted.set(true);
+        this.attempt.update((current) =>
+          current ? { ...current, status: 'submitted', remainingSeconds: 0 } : current,
+        );
+      }
+      return;
+    }
     this.confirmSubmit.set(false);
     if (source === 'timeout') {
       this.autoSubmitted.set(true);
@@ -381,6 +581,10 @@ export class Attempt implements OnInit {
   }
 
   beginQuiz(): void {
+    if (this.previewMode()) {
+      this.startPreviewAttempt();
+      return;
+    }
     const info = this.preview();
     const assignmentId = this.candidate.assignmentId();
     if (!info || info.attemptStatus !== 'notStarted' || !assignmentId || this.starting()) {
@@ -397,6 +601,84 @@ export class Attempt implements OnInit {
         this.starting.set(false);
         this.fail(err, false, false);
       },
+    });
+  }
+
+  private loadAuthorPreview(kind: PreviewKind): void {
+    if (kind === 'draft') {
+      const state = history.state as { draft?: CreateQuizRequest; openingName?: string } | null;
+      const draft = state?.draft;
+      if (!draft) {
+        this.error.set('Nothing to preview. Open preview from the quiz editor.');
+        this.loading.set(false);
+        return;
+      }
+      this.draftRequest = draft;
+      this.quizzesApi.previewDraft(draft).subscribe({
+        next: (quiz) => {
+          if (state?.openingName && !quiz.openingName) {
+            quiz.openingName = state.openingName;
+          }
+          this.showAuthorPreview(quiz);
+        },
+        error: (err: unknown) => this.fail(err),
+      });
+      return;
+    }
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) {
+      this.error.set('Quiz preview is missing an id.');
+      this.loading.set(false);
+      return;
+    }
+    if (kind === 'template') {
+      const versionId = this.route.snapshot.paramMap.get('versionId');
+      if (!versionId) {
+        this.error.set('Template preview is missing a version.');
+        this.loading.set(false);
+        return;
+      }
+      this.templatesApi.previewVersion(id, versionId).subscribe({
+        next: (quiz) => this.showAuthorPreview(quiz),
+        error: (err: unknown) => this.fail(err),
+      });
+      return;
+    }
+    this.quizzesApi.preview(id).subscribe({
+      next: (quiz) => this.showAuthorPreview(quiz),
+      error: (err: unknown) => this.fail(err),
+    });
+  }
+
+  private showAuthorPreview(quiz: CandidateQuizPreviewResponse): void {
+    this.authorPreview = quiz;
+    this.preview.set({
+      attemptStatus: 'notStarted',
+      quizTitle: quiz.title,
+      openingName: quiz.openingName || 'Preview',
+      durationMinutes: quiz.suggestedDurationMinutes,
+      questionCount: quiz.questionCount,
+    });
+    this.loading.set(false);
+  }
+
+  private startPreviewAttempt(): void {
+    const quiz = this.authorPreview;
+    if (!quiz || this.attempt()) {
+      return;
+    }
+    const started = new Date();
+    const due = new Date(started.getTime() + quiz.suggestedDurationMinutes * 60_000);
+    this.applyAttempt({
+      id: 'preview',
+      assignmentId: 'preview',
+      status: 'inProgress',
+      startedAtUtc: started.toISOString(),
+      dueAtUtc: due.toISOString(),
+      submittedAtUtc: null,
+      remainingSeconds: quiz.suggestedDurationMinutes * 60,
+      questions: quiz.questions,
+      answers: [],
     });
   }
 
@@ -432,6 +714,8 @@ export class Attempt implements OnInit {
     }
     this.answers.set(next);
     this.attempt.set(attempt);
+    this.marked.set(this.loadMarks(attempt.assignmentId));
+    this.currentIndex.set(0);
     this.itemResults.set(attempt.itemResults ?? []);
     this.loading.set(false);
     if (attempt.status === 'submitted') {
@@ -453,7 +737,9 @@ export class Attempt implements OnInit {
       return;
     }
     this.answers.update((current) => ({ ...current, [questionId]: value }));
-    this.saves.next();
+    if (!this.previewMode()) {
+      this.saves.next();
+    }
   }
 
   private buildSavePayload(attempt: CandidateAttemptResponse): AnswerDto[] {
@@ -528,6 +814,27 @@ export class Attempt implements OnInit {
       clearInterval(this.timerId);
       this.timerId = null;
     }
+  }
+
+  private reviewStorageKey(assignmentId: string): string {
+    return `iq.reviewMarks.${assignmentId}`;
+  }
+
+  private loadMarks(assignmentId: string): Set<string> {
+    try {
+      const raw = sessionStorage.getItem(this.reviewStorageKey(assignmentId));
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) {
+        return new Set();
+      }
+      return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+    } catch {
+      return new Set();
+    }
+  }
+
+  private persistMarks(assignmentId: string, marks: ReadonlySet<string>): void {
+    sessionStorage.setItem(this.reviewStorageKey(assignmentId), JSON.stringify([...marks]));
   }
 
   private fail(err: unknown, stopLoading = true, fatal = true): void {

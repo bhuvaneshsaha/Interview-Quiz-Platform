@@ -14,4 +14,7 @@ public sealed class QuizResponse
     public required uint RowVersion { get; init; }
     public required DateTimeOffset CreatedAtUtc { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; init; }
+
+    /// <summary>Assignments whose snapshots were copied from this quiz. Zero on list responses.</summary>
+    public int AssignmentCount { get; set; }
 }
