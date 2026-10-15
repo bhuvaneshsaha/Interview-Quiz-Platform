@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The candidate attempt shows the question type as a muted badge and keeps Answered N of M while the quiz is in progress. Shared-bank and per-slot questions say “Match each slot” and still use a dropdown for each slot (#12).
+- A quiz can shuffle questions, and can shuffle multiple-choice options. Both settings default off and are copied into the assignment snapshot. Each attempt stores a seed and the resolved order, so refresh, resume, and a live session keep that order. Scoring, review, and recruiter detail stay in the saved order. Ordering items are not shuffled again. Cloning a template starts with both settings off (#46).
+- Recruiter attempt detail marks each question Correct (light green), Wrong (light red), Partly correct (light amber), or Pending review (neutral card, amber icon). Each mark is an icon plus a text label. Candidate pages do not show those labels (#47).
+
 ## [0.5.0] - 2026-10-16
 
 ### Added
