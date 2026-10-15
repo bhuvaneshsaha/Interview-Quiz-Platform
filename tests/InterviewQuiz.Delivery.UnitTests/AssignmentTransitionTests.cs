@@ -112,7 +112,8 @@ public sealed class AssignmentTransitionTests
             "Quiz",
             1,
             JsonDocument.Parse("{}"),
-            _clock.UtcNow);
+            _clock.UtcNow,
+            quizRowVersion: 1);
         return Assignment.Create(
             Guid.NewGuid(),
             Guid.NewGuid(),

@@ -79,7 +79,8 @@ public sealed class AssignmentService :
             snapshotDto.Title,
             snapshotDto.Questions.Count,
             payload,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            snapshotDto.RowVersion);
 
         var assignment = Assignment.Create(
             request.OpeningId,
@@ -224,6 +225,7 @@ public sealed class AssignmentService :
             SnapshotId = assignment.SnapshotId,
             SnapshotTitle = assignment.Snapshot.Title,
             SnapshotQuestionCount = assignment.Snapshot.QuestionCount,
+            SnapshotQuizRowVersion = assignment.Snapshot.QuizRowVersion,
             CandidateEmail = assignment.CandidateEmail,
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,
@@ -243,6 +245,7 @@ public sealed class AssignmentService :
             SnapshotId = assignment.SnapshotId,
             SnapshotTitle = assignment.Snapshot.Title,
             SnapshotQuestionCount = assignment.Snapshot.QuestionCount,
+            SnapshotQuizRowVersion = assignment.Snapshot.QuizRowVersion,
             CandidateEmail = assignment.CandidateEmail,
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,

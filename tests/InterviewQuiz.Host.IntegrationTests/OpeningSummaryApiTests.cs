@@ -81,11 +81,12 @@ public sealed class OpeningSummaryApiTests
         Assert.Null(hidden.Candidates);
 
         var writer = CreateClient(PermissionCodes.Openings.Read, PermissionCodes.Openings.Write, PermissionCodes.Catalog.QuizzesRead, PermissionCodes.Delivery.AssignmentsRead);
+        var ownerId = await FindAssignableUserIdAsync(writer, "recruiter.dev@example.com");
         var created = await writer.PostAsJsonAsync("/api/openings", new
         {
             title = "Empty opening",
             jobDescription = "No quizzes yet.",
-            owner = "owner@example.com",
+            owner = ownerId,
             startDate = "2026-11-01",
             headcount = 1,
             expectedExperienceYears = 2,
@@ -104,6 +105,16 @@ public sealed class OpeningSummaryApiTests
         Assert.Equal(0, summary.Candidates!.Assigned);
         Assert.Equal(0, summary.Candidates.Appeared);
         Assert.Equal(0, summary.Candidates.Submitted);
+    }
+
+    private static async Task<string> FindAssignableUserIdAsync(HttpClient client, string email)
+    {
+        var response = await client.GetAsync($"/api/users/assignable?q={Uri.EscapeDataString(email)}");
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var match = document.RootElement.EnumerateArray().Single(item =>
+            string.Equals(item.GetProperty("email").GetString(), email, StringComparison.OrdinalIgnoreCase));
+        return match.GetProperty("id").GetString()!;
     }
 
     private HttpClient CreateClient(params string[] permissions)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using InterviewQuiz.Catalog.Application.CandidatePreview;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Application.Contracts;
@@ -470,6 +471,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup
             AutoPointsAwarded = attempt.AutoPointsAwarded,
             AutoPointsAvailable = attempt.AutoPointsAvailable,
             TotalPointsAvailable = attempt.TotalPointsAvailable,
+            QuizRowVersion = snapshot.RowVersion,
             Items = items
         };
     }

@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using InterviewQuiz.Catalog.Application.CandidatePreview;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
@@ -16,6 +18,7 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
     private readonly IQuizRepository _quizzes;
     private readonly IOpeningLookup _openings;
     private readonly IQuestionBankReader _bank;
+    private readonly IQuizAssignmentUsage _assignments;
     private readonly IClock _clock;
     private readonly ILogger<QuizService> _logger;
 
@@ -24,11 +27,13 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
         IOpeningLookup openings,
         IQuestionBankReader bank,
         IClock clock,
-        ILogger<QuizService> logger)
+        ILogger<QuizService> logger,
+        IQuizAssignmentUsage? assignments = null)
     {
         _quizzes = quizzes;
         _openings = openings;
         _bank = bank;
+        _assignments = assignments ?? EmptyQuizAssignmentUsage.Instance;
         _clock = clock;
         _logger = logger;
     }
@@ -80,7 +85,7 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
         await _quizzes.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Updated quiz {QuizId}", quiz.Id);
-        return Map(quiz);
+        return await MapWithUsageAsync(quiz, cancellationToken);
     }
 
     public async Task<QuizResponse> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -89,7 +94,50 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
         var quiz = await _quizzes.GetAsync(id, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(Quiz), id);
 
-        return Map(quiz);
+        return await MapWithUsageAsync(quiz, cancellationToken);
+    }
+
+    public async Task<CandidateQuizPreviewResponse> PreviewAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var quiz = await _quizzes.GetAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Quiz), id);
+        var opening = await _openings.GetOpeningAsync(quiz.OpeningId, cancellationToken);
+        return CandidatePreviewBuilder.FromSnapshot(MapSnapshot(quiz), opening?.Title ?? "");
+    }
+
+    public async Task<CandidateQuizPreviewResponse> PreviewDraftAsync(
+        CreateQuizRequest request,
+        CancellationToken cancellationToken)
+    {
+        var openingName = "";
+        if (request.OpeningId != Guid.Empty)
+        {
+            var opening = await _openings.GetOpeningAsync(request.OpeningId, cancellationToken);
+            openingName = opening?.Title ?? "";
+        }
+
+        var quiz = Quiz.Create(
+            request.OpeningId == Guid.Empty ? Guid.NewGuid() : request.OpeningId,
+            request.Title,
+            request.Description,
+            request.ExpectedExperienceYears,
+            request.Tags,
+            MapQuestions(request.Questions),
+            _clock);
+        return CandidatePreviewBuilder.FromSnapshot(MapSnapshot(quiz), openingName);
+    }
+
+    public QuizSnapshotDto BuildDraftSnapshot(CreateQuizRequest request)
+    {
+        var quiz = Quiz.Create(
+            request.OpeningId == Guid.Empty ? Guid.NewGuid() : request.OpeningId,
+            string.IsNullOrWhiteSpace(request.Title) ? "Preview" : request.Title,
+            request.Description,
+            request.ExpectedExperienceYears,
+            request.Tags,
+            MapQuestions(request.Questions ?? []),
+            _clock);
+        return MapSnapshot(quiz);
     }
 
     public async Task<QuizSnapshotDto?> GetSnapshotAsync(Guid quizId, CancellationToken cancellationToken)
@@ -171,6 +219,13 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
             quiz.Id);
 
         return Map(quiz);
+    }
+
+    private async Task<QuizResponse> MapWithUsageAsync(Quiz quiz, CancellationToken cancellationToken)
+    {
+        var response = Map(quiz);
+        response.AssignmentCount = await _assignments.CountByQuizAsync(quiz.Id, cancellationToken);
+        return response;
     }
 
     private async Task EnsureOpeningExistsAsync(Guid openingId, CancellationToken cancellationToken)

@@ -20,18 +20,30 @@ public sealed class AssignmentSnapshot
     public JsonDocument Payload { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Catalog quiz <c>rowVersion</c> at assign time. Later edits increment the live quiz
+    /// and leave this stamp, and the payload, unchanged.
+    /// </summary>
+    public long QuizRowVersion { get; private set; }
+
     public static AssignmentSnapshot Freeze(
         Guid id,
         Guid assignmentId,
         string title,
         int questionCount,
         JsonDocument payload,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        long quizRowVersion)
     {
         ArgumentNullException.ThrowIfNull(payload);
         if (questionCount < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(questionCount));
+        }
+
+        if (quizRowVersion < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quizRowVersion));
         }
 
         return new AssignmentSnapshot
@@ -41,7 +53,8 @@ public sealed class AssignmentSnapshot
             Title = title ?? "",
             QuestionCount = questionCount,
             Payload = payload,
-            CreatedAtUtc = createdAtUtc
+            CreatedAtUtc = createdAtUtc,
+            QuizRowVersion = quizRowVersion
         };
     }
 }

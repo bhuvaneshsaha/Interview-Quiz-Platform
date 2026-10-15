@@ -2,6 +2,7 @@ using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Authorization;
 using InterviewQuiz.Catalog.Application;
 using InterviewQuiz.Catalog.Application.Contracts;
+using InterviewQuiz.Evaluation.Application.Scoring;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
@@ -98,6 +99,26 @@ public sealed class TemplatesController : ControllerBase
     {
         var quiz = await _templates.CloneAsync(id, versionId, request, cancellationToken);
         return Created($"/api/quizzes/{quiz.Id}", quiz);
+    }
+
+    [HttpGet("{id:guid}/versions/{versionId:guid}/candidate-preview")]
+    [HasPermission(PermissionCodes.Catalog.TemplatesRead)]
+    public async Task<ActionResult<CandidateQuizPreviewResponse>> PreviewVersion(
+        Guid id,
+        Guid versionId,
+        CancellationToken cancellationToken)
+        => Ok(await _templates.PreviewVersionAsync(id, versionId, cancellationToken));
+
+    [HttpPost("{id:guid}/versions/{versionId:guid}/candidate-preview/score")]
+    [HasPermission(PermissionCodes.Catalog.TemplatesRead)]
+    public async Task<ActionResult<CandidatePreviewScoreResponse>> ScorePreview(
+        Guid id,
+        Guid versionId,
+        [FromBody] PreviewScoreRequest request,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await _templates.GetVersionSnapshotAsync(id, versionId, cancellationToken);
+        return Ok(CandidatePreviewScorer.Score(snapshot, request.Answers));
     }
 
     private string RequireUserId()

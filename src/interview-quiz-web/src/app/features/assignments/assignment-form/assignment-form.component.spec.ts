@@ -51,6 +51,7 @@ const createdBase: AssignmentResponse = {
   snapshotId: '8f2b6c65-1a7c-4b4f-ad66-5e3b7f1f6001',
   snapshotTitle: quiz.title,
   snapshotQuestionCount: 3,
+  snapshotQuizRowVersion: 1,
   candidateEmail: 'candidate.dev@example.com',
   mode: 'async',
   overallDurationMinutes: 30,

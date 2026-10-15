@@ -81,3 +81,13 @@
     width: 100%;
   }
 }
+
+@media (max-width: 640px) {
+  .shell-brand {
+    min-width: 0;
+  }
+
+  .shell-main {
+    padding: 1rem 0.75rem 2rem;
+  }
+}

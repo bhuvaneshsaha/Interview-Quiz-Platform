@@ -2,6 +2,7 @@ using InterviewQuiz.Access.Application;
 using InterviewQuiz.Access.Application.Contracts;
 using InterviewQuiz.Access.Authorization;
 using InterviewQuiz.Kernel.Permissions;
+using InterviewQuiz.Kernel.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,11 +14,21 @@ namespace InterviewQuiz.Host.Controllers;
 public sealed class UsersController : ControllerBase
 {
     private readonly IUserAdminService _users;
+    private readonly IAssignableUserLookup _assignable;
 
-    public UsersController(IUserAdminService users)
+    public UsersController(IUserAdminService users, IAssignableUserLookup assignable)
     {
         _users = users;
+        _assignable = assignable;
     }
+
+    [HttpGet("assignable")]
+    [HasPermission(PermissionCodes.Openings.Read)]
+    public async Task<ActionResult<IReadOnlyList<AssignableUserDto>>> SearchAssignable(
+        [FromQuery] string? q,
+        [FromQuery] int limit = 20,
+        CancellationToken cancellationToken = default)
+        => Ok(await _assignable.SearchAsync(q, limit, cancellationToken));
 
     [HttpGet]
     [HasPermission(PermissionCodes.Access.UsersManage)]

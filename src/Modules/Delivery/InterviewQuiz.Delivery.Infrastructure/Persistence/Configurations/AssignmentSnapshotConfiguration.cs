@@ -15,6 +15,7 @@ public sealed class AssignmentSnapshotConfiguration : IEntityTypeConfiguration<A
         builder.Property(e => e.AssignmentId).IsRequired();
         builder.Property(e => e.Title).HasMaxLength(200).IsRequired();
         builder.Property(e => e.QuestionCount).IsRequired();
+        builder.Property(e => e.QuizRowVersion).IsRequired();
         builder.Property(e => e.CreatedAtUtc).IsRequired();
 
         builder.Property(e => e.Payload)

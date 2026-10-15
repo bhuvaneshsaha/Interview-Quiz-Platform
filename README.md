@@ -419,7 +419,7 @@ $env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=inter
 dotnet test InterviewQuiz.slnx
 ```
 
-When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **210 passed** (unit plus host integration). `npm test` reports **109 passed**.
+When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **214 passed** (unit plus host integration). `npm test` reports **110 passed**.
 
 Angular (Vitest):
 

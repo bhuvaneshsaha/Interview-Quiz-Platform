@@ -106,6 +106,9 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                     b.Property<int>("QuestionCount")
                         .HasColumnType("integer");
 
+                    b.Property<long>("QuizRowVersion")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)

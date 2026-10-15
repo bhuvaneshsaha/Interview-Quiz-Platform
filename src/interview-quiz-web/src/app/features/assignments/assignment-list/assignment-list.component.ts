@@ -18,10 +18,10 @@ import { isUuid } from '../../quizzes/quiz-form.mapper';
   styleUrl: './assignment-list.component.css',
 })
 export class AssignmentList implements OnInit {
-  private readonly route = inject(ActivatedRoute);
   private readonly api = inject(AssignmentsApi);
   private readonly openingsApi = inject(OpeningsApi);
   private readonly permissions = inject(PermissionService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
@@ -30,7 +30,8 @@ export class AssignmentList implements OnInit {
     () =>
       this.appliedOpeningId().trim().length > 0 ||
       this.appliedQuizId().trim().length > 0 ||
-      this.appliedKeyword().trim().length > 0,
+      this.appliedKeyword().trim().length > 0 ||
+      this.quizId().trim().length > 0,
   );
   readonly emptyMessage = computed(() =>
     this.filtered() ? 'No assignments match this filter.' : 'No assignments yet.',
@@ -53,11 +54,12 @@ export class AssignmentList implements OnInit {
   readonly appliedOpeningId = signal('');
   readonly appliedQuizId = signal('');
   readonly appliedKeyword = signal('');
+  readonly quizId = signal('');
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
     const openingId = params.get('openingId') ?? '';
-    const quizId = params.get('quizId') ?? '';
+    const quizId = params.get('quizId')?.trim() ?? '';
     const keyword = params.get('keyword') ?? '';
     this.openingFilter.setValue(openingId);
     this.quizFilter.setValue(quizId);
@@ -65,6 +67,7 @@ export class AssignmentList implements OnInit {
     this.appliedOpeningId.set(openingId);
     this.appliedQuizId.set(quizId);
     this.appliedKeyword.set(keyword);
+    this.quizId.set(quizId);
     if (this.canReadOpenings) {
       this.openingsApi.list(1, 100).subscribe({
         next: (result) => this.openings.set(result.items),
@@ -89,6 +92,7 @@ export class AssignmentList implements OnInit {
     }
     this.appliedOpeningId.set(rawOpening);
     this.appliedQuizId.set(rawQuiz);
+    this.quizId.set(rawQuiz);
     this.appliedKeyword.set(this.keyword.value.trim());
     this.load(1);
   }
@@ -113,7 +117,7 @@ export class AssignmentList implements OnInit {
     this.api
       .list(page, this.pageSize, {
         openingId: openingId || undefined,
-        quizId: quizId || undefined,
+        quizId: quizId || this.quizId() || undefined,
         keyword: this.appliedKeyword() || undefined,
       })
       .subscribe({

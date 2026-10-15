@@ -208,7 +208,9 @@ Later (not this pass):
 
 **Permissions:** `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write` (granted on Dev Template author Development seed), `ai.rules.manage`, `ai.draft.use`.
 
-**Versioning:** template publish → new version. Quizzes are mutable working copies; freeze is the **assignment snapshot**, not a full quiz history in v1. Bank item edits (slice 4) mutate the library row only; copies already in quizzes/templates/snapshots stay as they were.
+**Versioning:** template publish → new version. Quizzes are mutable working copies; freeze is the **assignment snapshot**, not a full quiz history in v1. Each snapshot stores the quiz `RowVersion` it copied (`delivery.assignment_snapshots."QuizRowVersion"`). Later edits do not change that copy. Catalog reads the assignment count through in-process `IQuizAssignmentUsage` and does not reference Delivery. Candidate preview (`GET`/`POST /api/quizzes/candidate-preview` and the template-version equivalent) uses the same redactor as attempts and persists nothing. Bank item edits (slice 4) mutate the library row only; copies already in quizzes/templates/snapshots stay as they were.
+
+Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable` (`openings.read`) searches assignable staff. A migration maps stored emails to those ids and leaves unmatched text in place. Handler membership does not grant permissions.
 
 **Three reuse mechanisms (do not conflate):**
 

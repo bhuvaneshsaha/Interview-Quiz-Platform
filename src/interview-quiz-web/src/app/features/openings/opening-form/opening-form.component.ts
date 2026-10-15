@@ -3,6 +3,7 @@ import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } fr
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   CreateOpeningRequest,
+  OpeningPerson,
   OpeningResponse,
   OpeningSummaryResponse,
   UpdateOpeningRequest,
@@ -12,10 +13,11 @@ import { HasPermission } from '../../../core/permissions/has-permission.directiv
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
+import { UserPicker } from '../../../shared/user-picker/user-picker.component';
 
 @Component({
   selector: 'app-opening-form',
-  imports: [ReactiveFormsModule, RouterLink, HasPermission, PageStatus],
+  imports: [ReactiveFormsModule, RouterLink, HasPermission, PageStatus, UserPicker],
   templateUrl: './opening-form.component.html',
   styleUrl: './opening-form.component.css',
 })
@@ -36,6 +38,9 @@ export class OpeningForm implements OnInit {
   readonly canReadQuizzes = this.permissions.hasPermission(PermissionCodes.QuizzesRead);
   readonly canReadAssignments = this.permissions.hasPermission(PermissionCodes.AssignmentsRead);
   readonly summary = signal<OpeningSummaryResponse | null>(null);
+  readonly ownerPeople = signal<OpeningPerson[]>([]);
+  readonly handlerPeople = signal<OpeningPerson[]>([]);
+  readonly unresolvedNote = signal<string | null>(null);
 
   private openingId: string | null = null;
   private rowVersion = 0;
@@ -43,12 +48,12 @@ export class OpeningForm implements OnInit {
   readonly form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
     jobDescription: ['', [Validators.maxLength(32000)]],
-    owner: ['', [Validators.required, Validators.maxLength(256)]],
+    owner: ['', Validators.required],
     startDate: ['', Validators.required],
     expectedCloseDate: [''],
     headcount: [1, [Validators.required, Validators.min(1), Validators.max(10000)]],
     expectedExperienceYears: [0, [Validators.required, Validators.min(0), Validators.max(80)]],
-    handlersText: [''],
+    handlerIds: this.fb.nonNullable.control<string[]>([]),
     tags: this.fb.array<ReturnType<OpeningForm['createTagGroup']>>([]),
   });
 
@@ -164,15 +169,31 @@ export class OpeningForm implements OnInit {
 
   private patch(opening: OpeningResponse): void {
     this.rowVersion = opening.rowVersion;
+    const people = opening.handlerPeople ?? [];
+    this.handlerPeople.set(people);
+    this.ownerPeople.set(
+      opening.ownerResolved === false
+        ? []
+        : [{ userId: opening.owner, name: opening.ownerName || opening.owner, email: opening.ownerEmail || '', resolved: true }],
+    );
+    const unresolved = [
+      opening.ownerResolved === false ? opening.ownerName || opening.owner : '',
+      ...people.filter((person) => !person.resolved).map((person) => person.name),
+    ].filter((value) => value.length > 0);
+    this.unresolvedNote.set(
+      unresolved.length
+        ? `These saved values did not match a user and must be replaced: ${unresolved.join(', ')}.`
+        : null,
+    );
     this.form.patchValue({
       title: opening.title,
       jobDescription: opening.jobDescription,
-      owner: opening.owner,
+      owner: opening.ownerResolved === false ? '' : opening.owner,
       startDate: opening.startDate,
       expectedCloseDate: opening.expectedCloseDate ?? '',
       headcount: opening.headcount,
       expectedExperienceYears: opening.expectedExperienceYears,
-      handlersText: opening.handlers.join('\n'),
+      handlerIds: people.filter((person) => person.resolved && person.userId).map((person) => person.userId),
     });
     this.tags.clear();
     for (const [key, value] of Object.entries(opening.tags)) {
@@ -182,10 +203,7 @@ export class OpeningForm implements OnInit {
 
   private toRequest(): CreateOpeningRequest {
     const value = this.form.getRawValue();
-    const handlers = value.handlersText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    const handlers = value.handlerIds.map((id) => id.trim()).filter((id) => id.length > 0);
     const tags: Record<string, string> = {};
     for (const row of value.tags) {
       const key = row.key.trim();

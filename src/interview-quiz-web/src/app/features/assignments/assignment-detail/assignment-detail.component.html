@@ -26,6 +26,12 @@
         <dd>{{ item.snapshotTitle }} ({{ item.snapshotQuestionCount }} questions)</dd>
       </div>
       <div>
+        <dt>Quiz revision</dt>
+        <dd>
+          Quiz revision {{ item.snapshotQuizRowVersion }}. Results are not comparable across revisions.
+        </dd>
+      </div>
+      <div>
         <dt>Mode</dt>
         <dd>{{ item.mode === 'live' ? 'Live' : 'Async' }}</dd>
       </div>

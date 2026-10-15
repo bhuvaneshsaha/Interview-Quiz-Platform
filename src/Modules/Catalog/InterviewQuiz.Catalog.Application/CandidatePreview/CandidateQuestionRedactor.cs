@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
 
-namespace InterviewQuiz.Evaluation.Application.Scoring;
+namespace InterviewQuiz.Catalog.Application.CandidatePreview;
 
 public static class CandidateQuestionRedactor
 {

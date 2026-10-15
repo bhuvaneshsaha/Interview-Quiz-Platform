@@ -127,15 +127,19 @@ test('attempt questions fit a 375px viewport and keep Start quiz reachable', asy
   expect(welcomeBox!.x + welcomeBox!.width).toBeLessThanOrEqual(375 + 1);
 
   await start.click();
-  await expect(page.getByRole('heading', { name: 'Question 1' })).toBeVisible();
-  await expect(page.getByText('Which HTTP status means a resource was created?')).toBeVisible();
+  await expect(page.getByText('Question 1 of 2')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which HTTP status means a resource was created?' })).toBeVisible();
+  const next = page.getByRole('button', { name: 'Next' });
   const submit = page.getByRole('button', { name: 'Submit quiz' });
+  await expect(next).toBeVisible();
   await expect(submit).toBeVisible();
   await expectNoPageScroll(page);
-  const submitBox = await submit.boundingBox();
-  expect(submitBox).not.toBeNull();
-  expect(submitBox!.x).toBeGreaterThanOrEqual(0);
-  expect(submitBox!.x + submitBox!.width).toBeLessThanOrEqual(375 + 1);
+  for (const action of [next, submit]) {
+    const box = await action.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375 + 1);
+  }
 
   await page.screenshot({ path: screenshotPath('mobile-attempt-questions.png'), fullPage: true });
 });

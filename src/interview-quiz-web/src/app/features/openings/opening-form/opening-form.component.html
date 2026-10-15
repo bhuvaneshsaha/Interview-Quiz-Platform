@@ -18,9 +18,17 @@
       <label for="jobDescription">Job description</label>
       <textarea id="jobDescription" rows="8" formControlName="jobDescription"></textarea>
     </div>
+    @if (unresolvedNote(); as note) {
+      <p class="status status-error" role="alert">{{ note }}</p>
+    }
     <div class="field">
-      <label for="owner">Owner</label>
-      <input id="owner" type="text" formControlName="owner" />
+      <label id="owner-label" for="owner">Owner</label>
+      <app-user-picker
+        formControlName="owner"
+        inputId="owner"
+        labelledBy="owner-label"
+        [known]="ownerPeople()"
+      />
     </div>
     <div class="field-row">
       <div class="field">
@@ -49,8 +57,14 @@
       </div>
     </div>
     <div class="field">
-      <label for="handlersText">Handlers (one per line)</label>
-      <textarea id="handlersText" rows="3" formControlName="handlersText"></textarea>
+      <label id="handlers-label" for="handlers">Handlers</label>
+      <app-user-picker
+        formControlName="handlerIds"
+        inputId="handlers"
+        labelledBy="handlers-label"
+        [multiple]="true"
+        [known]="handlerPeople()"
+      />
     </div>
 
     <fieldset class="tag-fieldset">

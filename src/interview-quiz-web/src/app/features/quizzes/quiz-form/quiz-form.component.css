@@ -1,3 +1,10 @@
+.heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .field-row {
   display: flex;
   flex-wrap: wrap;

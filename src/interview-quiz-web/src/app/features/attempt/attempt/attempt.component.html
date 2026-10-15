@@ -2,9 +2,12 @@
 <app-offline-banner context="attempt" />
 <header class="attempt-header">
   <p class="attempt-title">Interview Quiz</p>
-  <p class="attempt-tagline">Candidate attempt</p>
+  <p class="attempt-tagline">{{ previewMode() ? 'Candidate preview' : 'Candidate attempt' }}</p>
 </header>
-<main id="attempt-main" class="attempt-main">
+@if (previewMode()) {
+  <p class="preview-banner" role="status">Preview, not recorded</p>
+}
+<main id="attempt-main" class="attempt-main" (keydown)="onAttemptKeydown($event)">
   <h1>{{ preview()?.quizTitle || 'Quiz attempt' }}</h1>
 
   <app-page-status
@@ -51,7 +54,7 @@
     }
     @if (attempt(); as current) {
       <p class="meta">
-        {{ current.questions.length }} questions
+        Answered {{ answeredCount() }} of {{ current.questions.length }}
         @if (!submitted()) {
           ·
           <span
@@ -69,11 +72,33 @@
             }
           </span>
           <span class="visually-hidden" aria-live="polite">{{ timerAnnouncement() }}</span>
+          @if (previewMode()) {
+            <button type="button" class="button button-quiet" (click)="togglePause()">
+              {{ paused() ? 'Resume timer' : 'Pause timer' }}
+            </button>
+          }
         }
         @if (saving()) {
           · Saving answers…
         }
       </p>
+
+      @if (autoSubmitted() && !submitSummary()) {
+        <section class="results-banner" aria-live="polite">
+          <h2>Time ran out</h2>
+          <p>Time ran out. This preview was not recorded, and you can't change your answers.</p>
+        </section>
+      }
+
+      @if (previewScore(); as score) {
+        <section class="results-banner" aria-live="polite">
+          <h2>Check answers</h2>
+          <p>
+            Auto-scored {{ score.autoPointsAwarded }} of {{ score.autoPointsAvailable }}. This preview
+            is not recorded.
+          </p>
+        </section>
+      }
 
       @if (submitSummary(); as summary) {
         <section class="results-banner" aria-live="polite">
@@ -89,16 +114,43 @@
         </section>
       }
 
+      <div class="attempt-layout">
+      <nav class="question-nav" [class.open]="drawerOpen()" aria-label="Questions">
+        <button type="button" class="button button-quiet nav-toggle" (click)="toggleDrawer()">
+          Questions
+        </button>
+        <ol>
+          @for (question of current.questions; track question.id; let i = $index) {
+            <li>
+              <button
+                type="button"
+                class="nav-number"
+                [class.is-current]="i === currentIndex()"
+                [class.is-answered]="isAnswered(question)"
+                [class.is-unanswered]="!isAnswered(question)"
+                [class.is-marked]="isMarked(question.id)"
+                [attr.aria-current]="i === currentIndex() ? 'true' : null"
+                [attr.aria-label]="questionStatus(question, i)"
+                (click)="goTo(i)"
+              >
+                {{ i + 1 }}
+              </button>
+            </li>
+          }
+        </ol>
+      </nav>
+      <div class="question-pane">
       <ol class="questions">
         @for (question of current.questions; track question.id; let i = $index) {
+          @if (i === currentIndex()) {
           <li class="question">
-            <h2>Question {{ i + 1 }}</h2>
-            <p class="stem">{{ question.stem }}</p>
+            <p class="question-kicker">Question {{ i + 1 }} of {{ current.questions.length }}</p>
+            <h2 id="question-heading" tabindex="-1">{{ question.stem }}</h2>
             @if (answerHint(question); as hint) {
               <p class="hint">{{ hint }}</p>
             }
 
-            @if (submitted()) {
+            @if (submitted() || previewScore()) {
               @if (resultFor(question.id); as result) {
                 <p class="item-result" [class.is-unsettled]="result.status === 'unsettled'">
                   {{ resultLabel(result) }}
@@ -319,14 +371,44 @@
               }
             </fieldset>
           </li>
+          }
         }
       </ol>
 
       @if (!submitted()) {
-        <button type="button" class="button" [disabled]="submitting()" (click)="requestSubmit()">
-          {{ submitting() ? 'Submitting…' : 'Submit quiz' }}
-        </button>
+        <div class="question-actions">
+          <button type="button" class="button button-quiet" [disabled]="currentIndex() === 0" (click)="goTo(currentIndex() - 1)">
+            Previous
+          </button>
+          <button
+            type="button"
+            class="button button-quiet"
+            [attr.aria-pressed]="isMarked(current.questions[currentIndex()].id)"
+            (click)="toggleMark()"
+          >
+            {{ isMarked(current.questions[currentIndex()].id) ? 'Marked for review' : 'Mark for review' }}
+          </button>
+          <button
+            type="button"
+            class="button button-quiet"
+            [disabled]="currentIndex() >= current.questions.length - 1"
+            (click)="goTo(currentIndex() + 1)"
+          >
+            Next
+          </button>
+        </div>
+        @if (previewMode()) {
+          <button type="button" class="button" [disabled]="checking()" (click)="checkAnswers()">
+            {{ checking() ? 'Checking…' : 'Check answers' }}
+          </button>
+        } @else {
+          <button type="button" class="button" [disabled]="submitting()" (click)="requestSubmit()">
+            {{ submitting() ? 'Submitting…' : 'Submit quiz' }}
+          </button>
+        }
       }
+      </div>
+      </div>
     }
   </app-page-status>
 </main>
@@ -344,7 +426,10 @@
       (keydown.escape)="cancelSubmit()"
     >
       <h2 id="submit-confirm-title">Submit quiz?</h2>
-      <p id="submit-confirm-body">You won't be able to change answers.</p>
+      <p id="submit-confirm-body">
+        You won't be able to change answers.
+        {{ unansweredCount() }} unanswered. {{ markedCount() }} marked for review.
+      </p>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" autofocus (click)="cancelSubmit()">Cancel</button>
         <button type="button" class="button" data-testid="confirm-submit" (click)="confirmAndSubmit()">

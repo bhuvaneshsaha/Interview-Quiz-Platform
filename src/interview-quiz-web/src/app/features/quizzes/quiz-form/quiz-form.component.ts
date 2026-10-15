@@ -104,13 +104,16 @@ export class QuizForm implements OnInit {
   readonly bankSearching = signal(false);
   readonly bankResults = signal<BankQuestionResponse[]>([]);
   readonly selectedBankIds = signal<ReadonlySet<string>>(new Set());
+  readonly assignmentCount = signal(0);
+  readonly confirmEdit = signal(false);
+  private editConfirmed = false;
 
   readonly addType = new FormControl<QuestionType>('multipleChoiceSingle', { nonNullable: true });
   readonly includeKeyword = new FormControl('', { nonNullable: true });
   readonly includeType = new FormControl('', { nonNullable: true });
   readonly includeAt = new FormControl('', { nonNullable: true });
 
-  private quizId: string | null = null;
+  quizId: string | null = null;
   private rowVersion = 0;
 
   readonly form = this.fb.nonNullable.group({
@@ -451,6 +454,12 @@ export class QuizForm implements OnInit {
       return;
     }
 
+    if (!this.isNew() && this.assignmentCount() > 0 && !this.editConfirmed) {
+      this.confirmEdit.set(true);
+      return;
+    }
+    this.editConfirmed = false;
+
     this.saving.set(true);
     const request$ =
       this.isNew() || !this.quizId
@@ -603,7 +612,53 @@ export class QuizForm implements OnInit {
     document.querySelector<HTMLElement>(selector)?.focus();
   }
 
+  previewAsCandidate(): void {
+    const draft = this.form.getRawValue() as QuizDraft;
+    const unsaved = this.isNew() || this.form.dirty;
+    if (unsaved) {
+      const errors = validateQuizDraft(draft);
+      if (this.form.invalid || errors.length > 0) {
+        this.form.markAllAsTouched();
+        this.fieldErrors.set(this.toErrorMap(errors));
+        this.focusFirstInvalid(errors);
+        return;
+      }
+      const opening = this.openings().find((item) => item.id === draft.openingId);
+      void this.router.navigate(['/quiz-preview'], {
+        state: {
+          draft: toCreateRequest(draft),
+          unsaved: true,
+          openingName: opening?.title ?? '',
+        },
+      });
+      return;
+    }
+    if (this.quizId) {
+      void this.router.navigate(['/quizzes', this.quizId, 'preview']);
+    }
+  }
+
+  cancelEditConfirm(): void {
+    this.confirmEdit.set(false);
+    this.editConfirmed = false;
+  }
+
+  confirmEditAndSave(): void {
+    this.confirmEdit.set(false);
+    this.editConfirmed = true;
+    this.submit();
+  }
+
+  assignmentBanner(): string {
+    const count = this.assignmentCount();
+    if (count === 1) {
+      return '1 assignment uses an earlier snapshot. Changes apply only to new assignments.';
+    }
+    return `${count} assignments use earlier snapshots. Changes apply only to new assignments.`;
+  }
+
   private patch(quiz: QuizResponse): void {
+    this.assignmentCount.set(quiz.assignmentCount ?? 0);
     this.rowVersion = quiz.rowVersion;
     this.quizId = quiz.id;
     this.originTemplateId.set(quiz.originTemplateId);

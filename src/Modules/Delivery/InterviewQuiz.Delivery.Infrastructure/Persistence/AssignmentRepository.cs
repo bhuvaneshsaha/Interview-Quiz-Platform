@@ -1,12 +1,13 @@
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Domain;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 
 namespace InterviewQuiz.Delivery.Infrastructure.Persistence;
 
-public sealed class AssignmentRepository : IAssignmentRepository
+public sealed class AssignmentRepository : IAssignmentRepository, IQuizAssignmentUsage
 {
     private readonly DeliveryDbContext _db;
 
@@ -20,6 +21,9 @@ public sealed class AssignmentRepository : IAssignmentRepository
 
     public async Task AddAsync(Assignment assignment, CancellationToken cancellationToken)
         => await _db.Assignments.AddAsync(assignment, cancellationToken);
+
+    public Task<int> CountByQuizAsync(Guid quizId, CancellationToken cancellationToken)
+        => _db.Assignments.CountAsync(a => a.QuizId == quizId, cancellationToken);
 
     public async Task<PagedResult<Assignment>> ListAsync(
         Guid? openingId,

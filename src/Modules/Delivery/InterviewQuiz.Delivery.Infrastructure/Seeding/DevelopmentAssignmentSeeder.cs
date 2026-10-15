@@ -62,7 +62,8 @@ public sealed class DevelopmentAssignmentSeeder
             snapshotDto.Title,
             snapshotDto.Questions.Count,
             payload,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            snapshotDto.RowVersion);
 
         var assignment = Assignment.Create(
             SampleOpeningBackend,

@@ -2,6 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CandidatePreviewScoreResponse,
+  CandidateQuizPreviewResponse,
   CloneTemplateVersionRequest,
   PagedResult,
   QuizResponse,
@@ -60,5 +62,22 @@ export class TemplatesApi {
 
   saveContent(id: string, body: SaveTemplateContentRequest): Observable<TemplateResponse> {
     return this.http.put<TemplateResponse>(`/api/templates/${id}/content`, body);
+  }
+
+  previewVersion(id: string, versionId: string): Observable<CandidateQuizPreviewResponse> {
+    return this.http.get<CandidateQuizPreviewResponse>(
+      `/api/templates/${id}/versions/${versionId}/candidate-preview`,
+    );
+  }
+
+  scorePreview(
+    id: string,
+    versionId: string,
+    answers: { questionId: string; value: unknown }[],
+  ): Observable<CandidatePreviewScoreResponse> {
+    return this.http.post<CandidatePreviewScoreResponse>(
+      `/api/templates/${id}/versions/${versionId}/candidate-preview/score`,
+      { answers },
+    );
   }
 }

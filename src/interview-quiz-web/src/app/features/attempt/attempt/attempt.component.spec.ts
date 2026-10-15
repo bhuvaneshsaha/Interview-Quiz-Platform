@@ -181,14 +181,35 @@ describe('Attempt', () => {
     expect(started).toContain('Select all that apply.');
     expect(started).toContain('Kestrel');
     expect(started).toContain('Health checks');
-    expect(started).toContain('Question 1');
+    expect(started).toContain('Question 1 of 2');
+    expect(started).toContain('Answered 1 of 2');
     expect(started).not.toContain('Multiple choice');
     expect(started).not.toContain('pts');
     expect(started).not.toContain('opt-kestrel');
-    expect(started).toContain('(untitled option)');
+    expect(started).not.toContain('(untitled option)');
     expect(started).not.toContain('item-authz');
-    expect(fixture.nativeElement.querySelector('[cdkDragHandle], .drag-handle')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[cdkDragHandle], .drag-handle')).toBeNull();
     expect(fixture.nativeElement.querySelector('[role="timer"]')).not.toBeNull();
+    const previous = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Previous',
+    ) as HTMLButtonElement;
+    expect(previous.disabled).toBe(true);
+
+    const next = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Next',
+    ) as HTMLButtonElement;
+    next.click();
+    fixture.detectChanges();
+
+    const second = fixture.nativeElement.textContent as string;
+    expect(second).toContain('Question 2 of 2');
+    expect(second).toContain('(untitled option)');
+    expect(second).not.toContain('item-authz');
+    expect(fixture.nativeElement.querySelector('[cdkDragHandle], .drag-handle')).not.toBeNull();
+    const nextAfter = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Next',
+    ) as HTMLButtonElement;
+    expect(nextAfter.disabled).toBe(true);
   });
 
   it('skips the welcome page when the attempt is already in progress', async () => {
@@ -214,6 +235,8 @@ describe('Attempt', () => {
 
     const dialog = fixture.nativeElement.querySelector('[role="alertdialog"]') as HTMLElement;
     expect(dialog.textContent).toContain("You won't be able to change answers");
+    expect(dialog.textContent).toContain('1 unanswered');
+    expect(dialog.textContent).toContain('0 marked for review');
     expect(submitCalls).toEqual([]);
 
     const cancel = [...dialog.querySelectorAll('button')].find((button: HTMLButtonElement) =>
@@ -249,6 +272,32 @@ describe('Attempt', () => {
     expect(timer.textContent).toContain('Less than 5 minutes.');
     const live = fixture.nativeElement.querySelector('[aria-live="polite"]') as HTMLElement;
     expect(live.textContent).toContain('Less than 5 minutes remaining.');
+  });
+
+  it('marks the current question for review and keeps that mark in the session', async () => {
+    sessionStorage.clear();
+    previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
+    await render();
+
+    const mark = [...fixture.nativeElement.querySelectorAll('button')].find((button: HTMLButtonElement) =>
+      button.textContent?.includes('Mark for review'),
+    ) as HTMLButtonElement;
+    mark.click();
+    fixture.detectChanges();
+
+    expect(mark.getAttribute('aria-pressed')).toBe('true');
+    expect(fixture.nativeElement.textContent).toContain('Marked for review');
+    const stored = sessionStorage.getItem(`iq.reviewMarks.${assignmentId}`);
+    expect(stored).toContain(attempt.questions[0].id);
+
+    fixture.destroy();
+    fixture = TestBed.createComponent(Attempt);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const nav = fixture.nativeElement.querySelector('.nav-number.is-marked') as HTMLElement;
+    expect(nav).not.toBeNull();
+    expect(nav.getAttribute('aria-label')).toContain('marked for review');
   });
 
   it('explains automatic submit when time runs out', async () => {

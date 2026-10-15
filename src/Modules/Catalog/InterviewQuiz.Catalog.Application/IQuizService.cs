@@ -13,4 +13,12 @@ public interface IQuizService
         Guid quizId,
         IncludeQuestionsRequest request,
         CancellationToken cancellationToken);
+
+    Task<CandidateQuizPreviewResponse> PreviewAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<CandidateQuizPreviewResponse> PreviewDraftAsync(
+        CreateQuizRequest request,
+        CancellationToken cancellationToken);
+
+    QuizSnapshotDto BuildDraftSnapshot(CreateQuizRequest request);
 }

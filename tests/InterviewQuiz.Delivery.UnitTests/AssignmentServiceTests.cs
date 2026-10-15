@@ -212,6 +212,9 @@ public sealed class AssignmentServiceTests
             return Task.CompletedTask;
         }
 
+        public Task<int> CountByQuizAsync(Guid quizId, CancellationToken cancellationToken)
+            => Task.FromResult(Items.Count(a => a.QuizId == quizId));
+
         public Task<PagedResult<Assignment>> ListAsync(
             Guid? openingId,
             Guid? quizId,

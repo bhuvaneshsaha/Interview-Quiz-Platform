@@ -10,6 +10,8 @@ public interface IAssignmentRepository
 
     Task AddAsync(Assignment assignment, CancellationToken cancellationToken);
 
+    Task<int> CountByQuizAsync(Guid quizId, CancellationToken cancellationToken);
+
     Task<PagedResult<Assignment>> ListAsync(
         Guid? openingId,
         Guid? quizId,

@@ -103,9 +103,9 @@ export function answerHint(question: CandidateQuestion): string {
     case 'longText':
       return longTextGuidance(question) || 'Write your answer.';
     case 'dragDropSharedBank':
-      return 'Drag an item onto each slot, or choose it from the list.';
+      return 'Match each slot. Drag an item onto each slot, or choose it from the list.';
     case 'dragDropPerSlot':
-      return 'Drag an option onto each slot, or choose it from the list.';
+      return 'Match each slot. Drag an option onto each slot, or choose it from the list.';
     case 'ordering':
       return 'Drag the items into order, or use Move up and Move down.';
     default:
@@ -189,6 +189,32 @@ export function slotOptionId(value: AnswerValue | undefined, slotId: string): st
   }
   const slot = value.slots.find((item) => item.slotId === slotId);
   return slot && 'optionId' in slot && typeof slot.optionId === 'string' ? slot.optionId : '';
+}
+
+/** Ordering with the default item order counts as answered. Empty choices do not. */
+export function isQuestionAnswered(question: CandidateQuestion, value: AnswerValue | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  switch (question.type) {
+    case 'multipleChoiceSingle':
+      return optionIdOf(value).length > 0;
+    case 'multipleChoiceMulti':
+      return optionIdsOf(value).length > 0;
+    case 'trueFalse':
+      return boolValueOf(value) !== null;
+    case 'shortText':
+    case 'longText':
+      return textOf(value).trim().length > 0;
+    case 'dragDropSharedBank':
+      return sharedSlots(question).some((slot) => slotItemId(value, slot.id).length > 0);
+    case 'dragDropPerSlot':
+      return perSlots(question).some((slot) => slotOptionId(value, slot.id).length > 0);
+    case 'ordering':
+      return itemIdsOf(value, []).length > 0;
+    default:
+      return false;
+  }
 }
 
 export function sanitizeForSave(type: QuestionType, value: AnswerValue): AnswerValue | null {

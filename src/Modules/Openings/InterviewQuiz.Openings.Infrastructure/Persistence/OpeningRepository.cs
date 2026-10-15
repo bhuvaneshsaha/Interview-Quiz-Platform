@@ -56,10 +56,13 @@ public sealed class OpeningRepository : IOpeningRepository
 
     private static IQueryable<Opening> ApplyFilters(IQueryable<Opening> query, OpeningListCriteria criteria)
     {
-        if (!string.IsNullOrWhiteSpace(criteria.Owner))
+        var ownerIds = criteria.OwnerUserIds ?? [];
+        if (ownerIds.Count > 0 || !string.IsNullOrWhiteSpace(criteria.Owner))
         {
-            var owner = criteria.Owner.Trim();
-            query = query.Where(o => o.Owner == owner);
+            var term = string.IsNullOrWhiteSpace(criteria.Owner) ? null : criteria.Owner.Trim().ToLower();
+            query = query.Where(o =>
+                ownerIds.Contains(o.Owner)
+                || (term != null && o.Owner.ToLower().Contains(term)));
         }
 
         if (criteria.ExperienceMinYears is { } minYears)

@@ -27,7 +27,9 @@ public static class DeliveryModule
             });
         });
 
-        services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+        services.AddScoped<AssignmentRepository>();
+        services.AddScoped<IAssignmentRepository>(sp => sp.GetRequiredService<AssignmentRepository>());
+        services.AddScoped<IQuizAssignmentUsage>(sp => sp.GetRequiredService<AssignmentRepository>());
         services.AddScoped<IOpeningAssignmentReader, OpeningAssignmentReader>();
         services.AddScoped<AssignmentService>();
         services.AddScoped<IAssignmentService>(sp => sp.GetRequiredService<AssignmentService>());
