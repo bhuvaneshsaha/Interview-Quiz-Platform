@@ -57,7 +57,8 @@ public sealed class Attempt
             throw new DomainException("Overall duration is required for async assignments.");
         }
 
-        var now = clock.UtcNow;
+        // timestamptz keeps microseconds. Truncate once so start and due survive a reload.
+        var now = TruncateToMicroseconds(clock.UtcNow);
         return new Attempt
         {
             Id = id ?? Guid.NewGuid(),
@@ -74,6 +75,12 @@ public sealed class Attempt
     }
 
     public bool IsDue(IClock clock) => clock.UtcNow >= DueAtUtc;
+
+    private static DateTimeOffset TruncateToMicroseconds(DateTimeOffset value)
+    {
+        var utcTicks = value.UtcTicks - (value.UtcTicks % TimeSpan.TicksPerMicrosecond);
+        return new DateTimeOffset(utcTicks, TimeSpan.Zero);
+    }
 
     public int RemainingSeconds(IClock clock)
     {

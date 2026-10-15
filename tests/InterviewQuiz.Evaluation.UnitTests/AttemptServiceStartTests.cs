@@ -114,7 +114,7 @@ public sealed class AttemptServiceStartTests
     [Fact]
     public async Task Start_sets_due_to_start_plus_duration_and_second_start_is_the_same_attempt()
     {
-        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero).AddTicks(8));
         var attempts = new InMemoryAttempts();
         var service = new AttemptService(
             attempts,
@@ -129,7 +129,9 @@ public sealed class AttemptServiceStartTests
         Assert.True(created);
         Assert.False(createdAgain);
         Assert.Equal(first.Id, second.Id);
+        Assert.Equal(0, first.StartedAtUtc.UtcTicks % TimeSpan.TicksPerMicrosecond);
         Assert.Equal(first.StartedAtUtc.AddMinutes(30), first.DueAtUtc);
+        Assert.Equal(first.DueAtUtc, second.DueAtUtc);
     }
 
     private static AssignmentWithSnapshotDto Header()
