@@ -1,6 +1,6 @@
 # Permission catalog
 
-Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`). Later: live session REST, review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`), slice 6 live sessions (`sessions.live.run` on start/pause/resume/end; progress also allows `attempts.read`; Angular `/assignments/:id/live`). Later: review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 
@@ -72,7 +72,7 @@ These codes are **not** the drag-drop question type `dragDropSharedBank` (items 
 |------|----------------|------------|
 | `assignments.read` | View assignments | List/get assignment status and configuration (`GET /api/assignments`, `GET /api/assignments/{id}`). Not a substitute for review. Angular `/assignments`, `/assignments/:id`. **No** SavedFilters on the list. |
 | `assignments.write` | Assign quizzes | `POST /api/assignments`; `POST /api/assignments/from-template` (also `templates.read`); `POST /api/assignments/{id}/invite`, `.../resend`, `.../revoke`, `.../extend`. Bind snapshot to candidate + opening; live or async; timing/attempt rules. Angular `/assignments/new`. |
-| `sessions.live.run` | Run live sessions | **Seeded but inactive until slice 6.** Start, pause, and monitor a live attempt. No slice 5 API or screen uses this code. Dev Recruiter seed includes it. |
+| `sessions.live.run` | Run live sessions | Start, pause, resume, and end `POST /api/assignments/{id}/live/*`. Dev Recruiter seed includes it. Progress `GET .../live/progress` also allows `attempts.read`. |
 
 Recruiters typically get assign + live run without `ai.rules.manage` or `quizzes.write`. **Dev Recruiter seed already includes** `assignments.read` / `assignments.write` / `sessions.live.run`. **Dev Template author seed does not** — authors cannot assign unless an operator grants the codes. Candidate JWTs never include `assignments.write`.
 
@@ -89,16 +89,16 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 
 AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
 
-### Seeded but inactive
+### Seeded permissions that are not all active
 
-`sessions.live.run` and `attempts.review` are in the permission catalog and in Development seed bundles, and they are **inactive** until later slices:
+`sessions.live.run` is active for live host actions ([ADR 0010](adr/0010-live-quiz-sessions.md)). `attempts.review` stays seeded and **inactive** until slice 7:
 
-| Code | Seeded on | Inactive until |
-|------|-----------|----------------|
-| `sessions.live.run` | Dev Recruiter | Slice 6 (live start, pause, monitor) |
-| `attempts.review` | Dev Reviewer | Slice 7 (human / AI-assist review) |
+| Code | Seeded on | Status |
+|------|-----------|--------|
+| `sessions.live.run` | Dev Recruiter | Active. Start, pause, resume, end. |
+| `attempts.review` | Dev Reviewer | Inactive until slice 7 (human / AI-assist review) |
 
-Granting either code in slice 5 does not unlock a workflow. A role that includes them still cannot run a live session or finalise a review. See [slice 5 MVP boundary](slice-5-mvp.md).
+Granting `attempts.review` does not unlock a review workflow. See [slice 5 MVP boundary](slice-5-mvp.md).
 
 ---
 

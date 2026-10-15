@@ -49,8 +49,9 @@ Do not put JWT signing keys, connection strings, or dummy passwords into environ
 | `/questions/new` | `questions.write` | Create bank question |
 | `/questions/:id` | `questions.read` or `questions.write` | View / edit bank question; archive/unarchive with write; read-only without write |
 | `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager). **No** SavedFilters |
-| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit). Async 201 shows `inviteUrl` (`data-testid="invite-url"`) and the note that the link works until submit or a new link, and that an expired sign-in session can reopen it. Live has no invite copy (slice 6) |
-| `/assignments/:id` | `assignments.read` | Assignment detail, issue invite (`assignments.write`, async not submitted), results table if `attempts.read` |
+| `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration 1–480, attempt limit). Async 201 shows `inviteUrl` (`data-testid="invite-url"`) and the note that the link works until submit or a new link, and that an expired sign-in session can reopen it. Live create has no invite copy; open the assignment for a join link |
+| `/assignments/:id` | `assignments.read` | Assignment detail, issue invite or join link (`assignments.write`, not submitted), **Open live session** for live mode, results table if `attempts.read` |
+| `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress (state, connected, question, answered, flagged, remaining, last activity). Start / Pause / Resume / End when `sessions.live.run` |
 | `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail from a results row: stem, candidate answer, points or “Awaiting human review”. No answer keys |
 | `/attempt?token=` | none (outside employee shell) | Candidate magic-link: POST consume, then a welcome page. The timer and attempt start only from Start quiz. Isolated candidate access token |
 
@@ -58,7 +59,7 @@ Create quiz is hidden without `quizzes.write`. Recruiter (`templates.read`, no `
 
 Question bank nav (shell + home **Question bank**) requires `questions.read`. Create is hidden without `questions.write`. Include from question bank appears on the quiz editor only when `quizzes.write` **and** `questions.read` **and** the quiz is already saved (hidden on create-new). Copies go through `POST /api/quizzes/{quizId}/include-questions`; quiz questions with `sourceQuestionId` show the hint “From question bank”. Archive/unarchive is hidden on create-new.
 
-Assignments nav (shell + home **Assignments**) requires `assignments.read`. Create is hidden without `assignments.write`. Recruiter seed has assign + results; a typical template author has no `assignments.*` and does not see the nav. List query params are `openingId`, `keyword`, `page`, `pageSize` (not a `criteria` JSON blob). Live mode may be created but has no invite URL; candidate start is slice 6.
+Assignments nav (shell + home **Assignments**) requires `assignments.read`. Create is hidden without `assignments.write`. Recruiter seed has assign, live run, and results; a typical template author has no `assignments.*` and does not see the nav. List query params are `openingId`, `keyword`, `page`, `pageSize` (not a `criteria` JSON blob). Live create omits the invite URL. The host gets a join link on the assignment and runs `/assignments/:id/live`. The candidate lobby has no Start quiz button.
 
 Candidate `/attempt` is **not** behind `authGuard`. Consume is `POST /api/auth/magic-link/consume` `{ token }` (never GET). The candidate access token is in-memory on `CandidateSession` only — never `TokenStore`, never `iq.refreshToken`, never the service worker. Employee logout is not required. After submit the candidate session is cleared.
 

@@ -36,6 +36,17 @@ describe('CandidateSession', () => {
     expect(tokens.accessToken()).toBeNull();
   });
 
+  it('keeps the invite token across clear so an expired session can re-consume', () => {
+    session.enterAttempt();
+    session.setInviteToken('opaque-token');
+    session.setSession(candidate);
+    session.clear();
+    expect(session.accessToken()).toBeNull();
+    expect(session.inviteToken()).toBe('opaque-token');
+    session.leaveAttempt();
+    expect(session.inviteToken()).toBeNull();
+  });
+
   it('leaveAttempt clears the candidate token without touching the employee store', () => {
     tokens.setSession({
       accessToken: 'employee-access',

@@ -35,6 +35,7 @@ public sealed class MagicLinkService : IMagicLinkService
     private readonly IIdentityUserDirectory _users;
     private readonly IJwtAccessTokenIssuer _tokens;
     private readonly ICandidateAttemptIdLookup? _attempts;
+    private readonly ILiveCandidatePresence? _presence;
     private readonly IClock _clock;
     private readonly InviteOptions _inviteOptions;
     private readonly PublicBaseUrlOptions _publicBaseUrl;
@@ -49,13 +50,15 @@ public sealed class MagicLinkService : IMagicLinkService
         IClock clock,
         IOptions<InviteOptions> inviteOptions,
         IOptions<PublicBaseUrlOptions> publicBaseUrl,
-        ILogger<MagicLinkService> logger)
+        ILogger<MagicLinkService> logger,
+        ILiveCandidatePresence? presence = null)
     {
         _assignments = assignments;
         _invites = invites;
         _users = users;
         _tokens = tokens;
         _attempts = attemptLookups.FirstOrDefault();
+        _presence = presence;
         _clock = clock;
         _inviteOptions = inviteOptions.Value;
         _publicBaseUrl = publicBaseUrl.Value;
@@ -135,6 +138,11 @@ public sealed class MagicLinkService : IMagicLinkService
         if (_attempts is not null)
         {
             attemptId = await _attempts.GetAttemptIdAsync(assignmentId, cancellationToken);
+        }
+
+        if (string.Equals(info.Mode, "live", StringComparison.OrdinalIgnoreCase) && _presence is not null)
+        {
+            await _presence.RecordJoinedAsync(assignmentId, cancellationToken);
         }
 
         var access = _tokens.IssueCandidate(user.Id, user.Email!, assignmentId, attemptId);
@@ -246,7 +254,7 @@ public sealed class MagicLinkService : IMagicLinkService
             throw new DomainException(InvalidInviteMessage);
         }
 
-        if (!string.Equals(info.Mode, "async", StringComparison.OrdinalIgnoreCase))
+        if (!IsAsyncOrLive(info.Mode))
         {
             throw new DomainException(LiveModeMessage);
         }
@@ -262,7 +270,11 @@ public sealed class MagicLinkService : IMagicLinkService
     /// Issuing a new invite still rejects terminal assignments.
     /// </summary>
     private static bool IsConsumable(AssignmentInviteInfoDto info)
-        => string.Equals(info.Mode, "async", StringComparison.OrdinalIgnoreCase);
+        => IsAsyncOrLive(info.Mode);
+
+    private static bool IsAsyncOrLive(string? mode)
+        => string.Equals(mode, "async", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(mode, "live", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTerminalStatus(string? status)
         => status is not null && TerminalStatuses.Contains(status);

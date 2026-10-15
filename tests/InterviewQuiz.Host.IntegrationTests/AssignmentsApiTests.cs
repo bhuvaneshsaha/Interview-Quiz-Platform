@@ -120,7 +120,7 @@ public sealed class AssignmentsApiTests
         var client = CreateAuthenticatedClient(Recruiter());
         var request = ValidCreate();
         request.Mode = "live";
-        request.Timing = null;
+        request.Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 };
         var post = await client.PostAsJsonAsync("/api/assignments", request);
         Assert.Equal(HttpStatusCode.Created, post.StatusCode);
         var created = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);

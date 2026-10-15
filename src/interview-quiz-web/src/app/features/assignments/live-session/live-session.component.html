@@ -1,0 +1,93 @@
+<div class="page-heading">
+  <h1>{{ assignment()?.snapshotTitle || 'Live session' }}</h1>
+  <a [routerLink]="['/assignments', assignmentIdLink()]">Back to assignment</a>
+</div>
+
+<app-page-status
+  [loading]="loading()"
+  [error]="error()"
+  [correlationId]="correlationId()"
+  loadingMessage="Loading live session."
+>
+  @if (reconnecting()) {
+    <p class="status" data-testid="live-reconnecting" role="status">Reconnecting…</p>
+  }
+  @if (actionError()) {
+    <p class="status status-error" role="alert">{{ actionError() }}</p>
+  }
+  @if (progress(); as item) {
+    <dl class="summary">
+      <div>
+        <dt>State</dt>
+        <dd data-testid="live-state">{{ stateLabel() }}</dd>
+      </div>
+      <div>
+        <dt>Candidate connected</dt>
+        <dd data-testid="live-connected">{{ connectedLabel() }}</dd>
+      </div>
+      <div>
+        <dt>Question</dt>
+        <dd data-testid="live-index">{{ indexLabel() }}</dd>
+      </div>
+      <div>
+        <dt>Answered</dt>
+        <dd data-testid="live-answered">{{ item.answeredCount }}</dd>
+      </div>
+      <div>
+        <dt>Flagged</dt>
+        <dd data-testid="live-flagged">{{ item.flaggedCount }}</dd>
+      </div>
+      <div>
+        <dt>Time remaining</dt>
+        <dd data-testid="live-remaining">{{ remainingLabel() }}</dd>
+      </div>
+      <div>
+        <dt>Last activity</dt>
+        <dd data-testid="live-activity">{{ activityLabel() }}</dd>
+      </div>
+    </dl>
+
+    <div class="live-actions" *hasPermission="codes.SessionsLiveRun">
+      <button type="button" class="button" data-testid="live-start" [disabled]="!canStart()" (click)="start()">
+        Start
+      </button>
+      <button type="button" class="button" data-testid="live-pause" [disabled]="!canPause()" (click)="pause()">
+        Pause
+      </button>
+      <button type="button" class="button" data-testid="live-resume" [disabled]="!canResume()" (click)="resume()">
+        Resume
+      </button>
+      <button type="button" class="button" data-testid="live-end" [disabled]="!canEnd()" (click)="requestEnd()">
+        End
+      </button>
+    </div>
+  }
+</app-page-status>
+
+@if (confirmEnd() && progress(); as item) {
+  <div class="dialog-backdrop" (click)="cancelEnd()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="end-session-title"
+      aria-describedby="end-session-body"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelEnd()"
+    >
+      <h2 id="end-session-title">End the live session?</h2>
+      <p id="end-session-body">
+        This submits the candidate's last saved answers.
+        {{ item.answeredCount }} answered. {{ item.flaggedCount }} flagged.
+        Question {{ indexLabel() }}.
+      </p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" autofocus (click)="cancelEnd()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-end" (click)="confirmEndSession()">
+          End session
+        </button>
+      </div>
+    </div>
+  </div>
+}

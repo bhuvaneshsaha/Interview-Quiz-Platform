@@ -36,6 +36,9 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTimeOffset?>("CandidateLastSeenAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -43,6 +46,9 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("CurrentQuestionIndex")
+                        .HasColumnType("integer");
 
                     b.Property<int>("InviteEmailAttemptCount")
                         .HasColumnType("integer");
@@ -59,6 +65,19 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<DateTimeOffset?>("LastActivityAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LiveEndedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LiveStartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LiveState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("Mode")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -70,6 +89,9 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                     b.Property<int?>("OverallDurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset?>("PausedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uuid");
 
@@ -78,6 +100,10 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("row_version");
 
+                    b.Property<string>("SessionEndReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<Guid>("SnapshotId")
                         .HasColumnType("uuid");
 
@@ -85,6 +111,11 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<int>("TotalPausedSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -137,6 +168,47 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                     b.HasIndex("Title");
 
                     b.ToTable("assignment_snapshots", "delivery");
+                });
+
+            modelBuilder.Entity("InterviewQuiz.Delivery.Domain.LiveSessionEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("AssignmentId", "AtUtc");
+
+                    b.ToTable("live_session_events", "delivery");
                 });
 
             modelBuilder.Entity("InterviewQuiz.Delivery.Domain.AssignmentSnapshot", b =>

@@ -141,25 +141,31 @@ describe('AssignmentForm', () => {
     expect(fixture.nativeElement.textContent).toContain('sign-in session expires');
   });
 
-  it('hides invite copy for live create', async () => {
+  it('hides invite copy for live create and points at the live session', async () => {
     createResponse = {
       ...createdBase,
       mode: 'live',
-      overallDurationMinutes: null,
+      overallDurationMinutes: 30,
       inviteUrl: null,
     };
     await fillAndSubmit('live');
     expect(fixture.nativeElement.querySelector('[data-testid="invite-url"]')).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('slice 6');
+    expect(fixture.nativeElement.textContent).toContain('Open the assignment to get a join link');
   });
 
-  it('keeps Live mode disabled until slice 6', async () => {
+  it('enables Live mode and keeps duration required', async () => {
     fixture = TestBed.createComponent(AssignmentForm);
     fixture.detectChanges();
     await fixture.whenStable();
     const live = fixture.nativeElement.querySelector('input[value="live"]') as HTMLInputElement;
-    expect(live.disabled).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Coming soon');
+    expect(live.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('#overallDurationMinutes')).not.toBeNull();
+    live.click();
+    fixture.detectChanges();
+    fixture.componentInstance.form.controls.overallDurationMinutes.setValue(0);
+    fixture.componentInstance.form.controls.overallDurationMinutes.markAsTouched();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#duration-error')).not.toBeNull();
   });
 
   it('describes invalid fields the same way as login', async () => {

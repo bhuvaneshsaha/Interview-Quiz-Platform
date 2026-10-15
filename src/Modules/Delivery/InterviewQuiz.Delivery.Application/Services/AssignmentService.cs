@@ -25,19 +25,22 @@ public sealed class AssignmentService :
     private readonly IQuizSnapshotReader _quizzes;
     private readonly IClock _clock;
     private readonly ILogger<AssignmentService> _logger;
+    private readonly ICorrelationAccessor? _correlation;
 
     public AssignmentService(
         IAssignmentRepository assignments,
         IOpeningLookup openings,
         IQuizSnapshotReader quizzes,
         IClock clock,
-        ILogger<AssignmentService> logger)
+        ILogger<AssignmentService> logger,
+        ICorrelationAccessor? correlation = null)
     {
         _assignments = assignments;
         _openings = openings;
         _quizzes = quizzes;
         _clock = clock;
         _logger = logger;
+        _correlation = correlation;
     }
 
     public async Task<AssignmentResponse> CreateAsync(
@@ -226,6 +229,23 @@ public sealed class AssignmentService :
         var assignment = await _assignments.GetAsync(assignmentId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(Assignment), assignmentId);
         assignment.MarkAttemptSubmitted(resultStatus, _clock);
+        if (assignment.NoteLiveAttemptSubmitted(_clock))
+        {
+            _assignments.AddLiveEvent(LiveSessionEvent.Create(
+                assignmentId,
+                LiveSessionActionNames.Submitted,
+                _clock.UtcNow,
+                _correlation?.Current ?? "unknown",
+                attemptId,
+                detail: "endReason=submitted"));
+            _logger.LogInformation(
+                "Live session {Action} assignment {AssignmentId} attempt {AttemptId} actor {ActorUserId}",
+                LiveSessionActionNames.Submitted,
+                assignmentId,
+                attemptId,
+                null);
+        }
+
         await _assignments.SaveChangesAsync(cancellationToken);
         _logger.LogInformation(
             "Assignment {AssignmentId} submitted from attempt {AttemptId} as {Status}",

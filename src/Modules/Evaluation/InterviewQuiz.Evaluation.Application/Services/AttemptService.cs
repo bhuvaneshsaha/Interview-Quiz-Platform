@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 
 namespace InterviewQuiz.Evaluation.Application.Services;
 
-public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup, IRevokedInviteAttemptCloser
+public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateAttemptIdLookup, IRevokedInviteAttemptCloser
 {
     public static readonly ActivitySource ActivitySource = new("InterviewQuiz.Evaluation");
 
@@ -23,6 +23,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
     private readonly IAssignmentSnapshotReader _assignments;
     private readonly IAssignmentLifecycle _lifecycle;
     private readonly IInviteContinuation _invites;
+    private readonly ILiveSessionGateway? _live;
     private readonly IClock _clock;
     private readonly ILogger<AttemptService> _logger;
 
@@ -32,12 +33,14 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         IAssignmentLifecycle lifecycle,
         IClock clock,
         ILogger<AttemptService> logger,
-        IInviteContinuation? invites = null)
+        IInviteContinuation? invites = null,
+        ILiveSessionGateway? live = null)
     {
         _attempts = attempts;
         _assignments = assignments;
         _lifecycle = lifecycle;
         _invites = invites ?? AllowContinuingInvite.Instance;
+        _live = live;
         _clock = clock;
         _logger = logger;
     }
@@ -120,7 +123,10 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
-        EnsureAsync(header);
+        if (IsLive(header))
+        {
+            await TouchLiveAsync(assignmentId, cancellationToken);
+        }
 
         var inProgress = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
         string attemptStatus;
@@ -135,13 +141,15 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         }
 
         var openingName = string.IsNullOrWhiteSpace(header.OpeningTitle) ? "Opening" : header.OpeningTitle.Trim();
+        var live = IsLive(header) ? await LiveViewAsync(assignmentId, cancellationToken) : null;
         return new CandidateAttemptPreviewResponse
         {
             AttemptStatus = attemptStatus,
             QuizTitle = header.Snapshot.Title,
             OpeningName = openingName,
             DurationMinutes = header.OverallDurationMinutes ?? 0,
-            QuestionCount = header.Snapshot.Questions.Count
+            QuestionCount = header.Snapshot.Questions.Count,
+            LiveState = MapPreviewLiveState(live)
         };
     }
 
@@ -154,10 +162,20 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
-        EnsureAsync(header);
+        if (IsLive(header))
+        {
+            await ApplyLazyAsync(assignmentId, cancellationToken);
+            await TouchLiveAsync(assignmentId, cancellationToken);
+        }
+
         var attempt = await RequireCurrentAsync(assignmentId, cancellationToken);
-        attempt = await AutoSubmitIfDueAsync(attempt, header, cancellationToken);
-        return MapCandidate(attempt, header.Snapshot);
+        if (!IsLive(header))
+        {
+            attempt = await AutoSubmitIfDueAsync(attempt, header, cancellationToken);
+        }
+
+        var live = IsLive(header) ? await LiveViewAsync(assignmentId, cancellationToken) : null;
+        return MapCandidate(attempt, header.Snapshot, live);
     }
 
     public async Task<CandidateAttemptResponse> SaveAnswersAsync(
@@ -170,12 +188,26 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
-        EnsureAsync(header);
+        if (IsLive(header))
+        {
+            await ApplyLazyAsync(assignmentId, cancellationToken);
+            await TouchLiveAsync(assignmentId, cancellationToken);
+        }
+
         var attempt = await RequireCurrentAsync(assignmentId, cancellationToken);
-        attempt = await AutoSubmitIfDueAsync(attempt, header, cancellationToken);
+        if (!IsLive(header))
+        {
+            attempt = await AutoSubmitIfDueAsync(attempt, header, cancellationToken);
+        }
+
         if (attempt.IsSubmitted)
         {
             throw new ConcurrencyException(Attempt.AlreadySubmittedMessage);
+        }
+
+        if (attempt.IsPaused)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.Paused);
         }
 
         var known = header.Snapshot.Questions.Select(q => q.Id).ToHashSet();
@@ -191,7 +223,8 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
             attempt.Id,
             assignmentId);
 
-        return MapCandidate(attempt, header.Snapshot);
+        var live = IsLive(header) ? await LiveViewAsync(assignmentId, cancellationToken) : null;
+        return MapCandidate(attempt, header.Snapshot, live);
     }
 
     public async Task<CandidateSubmitResponse> SubmitAsync(
@@ -203,7 +236,11 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         await EnsureNotRevokedAsync(assignmentId, cancellationToken);
 
         var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
-        EnsureAsync(header);
+        if (IsLive(header))
+        {
+            await ApplyLazyAsync(assignmentId, cancellationToken);
+        }
+
         var attempt = await RequireCurrentAsync(assignmentId, cancellationToken);
 
         if (!attempt.IsSubmitted)
@@ -216,6 +253,139 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         }
 
         return MapSubmit(attempt);
+    }
+
+    public Task ApplyLazyAsync(Guid assignmentId, CancellationToken cancellationToken)
+        => ApplyLiveClockAsync(assignmentId, cancellationToken);
+
+    public async Task<Guid> StartForHostAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("live.start");
+        activity?.SetTag("assignment.id", assignmentId);
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
+
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        if (!IsLive(header))
+        {
+            throw new DomainException(LiveSessionMessages.NotLive);
+        }
+
+        var duration = header.OverallDurationMinutes
+            ?? throw new DomainException(LiveSessionMessages.DurationRequiredToStart);
+
+        var existing = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        if (existing is not null && !existing.IsSubmitted)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.AlreadyStarted);
+        }
+
+        var promptOrder = CandidateQuestionRedactor.BuildPromptOrder(header.Snapshot);
+        var attempt = Attempt.Start(
+            header.Id,
+            header.OpeningId,
+            header.SnapshotId,
+            header.CandidateEmail,
+            duration,
+            promptOrder,
+            _clock);
+
+        await _attempts.AddAsync(attempt, cancellationToken);
+        try
+        {
+            await _attempts.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyException ex) when (ex.Message == Attempt.InProgressConflictMessage)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.AlreadyStarted);
+        }
+
+        await _lifecycle.NotifyAttemptStarted(assignmentId, attempt.Id, cancellationToken);
+        activity?.SetTag("attempt.id", attempt.Id);
+        _logger.LogInformation(
+            "Host started attempt {AttemptId} for assignment {AssignmentId}",
+            attempt.Id,
+            assignmentId);
+        return attempt.Id;
+    }
+
+    public async Task<DateTimeOffset> PauseAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var attempt = await RequireInProgressAsync(assignmentId, cancellationToken);
+        var pausedAt = attempt.Pause(_clock);
+        await _attempts.SaveChangesAsync(cancellationToken);
+        return pausedAt;
+    }
+
+    public async Task<int> ResumeAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var attempt = await RequireInProgressAsync(assignmentId, cancellationToken);
+        var seconds = attempt.Resume(_clock);
+        await _attempts.SaveChangesAsync(cancellationToken);
+        return seconds;
+    }
+
+    public async Task ForceSubmitAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        var attempt = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        if (attempt is null || attempt.IsSubmitted)
+        {
+            return;
+        }
+
+        await ScoreAndSubmitAsync(attempt, header, cancellationToken);
+    }
+
+    public async Task<AttemptLiveFacts?> GetFactsAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var attempt = await _attempts.GetInProgressAsync(assignmentId, cancellationToken)
+            ?? await _attempts.GetLatestAsync(assignmentId, cancellationToken);
+        if (attempt is null)
+        {
+            return null;
+        }
+
+        return new AttemptLiveFacts(
+            attempt.Id,
+            attempt.IsSubmitted,
+            attempt.IsPaused,
+            attempt.IsSubmitted ? null : attempt.RemainingSeconds(_clock),
+            attempt.StartedAtUtc,
+            attempt.DueAtUtc,
+            attempt.Answers.Count(a => a.HasValue),
+            attempt.Answers.Count(a => a.Flagged));
+    }
+
+    public async Task SetFlagsAsync(
+        Guid assignmentId,
+        IReadOnlyList<ReviewFlagUpdate> flags,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotRevokedAsync(assignmentId, cancellationToken);
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        if (IsLive(header))
+        {
+            await ApplyLiveClockAsync(assignmentId, cancellationToken);
+        }
+
+        var attempt = await RequireCurrentAsync(assignmentId, cancellationToken);
+        if (attempt.IsSubmitted)
+        {
+            throw new ConcurrencyException(Attempt.AlreadySubmittedMessage);
+        }
+
+        if (attempt.IsPaused)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.Paused);
+        }
+
+        var known = header.Snapshot.Questions.Select(q => q.Id).ToHashSet();
+        attempt.SetFlags(flags.Select(f => (f.QuestionId, f.Flagged)).ToList(), known);
+        await _attempts.SaveChangesAsync(cancellationToken);
+        if (IsLive(header))
+        {
+            await TouchLiveAsync(assignmentId, cancellationToken);
+        }
     }
 
     public async Task<PagedResult<AttemptSummaryResponse>> ListByAssignmentAsync(
@@ -295,9 +465,9 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         score?.SetTag("attempt.id", attempt.Id);
         score?.SetTag("assignment.id", attempt.AssignmentId);
 
-        var answers = attempt.Answers.ToDictionary(
-            a => a.QuestionId,
-            a => a.Value.RootElement.Clone());
+        var answers = attempt.Answers
+            .Where(a => a.HasValue)
+            .ToDictionary(a => a.QuestionId, a => a.Value.RootElement.Clone());
         var scores = AutoScorer.ScoreAttempt(header.Snapshot, answers);
 
         var itemResults = scores.Select(s => AttemptItemResult.Create(
@@ -362,11 +532,100 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         return latest ?? throw new EntityNotFoundException(nameof(Attempt), assignmentId);
     }
 
+    private async Task ApplyLiveClockAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        if (_live is null)
+        {
+            return;
+        }
+
+        var header = await RequireAssignmentAsync(assignmentId, cancellationToken);
+        if (!IsLive(header))
+        {
+            return;
+        }
+
+        if (await _live.TryEndForPauseLimitAsync(assignmentId, cancellationToken))
+        {
+            var ended = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+            if (ended is not null && !ended.IsSubmitted)
+            {
+                await ScoreAndSubmitAsync(ended, header, cancellationToken);
+            }
+
+            return;
+        }
+
+        var current = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        if (current is null || current.IsSubmitted || current.IsPaused || !current.IsDue(_clock))
+        {
+            return;
+        }
+
+        await _live.MarkAutoEndedAsync(assignmentId, LiveEndReasons.Timeout, current.Id, cancellationToken);
+        await ScoreAndSubmitAsync(current, header, cancellationToken);
+    }
+
+    private async Task TouchLiveAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        if (_live is not null)
+        {
+            await _live.TouchAsync(assignmentId, cancellationToken);
+        }
+    }
+
+    private async Task<LiveSessionView?> LiveViewAsync(Guid assignmentId, CancellationToken cancellationToken)
+        => _live is null ? null : await _live.GetAsync(assignmentId, cancellationToken);
+
+    private async Task<Attempt> RequireInProgressAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        var attempt = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
+        return attempt is null || attempt.IsSubmitted
+            ? throw new EntityNotFoundException(nameof(Attempt), assignmentId)
+            : attempt;
+    }
+
+    private static bool IsLive(AssignmentWithSnapshotDto header)
+        => string.Equals(header.Mode, "live", StringComparison.OrdinalIgnoreCase);
+
+    private static string? MapPreviewLiveState(LiveSessionView? live)
+    {
+        if (live is null)
+        {
+            return null;
+        }
+
+        return live.State switch
+        {
+            "running" => "running",
+            "paused" => "paused",
+            "ended" or "submitted" => "ended",
+            _ => "waiting"
+        };
+    }
+
+    private static string? MapCandidateLiveState(LiveSessionView? live, Attempt attempt)
+    {
+        if (live is null)
+        {
+            return null;
+        }
+
+        if (attempt.IsSubmitted)
+        {
+            return live.EndReason is LiveEndReasons.Host or LiveEndReasons.Timeout or LiveEndReasons.PauseLimit
+                ? "ended"
+                : "submitted";
+        }
+
+        return live.State is "ended" or "submitted" ? "ended" : live.State;
+    }
+
     private static void EnsureAsync(AssignmentWithSnapshotDto header)
     {
         if (!string.Equals(header.Mode, "async", StringComparison.OrdinalIgnoreCase))
         {
-            throw new DomainException("Assignment is live; start is not available.");
+            throw new DomainException(LiveSessionMessages.WaitingForHost);
         }
     }
 
@@ -374,7 +633,10 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
         => status.Equals("pendingReview", StringComparison.OrdinalIgnoreCase)
            || status.Equals("completed", StringComparison.OrdinalIgnoreCase);
 
-    private CandidateAttemptResponse MapCandidate(Attempt attempt, QuizSnapshotDto snapshot)
+    private CandidateAttemptResponse MapCandidate(
+        Attempt attempt,
+        QuizSnapshotDto snapshot,
+        LiveSessionView? live = null)
     {
         var promptOrder = CandidateQuestionRedactor.ParsePromptOrder(attempt.PromptOrderJson);
         var questions = snapshot.Questions
@@ -392,6 +654,7 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
             .ToList();
 
         var answers = attempt.Answers
+            .Where(a => a.HasValue)
             .Select(a => new AnswerDto
             {
                 QuestionId = a.QuestionId,
@@ -423,7 +686,11 @@ public sealed class AttemptService : IAttemptService, ICandidateAttemptIdLookup,
             RemainingSeconds = attempt.RemainingSeconds(_clock),
             Questions = questions,
             Answers = answers,
-            ItemResults = itemResults
+            ItemResults = itemResults,
+            LiveState = MapCandidateLiveState(live, attempt),
+            Paused = attempt.IsPaused || string.Equals(live?.State, "paused", StringComparison.Ordinal),
+            LiveEndReason = live?.EndReason,
+            FlaggedQuestionIds = attempt.Answers.Where(a => a.Flagged).Select(a => a.QuestionId).ToList()
         };
     }
 

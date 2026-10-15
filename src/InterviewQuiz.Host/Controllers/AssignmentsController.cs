@@ -113,7 +113,7 @@ public sealed class AssignmentsController : ControllerBase
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] IssueInviteRequest? request,
         CancellationToken cancellationToken)
     {
-        var response = await _invites.ReissueAsync(id, request?.ExpiresAt, cancellationToken);
+        var response = await _invites.ReissueAsync(id, request?.ExpiresAt, RequireUserId(), cancellationToken);
         return Ok(response);
     }
 

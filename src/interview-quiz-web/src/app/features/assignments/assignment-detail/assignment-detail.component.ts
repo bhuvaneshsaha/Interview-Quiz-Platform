@@ -81,7 +81,7 @@ export class AssignmentDetail implements OnInit {
     if (!assignment || !this.canWrite) {
       return false;
     }
-    return assignment.mode === 'async' && !TERMINAL_STATUSES.has(assignment.status);
+    return (assignment.mode === 'async' || assignment.mode === 'live') && !TERMINAL_STATUSES.has(assignment.status);
   }
 
   requestInvite(): void {

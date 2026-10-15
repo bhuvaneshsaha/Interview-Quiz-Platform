@@ -10,6 +10,7 @@ import {
   InviteDeliveryResponse,
   InviteLifetimeResponse,
   InviteResponse,
+  LiveProgressResponse,
   PagedResult,
 } from './contracts';
 
@@ -68,5 +69,25 @@ export class AssignmentsApi {
 
   extendInvite(id: string, expiresAt: string | null): Observable<InviteLifetimeResponse> {
     return this.http.post<InviteLifetimeResponse>(`/api/assignments/${id}/invite/extend`, { expiresAt });
+  }
+
+  liveProgress(id: string): Observable<LiveProgressResponse> {
+    return this.http.get<LiveProgressResponse>(`/api/assignments/${id}/live/progress`);
+  }
+
+  startLive(id: string): Observable<LiveProgressResponse> {
+    return this.http.post<LiveProgressResponse>(`/api/assignments/${id}/live/start`, {});
+  }
+
+  pauseLive(id: string): Observable<LiveProgressResponse> {
+    return this.http.post<LiveProgressResponse>(`/api/assignments/${id}/live/pause`, {});
+  }
+
+  resumeLive(id: string): Observable<LiveProgressResponse> {
+    return this.http.post<LiveProgressResponse>(`/api/assignments/${id}/live/resume`, {});
+  }
+
+  endLive(id: string): Observable<LiveProgressResponse> {
+    return this.http.post<LiveProgressResponse>(`/api/assignments/${id}/live/end`, {});
   }
 }

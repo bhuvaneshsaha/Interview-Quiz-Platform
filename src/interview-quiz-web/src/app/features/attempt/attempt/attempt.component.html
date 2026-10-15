@@ -31,8 +31,27 @@
     @if (bannerError()) {
       <p class="status status-error" role="alert">{{ bannerError() }}</p>
     }
+    @if (reconnecting()) {
+      <p class="status" data-testid="live-reconnecting" role="status">Reconnecting…</p>
+    }
     @if (!attempt() && preview(); as info) {
-      @if (info.attemptStatus === 'notStarted') {
+      @if (info.liveState === 'waiting') {
+        <section class="welcome" data-testid="live-lobby" aria-labelledby="lobby-title">
+          <h2 id="lobby-title">Waiting for the interviewer to start.</h2>
+          <p class="welcome-opening">{{ info.openingName }}</p>
+          <dl class="welcome-facts">
+            <div>
+              <dt>Duration</dt>
+              <dd>{{ info.durationMinutes }} minutes</dd>
+            </div>
+            <div>
+              <dt>Questions</dt>
+              <dd>{{ info.questionCount }}</dd>
+            </div>
+          </dl>
+          <p>Stay on this page. The quiz opens when the interviewer starts the session.</p>
+        </section>
+      } @else if (info.attemptStatus === 'notStarted') {
         <section class="welcome" aria-labelledby="welcome-title">
           <h2 id="welcome-title">Welcome</h2>
           <p class="welcome-opening">{{ info.openingName }}</p>
@@ -84,6 +103,12 @@
             }
           </span>
           <span class="visually-hidden" aria-live="polite">{{ timerAnnouncement() }}</span>
+          <span class="visually-hidden" data-testid="live-announcement" aria-live="assertive">{{
+            liveAnnouncement()
+          }}</span>
+          @if (sessionPaused()) {
+            <p class="status" data-testid="live-pause-banner" role="status">Paused by interviewer</p>
+          }
           @if (previewMode()) {
             <button type="button" class="button button-quiet" (click)="togglePause()">
               {{ paused() ? 'Resume timer' : 'Pause timer' }}
@@ -95,10 +120,21 @@
         }
       </p>
 
+      @if (liveEndedMessage(); as ended) {
+        <section class="results-banner" data-testid="live-ended" aria-live="assertive">
+          <h2>Session ended</h2>
+          <p>{{ ended }}</p>
+        </section>
+      }
+
       @if (autoSubmitted() && !submitSummary()) {
         <section class="results-banner" aria-live="polite">
           <h2>Time ran out</h2>
-          <p>Time ran out. This preview was not recorded, and you can't change your answers.</p>
+          @if (previewMode()) {
+            <p>Time ran out. This preview was not recorded, and you can't change your answers.</p>
+          } @else {
+            <p>Time ran out. Your quiz was submitted automatically, and you can't change your answers.</p>
+          }
         </section>
       }
 
@@ -170,7 +206,7 @@
               }
             }
 
-            <fieldset [disabled]="submitted()">
+            <fieldset [disabled]="submitted() || sessionPaused()">
               <legend class="visually-hidden">Answer</legend>
 
               @switch (question.type) {
@@ -396,6 +432,7 @@
             type="button"
             class="button button-quiet"
             [attr.aria-pressed]="isMarked(current.questions[currentIndex()].id)"
+            [disabled]="sessionPaused()"
             (click)="toggleMark()"
           >
             {{ isMarked(current.questions[currentIndex()].id) ? 'Marked for review' : 'Mark for review' }}

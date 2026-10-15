@@ -180,6 +180,7 @@ export async function installCandidateApi(
   preview: typeof welcomePreview,
 ): Promise<AttemptCalls> {
   const calls: AttemptCalls = { start: 0, preview: 0, current: 0 };
+  const flagged = new Set<string>();
 
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -197,7 +198,7 @@ export async function installCandidateApi(
     }
     if (method === 'GET' && pathname.endsWith('/attempts/current')) {
       calls.current += 1;
-      await json(route, candidateAttempt);
+      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
       return;
     }
     if (method === 'POST' && /\/attempts$/.test(pathname)) {
@@ -206,7 +207,22 @@ export async function installCandidateApi(
       return;
     }
     if (method === 'PUT' && pathname.endsWith('/answers')) {
-      await json(route, candidateAttempt);
+      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
+      return;
+    }
+    if (method === 'PUT' && pathname.endsWith('/flags')) {
+      const body = request.postDataJSON() as { flags?: { questionId: string; flagged: boolean }[] };
+      flagged.clear();
+      for (const flag of body.flags ?? []) {
+        if (flag.flagged) {
+          flagged.add(flag.questionId);
+        }
+      }
+      await json(route, { ...candidateAttempt, flaggedQuestionIds: [...flagged] });
+      return;
+    }
+    if (method === 'PUT' && pathname.endsWith('/position')) {
+      await json(route, {}, 204);
       return;
     }
     await json(route, { message: `Unmocked ${method} ${pathname}` }, 404);

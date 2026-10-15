@@ -8,7 +8,10 @@ import {
   CandidateAttemptResponse,
   CandidateSubmitResponse,
   PagedResult,
+  ReportPositionRequest,
+  ReviewFlagDto,
   SaveAnswersRequest,
+  SetReviewFlagsRequest,
 } from './contracts';
 
 @Injectable({
@@ -65,5 +68,18 @@ export class AttemptsApi {
       `/api/assignments/${assignmentId}/attempts/current/submit`,
       {},
     );
+  }
+
+  setFlags(assignmentId: string, flags: ReviewFlagDto[]): Observable<CandidateAttemptResponse> {
+    const body: SetReviewFlagsRequest = { flags };
+    return this.http.put<CandidateAttemptResponse>(
+      `/api/assignments/${assignmentId}/attempts/current/flags`,
+      body,
+    );
+  }
+
+  reportPosition(assignmentId: string, questionIndex: number): Observable<void> {
+    const body: ReportPositionRequest = { questionIndex };
+    return this.http.put<void>(`/api/assignments/${assignmentId}/attempts/current/position`, body);
   }
 }

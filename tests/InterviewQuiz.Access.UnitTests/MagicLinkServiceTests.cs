@@ -80,16 +80,17 @@ public sealed class MagicLinkServiceTests
     }
 
     [Fact]
-    public async Task Consume_live_mode_is_invalid()
+    public async Task Consume_live_mode_returns_a_candidate_token()
     {
         var harness = Harness.Create(mode: "live");
         var raw = await IssueBypassingRulesAsync(harness);
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            harness.MagicLinks.ConsumeAsync(
-                new ConsumeMagicLinkRequest { Token = raw },
-                CancellationToken.None));
-        Assert.Equal(MagicLinkService.InvalidInviteMessage, ex.Message);
+        var response = await harness.MagicLinks.ConsumeAsync(
+            new ConsumeMagicLinkRequest { Token = raw },
+            CancellationToken.None);
+
+        Assert.Equal(AssignmentId, response.AssignmentId);
+        Assert.False(string.IsNullOrWhiteSpace(response.AccessToken));
     }
 
     [Fact]
@@ -154,12 +155,11 @@ public sealed class MagicLinkServiceTests
     }
 
     [Fact]
-    public async Task Issue_rejects_live_mode()
+    public async Task Issue_allows_live_mode()
     {
         var harness = Harness.Create(mode: "live");
-        var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None));
-        Assert.Equal(MagicLinkService.LiveModeMessage, ex.Message);
+        var raw = await harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(raw));
     }
 
     [Theory]

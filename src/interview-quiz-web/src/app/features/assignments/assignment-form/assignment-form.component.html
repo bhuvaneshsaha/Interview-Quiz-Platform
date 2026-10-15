@@ -135,36 +135,33 @@
         <input type="radio" formControlName="mode" value="async" />
         Async
       </label>
-      <label class="choice choice-disabled">
-        <input type="radio" name="assignment-mode-live" value="live" disabled />
+      <label class="choice">
+        <input type="radio" formControlName="mode" value="live" />
         Live
-        <span class="coming-soon">Coming soon</span>
       </label>
     </fieldset>
 
-    @if (!isLive) {
-      <div class="field">
-        <label for="overallDurationMinutes">Overall duration (minutes)</label>
-        <input
-          id="overallDurationMinutes"
-          type="number"
-          min="1"
-          max="480"
-          formControlName="overallDurationMinutes"
-          [attr.aria-invalid]="
-            form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
-          "
-          [attr.aria-describedby]="
-            form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
-              ? 'duration-error'
-              : null
-          "
-        />
-        @if (form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid) {
-          <p id="duration-error" class="field-error">Duration is required for async assignments (1–480 minutes).</p>
-        }
-      </div>
-    }
+    <div class="field">
+      <label for="overallDurationMinutes">Overall duration (minutes)</label>
+      <input
+        id="overallDurationMinutes"
+        type="number"
+        min="1"
+        max="480"
+        formControlName="overallDurationMinutes"
+        [attr.aria-invalid]="
+          form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
+        "
+        [attr.aria-describedby]="
+          form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid
+            ? 'duration-error'
+            : null
+        "
+      />
+      @if (form.controls.overallDurationMinutes.touched && form.controls.overallDurationMinutes.invalid) {
+        <p id="duration-error" class="field-error">Duration is required (1–480 minutes).</p>
+      }
+    </div>
 
     <div class="field">
       <label for="attemptLimit">Attempt limit</label>
@@ -227,7 +224,7 @@
           <p class="status status-error" role="alert">{{ copyError() }}</p>
         }
       } @else if (assignment.mode === 'live') {
-        <p class="hint">Live invite and attempt start are in slice 6. No invite link for this assignment.</p>
+        <p class="hint">Open the assignment to get a join link and run the live session.</p>
       }
       <p>
         <a [routerLink]="['/assignments', assignment.id]">View assignment</a>

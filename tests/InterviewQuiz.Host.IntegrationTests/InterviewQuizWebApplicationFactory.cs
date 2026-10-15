@@ -5,11 +5,13 @@ using InterviewQuiz.Catalog.Infrastructure.Seeding;
 using InterviewQuiz.Delivery.Infrastructure.Persistence;
 using InterviewQuiz.Delivery.Infrastructure.Seeding;
 using InterviewQuiz.Evaluation.Infrastructure.Persistence;
+using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
 using InterviewQuiz.Openings.Infrastructure.Seeding;
 using InterviewQuiz.Search.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +23,8 @@ public sealed class DatabaseCollection : ICollectionFixture<InterviewQuizWebAppl
 
 public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public MutableClock Clock { get; } = new();
+
     public static string? ConnectionString =>
         Environment.GetEnvironmentVariable("ConnectionStrings__InterviewQuiz");
 
@@ -38,6 +42,11 @@ public sealed class InterviewQuizWebApplicationFactory : WebApplicationFactory<P
                     ["ConnectionStrings:InterviewQuiz"] = ConnectionString
                 });
             }
+        });
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton(Clock);
+            services.AddSingleton<IClock>(Clock);
         });
     }
 

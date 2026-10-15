@@ -50,6 +50,9 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OpeningId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("PausedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("PromptOrderJson")
                         .IsRequired()
                         .HasColumnType("jsonb");
@@ -100,6 +103,11 @@ namespace InterviewQuiz.Evaluation.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("Flagged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Value")
                         .IsRequired()

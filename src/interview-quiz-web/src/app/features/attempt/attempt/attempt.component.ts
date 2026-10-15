@@ -19,6 +19,8 @@ import {
 } from '../../../core/api/contracts';
 import { AttemptsApi } from '../../../core/api/attempts-api.service';
 import { MagicLinkApi } from '../../../core/api/magic-link-api.service';
+import { ApiError } from '../../../core/http/api-error';
+import { pollDelayMs } from '../../assignments/live-session/poll-delay';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { TemplatesApi } from '../../../core/api/templates-api.service';
 import { CandidateSession } from '../../../core/auth/candidate-session.service';
@@ -51,6 +53,8 @@ import { nextTimerAnnouncement, timerUrgency, TimerAnnouncementState } from './t
 
 type PreviewKind = 'quiz' | 'draft' | 'template';
 
+const LIVE_POLL_MS = 2000;
+
 @Component({
   selector: 'app-attempt',
   imports: [FormsModule, PageStatus, OfflineBanner, CdkDropList, CdkDrag, CdkDragHandle],
@@ -67,6 +71,8 @@ export class Attempt implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly saves = new Subject<void>();
   private timerId: ReturnType<typeof setInterval> | null = null;
+  private livePollTimer: ReturnType<typeof setTimeout> | null = null;
+  private liveFailures = 0;
   private inviteChecks = 0;
   private autoSubmitStarted = false;
   private timerAnnounced: TimerAnnouncementState = { five: false, one: false };
@@ -101,16 +107,22 @@ export class Attempt implements OnInit {
   readonly currentIndex = signal(0);
   readonly marked = signal<ReadonlySet<string>>(new Set());
   readonly drawerOpen = signal(false);
+  readonly sessionPaused = signal(false);
+  readonly reconnecting = signal(false);
+  readonly liveAnnouncement = signal('');
 
   readonly remainingSeconds = computed(() => {
     const attempt = this.attempt();
-    this.now();
     if (!attempt) {
       return 0;
     }
     if (this.previewMode() && this.paused()) {
       return this.pausedRemainingSeconds;
     }
+    if (this.sessionPaused()) {
+      return Math.max(0, attempt.remainingSeconds);
+    }
+    this.now();
     const due = Date.parse(attempt.dueAtUtc);
     if (Number.isNaN(due)) {
       return Math.max(0, attempt.remainingSeconds);
@@ -148,6 +160,7 @@ export class Attempt implements OnInit {
     }
     this.destroyRef.onDestroy(() => {
       this.stopTimer();
+      this.clearLivePoll();
       if (this.enteredCandidate) {
         this.candidate.leaveAttempt();
       }
@@ -171,6 +184,7 @@ export class Attempt implements OnInit {
       this.loading.set(false);
       return;
     }
+    this.candidate.setInviteToken(token);
     this.magicLinks.consume(token).subscribe({
       next: (tokens) => {
         this.candidate.setSession(tokens);
@@ -253,6 +267,7 @@ export class Attempt implements OnInit {
     if (index !== this.currentIndex()) {
       this.flushAnswers();
       this.currentIndex.set(index);
+      this.reportPosition(index);
       queueMicrotask(() => document.getElementById('question-heading')?.focus());
     }
     this.drawerOpen.set(false);
@@ -265,7 +280,7 @@ export class Attempt implements OnInit {
   toggleMark(): void {
     const attempt = this.attempt();
     const question = attempt?.questions[this.currentIndex()];
-    if (!attempt || !question || this.submitted()) {
+    if (!attempt || !question || this.submitted() || (this.sessionPaused() && !this.previewMode())) {
       return;
     }
     const next = new Set(this.marked());
@@ -275,7 +290,17 @@ export class Attempt implements OnInit {
       next.add(question.id);
     }
     this.marked.set(next);
-    this.persistMarks(attempt.assignmentId, next);
+    if (this.previewMode()) {
+      return;
+    }
+    const flags = attempt.questions.map((item) => ({
+      questionId: item.id,
+      flagged: next.has(item.id),
+    }));
+    this.attemptsApi.setFlags(attempt.assignmentId, flags).subscribe({
+      next: (updated) => this.applyLiveUpdate(updated),
+      error: (err: unknown) => this.fail(err, false, false),
+    });
   }
 
   onAttemptKeydown(event: KeyboardEvent): void {
@@ -702,6 +727,9 @@ export class Attempt implements OnInit {
         this.preview.set(preview);
         if (preview.attemptStatus === 'notStarted') {
           this.loading.set(false);
+          if (preview.liveState === 'waiting') {
+            this.scheduleLivePoll(LIVE_POLL_MS);
+          }
           return;
         }
         this.loadCurrent(assignmentId);
@@ -728,22 +756,79 @@ export class Attempt implements OnInit {
     }
     this.answers.set(next);
     this.attempt.set(attempt);
-    this.marked.set(this.loadMarks(attempt.assignmentId));
+    this.marked.set(new Set(attempt.flaggedQuestionIds ?? []));
     this.currentIndex.set(0);
+    this.sessionPaused.set(attempt.paused === true || attempt.liveState === 'paused');
     this.itemResults.set(attempt.itemResults ?? []);
     this.loading.set(false);
-    if (attempt.status === 'submitted') {
+    if (attempt.status === 'submitted' || attempt.liveState === 'ended') {
+      this.noteLiveEnd(attempt);
       this.stopTimer();
       this.candidate.clear();
       return;
     }
-    if (this.remainingSeconds() <= 0) {
+    if (!this.sessionPaused() && this.remainingSeconds() <= 0) {
       this.autoSubmitStarted = true;
       this.submit('timeout');
       return;
     }
     this.startTimer();
     this.noteTimerThreshold();
+    if (attempt.liveState) {
+      this.scheduleLivePoll(LIVE_POLL_MS);
+    }
+  }
+
+  private applyLiveUpdate(updated: CandidateAttemptResponse): void {
+    const wasPaused = this.sessionPaused();
+    this.attempt.update((current) =>
+      current
+        ? {
+            ...current,
+            status: updated.status,
+            remainingSeconds: updated.remainingSeconds,
+            dueAtUtc: updated.dueAtUtc,
+            submittedAtUtc: updated.submittedAtUtc,
+            liveState: updated.liveState,
+            paused: updated.paused,
+            liveEndReason: updated.liveEndReason,
+            flaggedQuestionIds: updated.flaggedQuestionIds ?? current.flaggedQuestionIds,
+          }
+        : current,
+    );
+    if (updated.flaggedQuestionIds) {
+      this.marked.set(new Set(updated.flaggedQuestionIds));
+    }
+    const nowPaused = updated.paused === true || updated.liveState === 'paused';
+    this.sessionPaused.set(nowPaused);
+    if (!wasPaused && nowPaused) {
+      this.liveAnnouncement.set('Paused by interviewer');
+    } else if (wasPaused && !nowPaused && updated.status !== 'submitted') {
+      this.liveAnnouncement.set('The interviewer resumed the quiz.');
+    }
+    if (updated.status === 'submitted' || updated.liveState === 'ended') {
+      this.noteLiveEnd(updated);
+      this.itemResults.set(updated.itemResults ?? this.itemResults());
+      this.stopTimer();
+      this.candidate.clear();
+    }
+  }
+
+  private noteLiveEnd(updated: CandidateAttemptResponse): void {
+    if (updated.liveEndReason === 'timeout') {
+      this.autoSubmitted.set(true);
+    }
+  }
+
+  liveEndedMessage(): string | null {
+    const reason = this.attempt()?.liveEndReason;
+    if (reason === 'host') {
+      return 'The interviewer ended the session.';
+    }
+    if (reason === 'pauseLimit') {
+      return 'The session ended because the pause limit was reached.';
+    }
+    return null;
   }
 
   private patchAnswer(questionId: string, value: AnswerValue): void {
@@ -797,6 +882,12 @@ export class Attempt implements OnInit {
       },
       error: (err: unknown) => {
         this.saving.set(false);
+        if (this.isPausedConflict(err)) {
+          this.sessionPaused.set(true);
+          this.liveAnnouncement.set('Paused by interviewer');
+          this.bannerError.set(null);
+          return;
+        }
         this.fail(err, false, false);
       },
     });
@@ -813,7 +904,12 @@ export class Attempt implements OnInit {
       if (this.inviteChecks % 2 === 0) {
         this.watchRevoke();
       }
-      if (!this.autoSubmitStarted && this.remainingSeconds() <= 0 && !this.submitted()) {
+      if (
+        !this.autoSubmitStarted &&
+        !this.sessionPaused() &&
+        this.remainingSeconds() <= 0 &&
+        !this.submitted()
+      ) {
         this.autoSubmitStarted = true;
         this.submit('timeout');
       }
@@ -822,7 +918,7 @@ export class Attempt implements OnInit {
 
   private watchRevoke(): void {
     const attempt = this.attempt();
-    if (!attempt || this.previewMode() || this.submitted() || this.inviteBlock()) {
+    if (!attempt || this.previewMode() || this.submitted() || this.inviteBlock() || attempt.liveState) {
       return;
     }
     this.attemptsApi.getCurrent(attempt.assignmentId).subscribe({
@@ -846,29 +942,91 @@ export class Attempt implements OnInit {
     }
   }
 
-  private reviewStorageKey(assignmentId: string): string {
-    return `iq.reviewMarks.${assignmentId}`;
+  private reportPosition(index: number): void {
+    const attempt = this.attempt();
+    if (!attempt || this.previewMode() || !attempt.liveState || this.submitted()) {
+      return;
+    }
+    this.attemptsApi.reportPosition(attempt.assignmentId, index).subscribe({
+      error: () => undefined,
+    });
   }
 
-  private loadMarks(assignmentId: string): Set<string> {
-    try {
-      const raw = sessionStorage.getItem(this.reviewStorageKey(assignmentId));
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) {
-        return new Set();
-      }
-      return new Set(parsed.filter((id): id is string => typeof id === 'string'));
-    } catch {
-      return new Set();
+  private scheduleLivePoll(delayMs: number): void {
+    this.clearLivePoll();
+    this.livePollTimer = setTimeout(() => this.pollLive(), delayMs);
+  }
+
+  private clearLivePoll(): void {
+    if (this.livePollTimer) {
+      clearTimeout(this.livePollTimer);
+      this.livePollTimer = null;
     }
   }
 
-  private persistMarks(assignmentId: string, marks: ReadonlySet<string>): void {
-    sessionStorage.setItem(this.reviewStorageKey(assignmentId), JSON.stringify([...marks]));
+  private pollLive(): void {
+    if (this.submitted() || this.inviteBlock() || this.previewMode()) {
+      return;
+    }
+    const assignmentId = this.candidate.assignmentId();
+    if (!assignmentId) {
+      return;
+    }
+    if (!this.attempt()) {
+      this.attemptsApi.preview(assignmentId).subscribe({
+        next: (preview) => {
+          this.liveFailures = 0;
+          this.reconnecting.set(false);
+          this.preview.set(preview);
+          if (preview.attemptStatus === 'notStarted') {
+            this.scheduleLivePoll(LIVE_POLL_MS);
+            return;
+          }
+          this.loadCurrent(assignmentId);
+        },
+        error: (err: unknown) => this.onLivePollError(err),
+      });
+      return;
+    }
+    this.attemptsApi.getCurrent(assignmentId).subscribe({
+      next: (updated) => {
+        this.liveFailures = 0;
+        this.reconnecting.set(false);
+        this.applyLiveUpdate(updated);
+        if (!this.submitted()) {
+          this.scheduleLivePoll(LIVE_POLL_MS);
+        }
+      },
+      error: (err: unknown) => this.onLivePollError(err),
+    });
+  }
+
+  private onLivePollError(err: unknown): void {
+    if (err instanceof ApiError && err.status === 401) {
+      this.clearLivePoll();
+      this.fail(err);
+      return;
+    }
+    this.liveFailures += 1;
+    if (this.liveFailures >= 2) {
+      this.reconnecting.set(true);
+    }
+    this.scheduleLivePoll(pollDelayMs(this.liveFailures, LIVE_POLL_MS));
+  }
+
+  private isPausedConflict(err: unknown): boolean {
+    return err instanceof ApiError && err.status === 409 && err.message === 'Session is paused.';
   }
 
   private fail(err: unknown, stopLoading = true, fatal = true): void {
     const mapped = PageStatus.fromError(err);
+    if (fatal && err instanceof ApiError && err.status === 401) {
+      this.error.set('Reopen your link.');
+      this.bannerError.set(null);
+      this.loading.set(false);
+      this.clearLivePoll();
+      return;
+    }
     if (mapped.message === REVOKED_INVITE_MESSAGE) {
       this.inviteBlock.set('revoked');
       this.attempt.set(null);
