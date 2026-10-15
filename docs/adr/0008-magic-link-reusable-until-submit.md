@@ -1,6 +1,6 @@
 # ADR 0008 — Candidate magic-link: opaque invite, reusable until first submit
 
-Status: **Implemented**. Decision unchanged. Slice 5 is in the code: hashed `access.magic_link_invites`, `POST /api/auth/magic-link/consume`, `IMagicLinkService.IssueAsync` + `BuildInviteUrl`, assignment-scoped candidate JWT (`candidate.attempt.participate` + `assignment_id`), no candidate refresh. Env names: `PublicBaseUrl`, `Jwt__CandidateAccessTokenMinutes`. Angular `/attempt?token=` uses in-memory `CandidateSession` isolated from employee `TokenStore`.
+Status: **Implemented**. Decision 2 is narrowed by [ADR 0009](0009-invite-expiry-email-and-template-assign.md): an invite stays reusable until submit only while it is not expired and not revoked. Expiry and revoke do not rotate the token. Slice 5 is in the code: hashed `access.magic_link_invites`, `POST /api/auth/magic-link/consume`, `IMagicLinkService.IssueAsync` + `BuildInviteUrl`, assignment-scoped candidate JWT (`candidate.attempt.participate` + `assignment_id`), no candidate refresh. Env names: `PublicBaseUrl`, `Jwt__CandidateAccessTokenMinutes`. Angular `/attempt?token=` uses in-memory `CandidateSession` isolated from employee `TokenStore`.
 
 ## Context
 

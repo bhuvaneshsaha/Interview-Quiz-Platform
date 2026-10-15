@@ -39,10 +39,14 @@ export class AssignmentDetail implements OnInit {
   readonly attemptsLoading = signal(false);
   readonly inviteUrl = signal<string | null>(null);
   readonly inviting = signal(false);
+  readonly emailBusy = signal(false);
   readonly copied = signal(false);
   readonly confirmRotate = signal(false);
+  readonly confirmRevoke = signal(false);
   readonly inviteReissued = signal(false);
+  readonly inviteNotice = signal<string | null>(null);
   readonly inviteError = signal<string | null>(null);
+  readonly expiresAtLocal = signal('');
   readonly copyError = signal<string | null>(null);
   readonly statusLabel = statusLabel;
   readonly resultStatusLabel = resultStatusLabel;
@@ -91,8 +95,127 @@ export class AssignmentDetail implements OnInit {
     this.issueInvite(false);
   }
 
+  emailStatusLabel(status: string | null | undefined): string {
+    switch (status) {
+      case 'sent':
+        return 'Sent';
+      case 'failed':
+        return 'Failed';
+      case 'resent':
+        return 'Resent';
+      default:
+        return 'Not sent';
+    }
+  }
+
+  inviteStateLabel(state: string | null | undefined): string {
+    switch (state) {
+      case 'active':
+        return 'Active';
+      case 'expired':
+        return 'Expired';
+      case 'revoked':
+        return 'Revoked';
+      default:
+        return 'Not issued';
+    }
+  }
+
   cancelRotate(): void {
     this.confirmRotate.set(false);
+  }
+
+  requestRevoke(): void {
+    if (!this.canInvite) {
+      return;
+    }
+    this.confirmRevoke.set(true);
+  }
+
+  cancelRevoke(): void {
+    this.confirmRevoke.set(false);
+  }
+
+  confirmRevokeInvite(): void {
+    this.confirmRevoke.set(false);
+    const assignment = this.assignment();
+    if (!assignment) {
+      return;
+    }
+    this.emailBusy.set(true);
+    this.inviteError.set(null);
+    this.api.revokeInvite(assignment.id).subscribe({
+      next: (response) => {
+        this.assignment.update((current) =>
+          current ? { ...current, inviteState: response.inviteState, inviteExpiresAt: response.expiresAt ?? null } : current,
+        );
+        this.inviteUrl.set(null);
+        this.inviteNotice.set('Invite revoked. The current link no longer works.');
+        this.emailBusy.set(false);
+      },
+      error: (err: unknown) => this.failInvite(err),
+    });
+  }
+
+  onExpiryInput(event: Event): void {
+    const value = event.target instanceof HTMLInputElement ? event.target.value : '';
+    this.expiresAtLocal.set(value);
+  }
+
+  extendInvite(): void {
+    const assignment = this.assignment();
+    const local = this.expiresAtLocal().trim();
+    if (!assignment || !this.canInvite || !local) {
+      this.inviteError.set('Choose a future expiry before extending.');
+      return;
+    }
+    const parsed = new Date(local);
+    if (Number.isNaN(parsed.getTime())) {
+      this.inviteError.set('Invite expiry is not a valid date.');
+      return;
+    }
+    this.emailBusy.set(true);
+    this.inviteError.set(null);
+    this.api.extendInvite(assignment.id, parsed.toISOString()).subscribe({
+      next: (response) => {
+        this.assignment.update((current) =>
+          current ? { ...current, inviteState: response.inviteState, inviteExpiresAt: response.expiresAt ?? null } : current,
+        );
+        this.inviteNotice.set('Expiry updated. Resend the email if the candidate should be notified.');
+        this.emailBusy.set(false);
+      },
+      error: (err: unknown) => this.failInvite(err),
+    });
+  }
+
+  resendEmail(): void {
+    const assignment = this.assignment();
+    if (!assignment || !this.canInvite) {
+      return;
+    }
+    this.emailBusy.set(true);
+    this.inviteError.set(null);
+    this.api.resendInvite(assignment.id).subscribe({
+      next: (response) => {
+        this.assignment.update((current) =>
+          current
+            ? {
+                ...current,
+                inviteEmailStatus: response.inviteEmailStatus,
+                inviteEmailAttemptCount: response.inviteEmailAttemptCount,
+                inviteEmailLastError: response.inviteEmailLastError ?? null,
+              }
+            : current,
+        );
+        this.inviteNotice.set(
+          response.inviteEmailStatus === 'failed'
+            ? 'Email could not be sent.'
+            : 'Invite email resent. The link is unchanged.',
+        );
+        this.emailBusy.set(false);
+      },
+      error: (err: unknown) => this.failInvite(err),
+    });
   }
 
   confirmRotateInvite(): void {
@@ -134,12 +257,15 @@ export class AssignmentDetail implements OnInit {
         this.inviteReissued.set(reissued);
         this.inviting.set(false);
       },
-      error: (err: unknown) => {
-        const mapped = PageStatus.fromError(err);
-        this.inviteError.set(mapped.message);
-        this.inviting.set(false);
-      },
+      error: (err: unknown) => this.failInvite(err),
     });
+  }
+
+  private failInvite(err: unknown): void {
+    const mapped = PageStatus.fromError(err);
+    this.inviteError.set(mapped.message);
+    this.inviting.set(false);
+    this.emailBusy.set(false);
   }
 
   private loadAttempts(assignmentId: string): void {

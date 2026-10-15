@@ -513,6 +513,19 @@ export interface CreateAssignmentRequest {
   mode: AssignmentMode;
   timing?: AssignmentTimingRequest | null;
   attemptLimit?: number | null;
+  inviteExpiresAt?: string | null;
+}
+
+export interface CreateAssignmentFromTemplateRequest {
+  openingId: string;
+  templateId: string;
+  templateVersionId?: string | null;
+  candidateEmail: string;
+  mode: AssignmentMode;
+  timing?: AssignmentTimingRequest | null;
+  attemptLimit?: number | null;
+  quizTitle?: string | null;
+  inviteExpiresAt?: string | null;
 }
 
 export interface AssignmentSummaryResponse {
@@ -532,14 +545,41 @@ export interface AssignmentSummaryResponse {
   updatedAtUtc: string;
 }
 
+export type InviteEmailStatus = 'none' | 'sent' | 'failed' | 'resent' | string;
+export type InviteState = 'none' | 'active' | 'expired' | 'revoked' | string;
+
 export interface AssignmentResponse extends AssignmentSummaryResponse {
   createdByUserId: string;
   inviteUrl?: string | null;
+  inviteEmailStatus?: InviteEmailStatus;
+  inviteEmailAttemptCount?: number;
+  inviteEmailLastAttemptAt?: string | null;
+  inviteEmailLastError?: string | null;
+  inviteState?: InviteState;
+  inviteExpiresAt?: string | null;
 }
 
 export interface InviteResponse {
   assignmentId: string;
   inviteUrl: string;
+  expiresAt?: string | null;
+  inviteEmailStatus?: InviteEmailStatus;
+  inviteEmailAttemptCount?: number;
+  inviteEmailLastError?: string | null;
+}
+
+export interface InviteLifetimeResponse {
+  assignmentId: string;
+  inviteState: string;
+  expiresAt?: string | null;
+}
+
+export interface InviteDeliveryResponse {
+  assignmentId: string;
+  inviteEmailStatus: InviteEmailStatus;
+  inviteEmailAttemptCount: number;
+  inviteEmailLastAttemptAt?: string | null;
+  inviteEmailLastError?: string | null;
 }
 
 export interface ConsumeMagicLinkRequest {

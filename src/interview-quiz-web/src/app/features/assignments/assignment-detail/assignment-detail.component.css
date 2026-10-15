@@ -24,9 +24,17 @@
   font-size: 0.9rem;
 }
 
-.invite-field {
+.invite-field,
+.invite-extend {
   margin-top: 1rem;
   max-width: 40rem;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .results {

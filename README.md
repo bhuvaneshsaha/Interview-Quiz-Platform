@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, Entra ID, and SMTP are **not** in this pass. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start/pause, human review, AI drafts, and Entra ID are **not** in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this br
 - `dotnet-ef` for migrations (`dotnet tool install --global dotnet-ef`)
 - Node.js LTS + Angular CLI 21 (for the web client)
 
-Docker is used only to run PostgreSQL locally. The app itself runs with `dotnet run`.
+Docker is used to run PostgreSQL locally, and optionally Mailpit when you want to read invite email in a browser. The app itself runs with `dotnet run`.
 
 Windows (PowerShell): [Windows (PowerShell) quick start](#windows-powershell-quick-start). The bash commands in the sections below stay as they are.
 
@@ -27,6 +27,8 @@ Compose (local development only — not production secrets):
 - user: `interviewquiz`
 - password: `interviewquiz_dev_only`
 - port: `5432`
+
+The same Compose file also starts **Mailpit** (SMTP `1025`, web UI `http://localhost:8025`). Development does not send through it unless you opt in (see [Invite email](#invite-email)).
 
 Point the API at it with the **name** `ConnectionStrings__InterviewQuiz` (never commit production values):
 
@@ -52,7 +54,7 @@ From the repo root in PowerShell, with Docker Desktop running. This is the same 
 docker compose -f deploy/local/compose.yaml up -d
 ```
 
-There is no Compose file at the repo root, so `-f deploy/local/compose.yaml` is required. `-d` leaves Postgres in the background. Database `interviewquiz`, user `interviewquiz`, password `interviewquiz_dev_only`, port `5432` — the same values as [Local PostgreSQL](#local-postgresql).
+There is no Compose file at the repo root, so `-f deploy/local/compose.yaml` is required. `-d` leaves Postgres and Mailpit in the background. Database `interviewquiz`, user `interviewquiz`, password `interviewquiz_dev_only`, port `5432` — the same values as [Local PostgreSQL](#local-postgresql). Mailpit SMTP is `localhost:1025` and the mailbox UI is `http://localhost:8025`. Development still uses the file sink until you set `InviteMail__Mode` to `Smtp` (see [Invite email](#invite-email)).
 
 ### 2. API
 
@@ -117,6 +119,17 @@ Do not pass `--with-deps` on Windows. That flag installs Linux system packages. 
 | `Jwt__RefreshTokenDays` | Refresh token lifetime (default `14`) |
 | `Jwt__CandidateAccessTokenMinutes` | Candidate magic-link access token lifetime (default `60`, range 1–180). No candidate refresh token |
 | `PublicBaseUrl` | Public origin for recruiter-copied invite URLs (no trailing slash; not a secret). Access `IMagicLinkService.BuildInviteUrl` produces `{PublicBaseUrl}/attempt?token=` |
+| `Invite__DefaultLifetimeHours` | Default magic-link lifetime when the recruiter omits `expiresAt`. Default `168`. `0` means no time limit until someone sets one |
+| `InviteMail__Mode` | `Sink` (default) or `Smtp`. Testing always uses an in-memory mailer and never opens SMTP |
+| `InviteMail__FromAddress` | From address on invite email |
+| `InviteMail__FromDisplayName` | Display name on invite email |
+| `InviteMail__Subject` | Subject line |
+| `InviteMail__SinkDirectory` | Folder for sink `.eml` files. Empty uses `src/InterviewQuiz.Host/App_Data/invite-mail` |
+| `InviteMail__Smtp__Host` | SMTP host. Mailpit on this Compose file is `localhost` |
+| `InviteMail__Smtp__Port` | SMTP port. Mailpit is `1025` |
+| `InviteMail__Smtp__UseSsl` | `true` or `false`. Mailpit local SMTP is `false` |
+| `InviteMail__Smtp__Username` | Optional SMTP username. Leave empty for Mailpit |
+| `InviteMail__Smtp__Password` | Optional SMTP password. Do not commit a real password |
 | `Bootstrap__SuperAdminEmail` | Optional mailbox for the first Super Admin. Empty seeds the role and no user. No password is stored in git |
 | `Bootstrap__ResetSuperAdminSetup` | `true` re-issues the one-time password token on startup while the user still must set a password |
 
@@ -193,7 +206,7 @@ There is **no self-registration**. Admins provision users (`users.manage`).
 
 Candidates enter with a **magic-link**: `POST /api/auth/magic-link/consume` with `{ "token": "<opaque>" }` returns a short-lived assignment-scoped JWT (`candidate.attempt.participate` + `assignment_id`). The invite is reusable until the assignment is submitted or the recruiter rotates it. No candidate refresh token. Recruiter invite HTTP (`POST /api/assignments/{id}/invite`) is Delivery; Access exposes `IMagicLinkService.IssueAsync` (raw token, hashed in `access.magic_link_invites`) and `BuildInviteUrl`. Candidates have **no password** — do not invent one.
 
-Not in this slice: Entra ID, SMTP.
+Not in this slice: Entra ID. Invite SMTP is configuration; see [Invite email](#invite-email).
 
 ### Sign in locally (Development dummy users)
 
@@ -296,9 +309,50 @@ In-process: `IQuizSnapshotReader.GetSnapshotAsync(quizId)` returns an immutable 
 | `GET` | `/api/assignments` | `assignments.read` |
 | `GET` | `/api/assignments/{id}` | `assignments.read` |
 | `POST` | `/api/assignments` | `assignments.write` |
+| `POST` | `/api/assignments/from-template` | `assignments.write` and `templates.read` |
 | `POST` | `/api/assignments/{id}/invite` | `assignments.write` |
+| `POST` | `/api/assignments/{id}/invite/resend` | `assignments.write` |
+| `POST` | `/api/assignments/{id}/invite/revoke` | `assignments.write` |
+| `POST` | `/api/assignments/{id}/invite/extend` | `assignments.write` |
 
-List query: `openingId`, `keyword` (candidate email or snapshot title), `page`, `pageSize`. No `criteria` JSON. Create body: `openingId`, `quizId`, `candidateEmail`, `mode` (`async` \| `live`), `timing.overallDurationMinutes` (required 1–480 for async), `attemptLimit` (optional, default 1). POST create 201 `Location: /api/assignments/{id}`. Async create includes `inviteUrl` once (`{PublicBaseUrl}/attempt?token=`). GET never returns `inviteUrl`. Live create omits `inviteUrl`. No PUT/DELETE.
+List query: `openingId`, `keyword` (candidate email or snapshot title), `page`, `pageSize`. No `criteria` JSON. Create body: `openingId`, `quizId`, `candidateEmail`, `mode` (`async` \| `live`), `timing.overallDurationMinutes` (required 1–480 for async), `attemptLimit` (optional, default 1), `inviteExpiresAt` (optional). POST create 201 `Location: /api/assignments/{id}`. Async create includes `inviteUrl` once (`{PublicBaseUrl}/attempt?token=`) and sends the invite email. GET never returns `inviteUrl`. It does return `inviteState` (`none` \| `active` \| `expired` \| `revoked`), `inviteExpiresAt`, and `inviteEmailStatus` (`none` \| `sent` \| `failed` \| `resent`). Live create omits `inviteUrl` and does not send email. No PUT/DELETE.
+
+`POST /api/assignments/from-template` clones the template version into the opening (latest version when `templateVersionId` is omitted), then creates the assignment and snapshot from that new quiz. It does **not** require `quizzes.write`. Body: `openingId`, `templateId`, optional `templateVersionId`, `candidateEmail`, `mode`, `timing`, `attemptLimit`, optional `quizTitle`, optional `inviteExpiresAt`.
+
+`POST .../invite` still rotates the link (the previous token stops working) and emails the new URL. Optional body `{ "expiresAt": "<utc>" }`. `POST .../invite/revoke` revokes the current link and does not issue a replacement. `POST .../invite/extend` body `{ "expiresAt": "<utc>" | null }` changes expiry on the same link (`null` clears the time limit). `POST .../invite/resend` emails the current link again and does not rotate it. A link issued before this change has no recoverable token; resend then asks for a re-issue.
+
+## Invite email
+
+Sending goes through `IInviteMailer`. The raw token is in the email body only. It is not written to logs. A data-protected copy is stored so resend can rebuild the same URL; consume still looks up the hash.
+
+| `InviteMail__Mode` | What happens |
+|--------------------|----------------|
+| `Sink` (Development default) | Writes `App_Data/invite-mail/*.eml` under the host project and logs the assignment id plus file name |
+| `Smtp` | Sends with `System.Net.Mail` using `InviteMail__Smtp__*` |
+
+PowerShell, same session as `dotnet run`, to use Mailpit from `deploy/local/compose.yaml`:
+
+```powershell
+$env:InviteMail__Mode = "Smtp"
+$env:InviteMail__Smtp__Host = "localhost"
+$env:InviteMail__Smtp__Port = "1025"
+$env:InviteMail__Smtp__UseSsl = "false"
+dotnet run --project src/InterviewQuiz.Host
+```
+
+Bash equivalent:
+
+```bash
+export InviteMail__Mode=Smtp
+export InviteMail__Smtp__Host=localhost
+export InviteMail__Smtp__Port=1025
+export InviteMail__Smtp__UseSsl=false
+dotnet run --project src/InterviewQuiz.Host
+```
+
+Open `http://localhost:8025` to read the message. Tests never use this path: the Testing environment registers `RecordingInviteMailer`, which keeps messages in memory and does not open a socket.
+
+`Invite__DefaultLifetimeHours` defaults to `168`. Set it to `0` when new invites should stay valid until a recruiter sets `expiresAt`, revokes them, or rotates them. An expired or revoked link cannot be consumed. A candidate JWT that was already issued stays valid until that JWT expires; opening the link again is what hits the expiry page. After submit, an invite that is still active can be consumed to view the summary (ADR 0008). Expiry and revoke are additional stops (ADR 0009).
 
 Development seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001`, `candidate.dev@example.com`). To copy an invite URL after `dotnet run` (Development):
 
@@ -325,7 +379,7 @@ curl -s http://localhost:5147/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e50
 
 Candidate mismatch on `assignment_id` is **403**. Live assignments reject start with 400 `Assignment is live; start is not available.` Auto-score uses snapshot keys only (no LLM). Employee results omit keys. No `GET /api/attempts` without an assignment. No `attempts.review` endpoints.
 
-Not in this slice: live start/pause REST, human review, AI drafts, Entra, SMTP.
+Not in this slice: live start/pause REST, human review, AI drafts, Entra. Invite email is in [Invite email](#invite-email).
 
 ## Search API (slice 3 — saved filters)
 
@@ -382,7 +436,7 @@ Dummy users and passwords are in the table under **Sign in locally** above — d
 - `author.dev@example.com` (Dev Template author) for **write**: list/create/edit quizzes (`quizzes.write`), publish as template (`templates.write`), clone (`quizzes.write` + `templates.read`), question bank (`questions.read` + `questions.write`), include from an existing quiz (`quizzes.write` + `questions.read`), save filters (`filters.write`). Typically **cannot** assign.
 - `recruiter.dev@example.com` (Dev Recruiter) for **assignments** (`assignments.write`): list/create, copy invite (`POST /api/assignments/{id}/invite`), basic results (`attempts.read`). Also **read-only quizzes and templates**: list and open; quiz form disabled (`quizzes.read` without `quizzes.write`). Can save and **share** filters (`filters.write` + `filters.share`). Cannot clone. **No** `questions.*` — no bank nav, no include panel.
 
-Candidates: open `{PublicBaseUrl}/attempt?token=` after the recruiter copies `inviteUrl`. The link shows instructions first; the timer starts on **Start quiz**. **No** candidate password. After submit, the same link shows the submitted summary.
+Candidates: open `{PublicBaseUrl}/attempt?token=` from the email or from the link the recruiter copied. The link shows instructions first; the timer starts on **Start quiz**. **No** candidate password. After submit, the same link shows the submitted summary while the invite is still active. An expired or revoked link shows its own page and does not open the quiz.
 
 Development seed includes one sample quiz with every v1 question type under the backend opening, published as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live bank questions (`6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001` MC single, `…4002` true/false, `…4003` short text), and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`). Invite raw tokens are **not** seeded. **Never seeded in Production.**
 

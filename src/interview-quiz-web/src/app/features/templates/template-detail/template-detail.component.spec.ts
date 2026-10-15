@@ -106,6 +106,15 @@ describe('TemplateDetail', () => {
     fixture.detectChanges();
   }
 
+  it('shows assign when assignments.write and templates.read are granted', async () => {
+    await setup([PermissionCodes.TemplatesRead, PermissionCodes.AssignmentsWrite]);
+    const assign = fixture.nativeElement.querySelector('[data-testid="assign-from-template"]') as HTMLAnchorElement;
+    expect(assign).toBeTruthy();
+    expect(assign.getAttribute('href')).toContain('/assignments/new');
+    expect(assign.getAttribute('href')).toContain('templateId=' + sampleTemplate.id);
+    expect(fixture.nativeElement.querySelector('[data-testid="clone-template"]')).toBeNull();
+  });
+
   it('hides clone without quizzes.write (templates.read only)', async () => {
     await setup([PermissionCodes.TemplatesRead]);
     expect(fixture.nativeElement.querySelector('[data-testid="clone-template"]')).toBeNull();

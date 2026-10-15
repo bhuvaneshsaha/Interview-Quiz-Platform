@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { ApiError } from '../../../core/http/api-error';
 import {
   CandidateAttemptPreview,
   CandidateAttemptResponse,
@@ -76,6 +77,7 @@ describe('Attempt', () => {
   let submitCalls: string[];
   let startedAttempt: CandidateAttemptResponse;
   let previewResponse: CandidateAttemptPreview;
+  let consumeError: ApiError | null;
 
   beforeEach(async () => {
     consumeCalls = [];
@@ -85,6 +87,7 @@ describe('Attempt', () => {
     submitCalls = [];
     startedAttempt = attempt;
     previewResponse = previewWelcome;
+    consumeError = null;
     await TestBed.configureTestingModule({
       imports: [Attempt],
       providers: [
@@ -100,7 +103,7 @@ describe('Attempt', () => {
           useValue: {
             consume: (token: string) => {
               consumeCalls.push(token);
-              return of(tokens);
+              return consumeError ? throwError(() => consumeError) : of(tokens);
             },
           },
         },
@@ -149,6 +152,15 @@ describe('Attempt', () => {
     await fixture.whenStable();
     fixture.detectChanges();
   }
+
+  it('shows a clear page when the invite has expired', async () => {
+    consumeError = new ApiError('This invite has expired.', 400, 'corr-1', 'Bad Request');
+    await render();
+    expect(fixture.nativeElement.querySelector('[data-testid="invite-blocked"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('This invite has expired');
+    expect(fixture.nativeElement.textContent).toContain('extend the invite or send a new one');
+    expect(fixture.nativeElement.textContent).not.toContain('Start quiz');
+  });
 
   it('shows a welcome page and starts the timer only from Start quiz', async () => {
     await render();

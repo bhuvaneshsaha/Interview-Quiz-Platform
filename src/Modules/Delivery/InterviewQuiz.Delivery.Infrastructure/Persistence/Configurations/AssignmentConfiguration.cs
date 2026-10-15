@@ -21,6 +21,10 @@ public sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignmen
         builder.Property(e => e.CreatedByUserId).HasMaxLength(64).IsRequired();
         builder.Property(e => e.CreatedAtUtc).IsRequired();
         builder.Property(e => e.UpdatedAtUtc).IsRequired();
+        builder.Property(e => e.InviteEmailStatus).HasMaxLength(16).IsRequired();
+        builder.Property(e => e.InviteEmailAttemptCount).IsRequired();
+        builder.Property(e => e.InviteEmailLastAttemptAt);
+        builder.Property(e => e.InviteEmailLastError).HasMaxLength(Assignment.InviteEmailErrorMaxLength);
 
         builder.Property(e => e.Mode)
             .HasConversion(CamelCaseEnumConverter.For<AssignmentMode>())

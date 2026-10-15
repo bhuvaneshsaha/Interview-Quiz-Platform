@@ -92,7 +92,7 @@ public sealed class MagicLinkApiTests
             new ConsumeMagicLinkRequest { Token = first });
         Assert.Equal(HttpStatusCode.BadRequest, old.StatusCode);
         var problem = await old.Content.ReadAsStringAsync();
-        Assert.Contains("Invite is not valid.", problem, StringComparison.Ordinal);
+        Assert.Contains("This invite has been revoked.", problem, StringComparison.Ordinal);
 
         var current = await client.PostAsJsonAsync(
             "/api/auth/magic-link/consume",

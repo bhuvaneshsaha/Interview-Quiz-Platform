@@ -8,7 +8,19 @@
   <p class="preview-banner" role="status">Preview, not recorded</p>
 }
 <main id="attempt-main" class="attempt-main" (keydown)="onAttemptKeydown($event)">
-  <h1>{{ preview()?.quizTitle || 'Quiz attempt' }}</h1>
+  <h1>{{ pageTitle() }}</h1>
+
+  @if (inviteBlock(); as block) {
+    <section class="results-banner" data-testid="invite-blocked" role="alert">
+      @if (block === 'expired') {
+        <p>This link is past its expiry time, so it cannot be used to open the quiz.</p>
+        <p>Ask the person who invited you to extend the invite or send a new one.</p>
+      } @else {
+        <p>This link was revoked, so it cannot be used to open the quiz.</p>
+        <p>Ask the person who invited you to send a new one.</p>
+      }
+    </section>
+  }
 
   <app-page-status
     [loading]="loading()"

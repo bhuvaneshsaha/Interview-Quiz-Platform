@@ -35,6 +35,9 @@ export class TemplateDetail implements OnInit {
     this.permissions.hasPermission(PermissionCodes.QuizzesWrite) &&
     this.permissions.hasPermission(PermissionCodes.TemplatesRead);
   readonly canWrite = this.permissions.hasPermission(PermissionCodes.TemplatesWrite);
+  readonly canAssign =
+    this.permissions.hasPermission(PermissionCodes.AssignmentsWrite) &&
+    this.permissions.hasPermission(PermissionCodes.TemplatesRead);
 
   readonly metadata = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],

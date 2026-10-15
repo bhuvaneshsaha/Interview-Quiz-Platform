@@ -9,6 +9,7 @@ import {
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
 import { QuizzesApi } from '../../../core/api/quizzes-api.service';
+import { TemplatesApi } from '../../../core/api/templates-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
 import { AssignmentForm } from './assignment-form.component';
@@ -93,6 +94,13 @@ describe('AssignmentForm', () => {
           provide: QuizzesApi,
           useValue: {
             list: () => of({ items: [quiz], page: 1, pageSize: 100, totalCount: 1 }),
+          },
+        },
+        {
+          provide: TemplatesApi,
+          useValue: {
+            list: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
+            listVersions: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
           },
         },
       ],
