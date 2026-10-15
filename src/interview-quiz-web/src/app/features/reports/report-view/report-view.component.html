@@ -1,0 +1,322 @@
+<p><a routerLink="/reports">All reports</a></p>
+@if (report(); as current) {
+  <div class="page-heading">
+    <h1>{{ current.title }}</h1>
+    <button type="button" class="button" data-testid="export-csv" [disabled]="exporting()" (click)="exportCsv()">
+      Export CSV
+    </button>
+  </div>
+  <p>{{ current.description }}</p>
+  <p class="hint">Do not mix cohorts across quiz versions or snapshots.</p>
+  @if (response()?.defaultWindowApplied) {
+    <p>Showing assignments created in the last 90 days.</p>
+  }
+
+  <form class="filter-row" (submit)="$event.preventDefault(); addChip()">
+    <label class="field">
+      Field
+      <select [value]="field()" (change)="onField($any($event.target).value)">
+        @for (item of fields(); track item.field) {
+          <option [value]="item.field">{{ item.label }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      Operator
+      <select [value]="operator()" (change)="operator.set($any($event.target).value)">
+        @for (item of selectedField().operators; track item) {
+          <option [value]="item">{{ item }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      Value
+      @if (selectedField().kind === 'status' && operator() === 'is') {
+        <select [value]="value()" (change)="value.set($any($event.target).value)">
+          <option value="">Choose</option>
+          <option value="notStarted">Not started</option>
+          <option value="inProgress">In progress</option>
+          <option value="pendingReview">Pending review</option>
+          <option value="completed">Completed</option>
+        </select>
+      } @else if (selectedField().kind === 'mode') {
+        <select [value]="value()" (change)="value.set($any($event.target).value)">
+          <option value="">Choose</option>
+          <option value="async">Async</option>
+          <option value="live">Live</option>
+        </select>
+      } @else if (selectedField().kind === 'datetime') {
+        <input type="datetime-local" [value]="value()" (input)="value.set($any($event.target).value)" />
+      } @else if (selectedField().kind === 'number') {
+        <input type="number" [value]="value()" (input)="value.set($any($event.target).value)" />
+      } @else {
+        <input type="text" [value]="value()" (input)="value.set($any($event.target).value)" />
+      }
+    </label>
+    @if (operator() === 'between') {
+      <label class="field">
+        Value to
+        @if (selectedField().kind === 'datetime') {
+          <input type="datetime-local" [value]="valueTo()" (input)="valueTo.set($any($event.target).value)" />
+        } @else {
+          <input type="number" [value]="valueTo()" (input)="valueTo.set($any($event.target).value)" />
+        }
+      </label>
+    }
+    <button type="button" class="button" data-testid="add-filter" (click)="addChip()">Add filter</button>
+  </form>
+
+  @if (chips().length > 0) {
+    <ul class="chips" aria-label="Active filters">
+      @for (chip of chips(); track $index) {
+        <li>
+          <span>{{ chipText(chip.field, chip.operator, chip.value) }}</span>
+          <button type="button" [attr.aria-label]="'Remove filter ' + chip.field + ' ' + chip.operator" (click)="removeChip($index)">
+            Remove
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <app-saved-filters [target]="current.target" [criteria]="criteria()" (apply)="applySaved($event)" />
+
+  <app-page-status
+    [loading]="loading()"
+    [empty]="!loading() && !error() && (response()?.totalCount ?? 0) === 0"
+    [error]="error()"
+    [correlationId]="correlationId()"
+    loadingMessage="Loading report."
+    emptyMessage="No attempts in this range."
+  />
+
+  @if (chartBars().length > 0 && (response()?.totalCount ?? 0) > 0) {
+    <figure class="chart-wrap">
+      <svg data-testid="report-chart" role="img" [attr.aria-label]="chartLabel()" viewBox="0 0 320 140">
+        @for (bar of chartBars(); track bar.label) {
+          <rect [attr.x]="bar.x" [attr.y]="bar.y" width="36" [attr.height]="bar.height" />
+          <text [attr.x]="bar.x" y="128">{{ bar.label }}</text>
+        }
+      </svg>
+    </figure>
+  }
+
+  @if (funnel(); as data) {
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Funnel counts by opening and quiz. This table is the text alternative to the chart.</caption>
+        <thead>
+          <tr>
+            <th>Opening</th>
+            <th>Quiz</th>
+            <th>Assigned</th>
+            <th>Appeared</th>
+            <th>Submitted</th>
+            <th>Completed</th>
+            <th>Pending review</th>
+            <th>Appeared rate</th>
+            <th>Submitted rate</th>
+            <th>Completed rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.quizId) {
+            <tr>
+              <td>
+                @if (canReadAssignments && row.openingId) {
+                  <a [routerLink]="['/assignments']" [queryParams]="{ openingId: row.openingId }">{{ row.openingTitle }}</a>
+                } @else {
+                  {{ row.openingTitle }}
+                }
+              </td>
+              <td>{{ row.quizTitle }}</td>
+              <td>{{ row.assigned }}</td>
+              <td>{{ row.appeared }}</td>
+              <td>{{ row.submitted }}</td>
+              <td>{{ row.completed }}</td>
+              <td>{{ row.pendingReview }}</td>
+              <td>{{ rate(row.appearedRate) }}</td>
+              <td>{{ rate(row.submittedRate) }}</td>
+              <td>{{ rate(row.completedRate) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if (scores(); as data) {
+    <p>Pass rate {{ rate(data.passRate) }} ({{ data.passCount }} of {{ data.passDenominator }}) at a {{ rate(data.passThreshold) }} auto-score threshold.</p>
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Auto scores for submitted attempts. This table is the text alternative to the chart.</caption>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Status</th>
+            <th>Result</th>
+            <th>Auto points</th>
+            <th>Available</th>
+            <th>Total available</th>
+            <th>Unsettled</th>
+            <th>Passed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.attemptId) {
+            <tr>
+              <td>{{ row.candidateEmail }}</td>
+              <td>{{ row.status }}</td>
+              <td>{{ row.resultStatus }}</td>
+              <td>{{ row.autoPointsAwarded }}</td>
+              <td>{{ row.autoPointsAvailable }}</td>
+              <td>{{ row.totalPointsAvailable }}</td>
+              <td>{{ row.unsettledCount }}</td>
+              <td>{{ passedLabel(row.passed) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if (time(); as data) {
+    <p>Median {{ data.p50Seconds ?? '—' }} seconds. 90th percentile {{ data.p90Seconds ?? '—' }} seconds.</p>
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Time taken for submitted attempts. This table is the text alternative to the chart.</caption>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Mode</th>
+            <th>Duration (seconds)</th>
+            <th>Pause tracked</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.attemptId) {
+            <tr>
+              <td>{{ row.candidateEmail }}</td>
+              <td>{{ row.mode }}</td>
+              <td>{{ row.durationSeconds }}</td>
+              <td>{{ row.pauseTracked ? 'Yes' : 'No' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if (questions(); as data) {
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Difficulty and discrimination for settled auto-scored questions.</caption>
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Settled</th>
+            <th>Difficulty</th>
+            <th>Discrimination</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.questionId) {
+            <tr>
+              <td>{{ row.stem }}</td>
+              <td>{{ row.settledCount }}</td>
+              <td>{{ row.difficulty }}</td>
+              <td>{{ row.discriminationHidden ? 'Hidden (n < 30)' : row.discrimination }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if (candidates(); as data) {
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Candidates ranked by auto score, then by time taken.</caption>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Candidate</th>
+            <th>Status</th>
+            <th>Auto points</th>
+            <th>Duration (seconds)</th>
+            <th>Mode</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.assignmentId + (row.attemptId ?? '')) {
+            <tr>
+              <td>{{ row.rank }}</td>
+              <td>{{ row.candidateEmail }}</td>
+              <td>{{ row.status }}</td>
+              <td>{{ row.autoPointsAwarded }}</td>
+              <td>{{ row.durationSeconds }}</td>
+              <td>{{ row.mode }}</td>
+              <td>
+                @if (canReadAssignments) {
+                  <a [routerLink]="['/assignments', row.assignmentId]">Assignment</a>
+                }
+                @if (canReadAttempts && row.attemptId) {
+                  <a [routerLink]="['/assignments', row.assignmentId, 'attempts', row.attemptId]">Attempt</a>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if (pending(); as data) {
+    @if (data.items.length > 0) {
+      <table class="data-table" data-testid="report-table">
+        <caption>Pending review queue, oldest first.</caption>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Age (hours)</th>
+            <th>Submitted</th>
+            <th>Unsettled</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.items; track row.assignmentId) {
+            <tr>
+              <td>{{ row.candidateEmail }}</td>
+              <td>{{ row.ageHours }}</td>
+              <td>{{ row.submittedAtUtc }}</td>
+              <td>{{ row.unsettledCount }}</td>
+              <td>
+                @if (canReadAssignments) {
+                  <a [routerLink]="['/assignments', row.assignmentId]">Assignment</a>
+                }
+                @if (canReadAttempts && row.attemptId) {
+                  <a [routerLink]="['/assignments', row.assignmentId, 'attempts', row.attemptId]">Attempt</a>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+
+  @if ((response()?.totalCount ?? 0) > pageSize) {
+    <nav class="pager" aria-label="Report pages">
+      <button type="button" class="button button-quiet" [disabled]="page() <= 1" (click)="previousPage()">Previous</button>
+      <span>Page {{ page() }}</span>
+      <button type="button" class="button button-quiet" [disabled]="page() * pageSize >= (response()?.totalCount ?? 0)" (click)="nextPage()">
+        Next
+      </button>
+    </nav>
+  }
+} @else if (missing()) {
+  <h1>Report</h1>
+  <app-page-status [loading]="false" [error]="error()" emptyMessage="That report does not exist." />
+}

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Reporting v1 (`reports.read`): company-wide funnel, score distribution and 70% auto-score pass rate, time taken, per-question difficulty and discrimination, candidate comparison, and pending-review age. Chip filters and one saved-filter target per report. CSV export is UTF-8, has no answer keys, and stops at 10,000 rows. Dev Recruiter and Super Admin can open it; Dev Reviewer cannot. This will be released as v0.2.0 (#35).
+
 ## [0.1.1] - 2026-10-15
 
 ### Fixed

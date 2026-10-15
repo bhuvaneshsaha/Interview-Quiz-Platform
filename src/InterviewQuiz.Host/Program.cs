@@ -61,6 +61,7 @@ try
     builder.Services.AddEvaluationModule(builder.Configuration);
     builder.Services.AddSearchModule(builder.Configuration);
     builder.Services.AddScoped<OpeningSummaryComposer>();
+    builder.Services.AddScoped<ReportingComposer>();
     builder.Services.AddScoped<AssignmentInviteCoordinator>();
     builder.Services.AddScoped<LiveSessionCoordinator>();
     builder.Services.AddInviteMail(builder.Configuration, builder.Environment);

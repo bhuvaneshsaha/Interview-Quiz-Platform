@@ -69,6 +69,7 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Delivery.AssignmentsWrite,
                 PermissionCodes.Delivery.SessionsLiveRun,
                 PermissionCodes.Evaluation.AttemptsRead,
+                PermissionCodes.Evaluation.ReportsRead,
                 PermissionCodes.Search.FiltersWrite,
                 PermissionCodes.Search.FiltersShare
             ],

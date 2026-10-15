@@ -220,6 +220,22 @@ export const routes: Routes = [
         title: 'Assignment',
       },
       {
+        path: 'reports',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.ReportsRead },
+        loadComponent: () =>
+          import('./features/reports/report-hub/report-hub.component').then((m) => m.ReportHub),
+        title: 'Reporting',
+      },
+      {
+        path: 'reports/:reportKey',
+        canActivate: [permissionGuard],
+        data: { permission: PermissionCodes.ReportsRead },
+        loadComponent: () =>
+          import('./features/reports/report-view/report-view.component').then((m) => m.ReportView),
+        title: 'Report',
+      },
+      {
         path: 'opening-fields',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.OpeningsFieldsManage },

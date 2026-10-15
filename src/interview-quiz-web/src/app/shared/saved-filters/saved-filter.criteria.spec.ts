@@ -64,6 +64,14 @@ describe('saved-filter.criteria', () => {
     expect(criteriaFromUnknown('quizzes', null)).toEqual({});
     expect(criteriaFromUnknown('openings', 'nope')).toEqual({});
     expect(criteriaFromUnknown('templates', [])).toEqual({});
+    expect(
+      criteriaFromUnknown('reportsFunnel', {
+        filters: [{ field: 'quizId', operator: 'is', value: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001' }],
+      }),
+    ).toEqual({
+      filters: [{ field: 'quizId', operator: 'is', value: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001' }],
+    });
+    expect(criteriaFromUnknown('reportsScores', {})).toEqual({});
   });
 
   it('builds a single tag pair only when both key and value are present', () => {

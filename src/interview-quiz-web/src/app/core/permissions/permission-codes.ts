@@ -21,6 +21,7 @@ export const PermissionCodes = {
   SessionsLiveRun: 'sessions.live.run',
   AttemptsRead: 'attempts.read',
   AttemptsReview: 'attempts.review',
+  ReportsRead: 'reports.read',
   FiltersWrite: 'filters.write',
   FiltersShare: 'filters.share',
   CandidateAttemptParticipate: 'candidate.attempt.participate',

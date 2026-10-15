@@ -26,6 +26,11 @@ internal static class FilterCriteriaParser
 
         try
         {
+            if (ReportKeys.IsReport(target))
+            {
+                return ReportFilterParser.Canonicalize(target, criteria);
+            }
+
             object parsed = target switch
             {
                 FilterTarget.Openings => Deserialize<OpeningListCriteria>(criteria, "openings"),

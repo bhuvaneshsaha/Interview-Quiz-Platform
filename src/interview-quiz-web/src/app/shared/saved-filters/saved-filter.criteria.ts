@@ -3,6 +3,9 @@ import {
   ListCriteria,
   OpeningListCriteria,
   QuizListCriteria,
+  ReportFilterChip,
+  ReportFilterCriteria,
+  ReportFilterValue,
   TemplateListCriteria,
 } from '../../core/api/contracts';
 import { compactCriteria } from '../../core/api/list-query';
@@ -44,6 +47,12 @@ export function templateCriteriaFromUnknown(raw: unknown): TemplateListCriteria 
   }) as TemplateListCriteria;
 }
 
+export function reportCriteriaFromUnknown(raw: unknown): ReportFilterCriteria {
+  const obj = asRecord(raw);
+  const filters = Array.isArray(obj['filters']) ? obj['filters'].flatMap(chipFromUnknown) : [];
+  return filters.length > 0 ? { filters } : {};
+}
+
 export function criteriaFromUnknown(target: FilterTarget, raw: unknown): ListCriteria {
   switch (target) {
     case 'openings':
@@ -52,7 +61,46 @@ export function criteriaFromUnknown(target: FilterTarget, raw: unknown): ListCri
       return quizCriteriaFromUnknown(raw);
     case 'templates':
       return templateCriteriaFromUnknown(raw);
+    case 'reportsFunnel':
+    case 'reportsScores':
+    case 'reportsTime':
+    case 'reportsQuestions':
+    case 'reportsCandidates':
+    case 'reportsPendingReview':
+      return reportCriteriaFromUnknown(raw);
   }
+}
+
+function chipFromUnknown(raw: unknown): ReportFilterChip[] {
+  const obj = asRecord(raw);
+  const field = optionalString(obj['field']);
+  const operator = optionalString(obj['operator']);
+  if (!field || !operator || !Object.prototype.hasOwnProperty.call(obj, 'value')) {
+    return [];
+  }
+  const value = chipValue(obj['value']);
+  return value === undefined ? [] : [{ field, operator, value }];
+}
+
+function chipValue(value: unknown): ReportFilterValue | undefined {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value;
+  }
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string' || typeof item === 'number')) {
+    return value as string[] | number[];
+  }
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    const from = record['from'];
+    const to = record['to'];
+    if (
+      (typeof from === 'string' || typeof from === 'number') &&
+      (typeof to === 'string' || typeof to === 'number')
+    ) {
+      return { from, to };
+    }
+  }
+  return undefined;
 }
 
 export function tagsFromPair(key: string, value: string): Record<string, string> | undefined {

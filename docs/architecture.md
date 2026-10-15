@@ -258,11 +258,15 @@ Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable
 
 **In-process:** consume `IAssignmentSnapshotReader`; call `IAssignmentLifecycle`; never read `catalog` or `delivery` tables.
 
-**Permissions:** `attempts.read`, `attempts.review` (review unused until slice 7). Candidate uses `candidate.attempt.participate` (Access catalog, not an employee role).
+**Permissions:** `attempts.read`, `attempts.review` (review unused until slice 7), `reports.read` (Reporting v1). Candidate uses `candidate.attempt.participate` (Access catalog, not an employee role).
+
+### 4.5.1 Reporting v1
+
+Reporting v1 is composed in the host (`ReportingComposer`), the same way opening summary is composed. It calls Delivery `IReportAssignmentReader` and Evaluation `IReportAttemptReader`. Those readers do not return answer keys. There is **no reporting schema** and no cross-schema DbContext join. Pass rate uses `autoPointsAwarded / autoPointsAvailable` at 70% until slice 7 final scores exist. Unsettled human or AI points are not treated as zero in that denominator. Live duration subtracts `Assignment.TotalPausedSeconds` once; async duration ignores that field. Company-wide for any `reports.read` holder. Default window is the last 90 days of `assignment.createdAtUtc` when the request has no assigned-date chip. CSV is capped at 10,000 rows.
 
 ### 4.6 Search (saved filters)
 
-**Language:** saved filter, target (`openings` / `quizzes` / `templates` only in v1 through slice 5), personal vs shared, share mode (`private` / `publicInsideCompany` / `specificUsers`).
+**Language:** saved filter, target (`openings` / `quizzes` / `templates`, plus one Reporting v1 target per report key), personal vs shared, share mode (`private` / `publicInsideCompany` / `specificUsers`). There is still no `assignments` target.
 
 **Owns:** stored filter definitions (target, criteria JSON, owner, share mode, share list). **Does not execute** domain queries — Openings and Catalog list endpoints accept the **same criteria shape** Search persists. Search does not read `openings` or `catalog` tables.
 
@@ -282,7 +286,7 @@ Persistence is schema `search` (`SearchDbContext`, table `filters`). Search does
 
 | Store | Use |
 |--------|-----|
-| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, **assignment snapshots**, filter criteria, AI rule JSON. Slice 3 **has** `catalog.templates` / `catalog.template_versions` (owned questions with `SourceQuestionId`) and `search.filters`. Slice 4 **has** `catalog.bank_questions` (no FK from `catalog.questions.source_question_id`). Slice 5 **has** `delivery.assignments` + `delivery.assignment_snapshots` (JSONB copy of `QuizSnapshotDto`), `evaluation.attempts` + `evaluation.attempt_answers`, `access.magic_link_invites` (hashed opaque tokens). |
+| **PostgreSQL** (one database) | All module tables. Schemas: `access`, `openings`, `catalog`, `delivery`, `evaluation`, `search`. JSONB for dynamic fields, question graphs, **assignment snapshots**, filter criteria, AI rule JSON. Slice 3 **has** `catalog.templates` / `catalog.template_versions` (owned questions with `SourceQuestionId`) and `search.filters`. Slice 4 **has** `catalog.bank_questions` (no FK from `catalog.questions.source_question_id`). Slice 5 **has** `delivery.assignments` + `delivery.assignment_snapshots` (JSONB copy of `QuizSnapshotDto`), `evaluation.attempts` + `evaluation.attempt_answers`, `access.magic_link_invites` (hashed opaque tokens). Reporting v1 adds **no** schema. |
 | **Local / NAS files** | Resume uploads and future attachments. DB holds path + content type + owning module id. |
 | Not used in v1 | Redis as a default, document DB, cloud blobs, message bus. |
 
@@ -300,7 +304,7 @@ EF Core migrations, expand/contract. Dummy seed in Development only.
 |------------|----|
 | Web app manifest + `@angular/service-worker` | Yes — installable on supporting browsers |
 | Cache hashed app shell | Yes |
-| Cache authenticated APIs, tokens, `/me`, login/refresh, quiz payloads, answers, **assignments, attempts, magic-link** | **No** |
+| Cache authenticated APIs, tokens, `/me`, login/refresh, quiz payloads, answers, **assignments, attempts, reports, magic-link** | **No** |
 | IndexedDB outbox for attempts | **No** |
 | Offline authoring / taking a quiz | **No** — show “you are offline” |
 | Timed live/async, scoring, magic-link as offline mutations | **No** (integrity, anti-cheat, resume PII) |
@@ -334,10 +338,12 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/assignments/:id` | `assignments.read` | Assignment detail, join or invite link (`assignments.write`), Open live session when live, basic results if `attempts.read` |
 | `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress. Start, pause, resume, and end require `sessions.live.run` |
 | `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail: stem, candidate answer, auto points or awaiting human review. No answer keys |
+| `/reports` | `reports.read` | Reporting v1 hub (funnel, scores, time, questions, candidates, pending review) |
+| `/reports/:reportKey` | `reports.read` | One report: chip filters, saved filter for that report key, table, simple chart, CSV export |
 
 **Candidate (not the employee shell; implemented):** `/attempt?token=` — consume magic-link (ADR 0008). Isolated in-memory `CandidateSession` (not employee `TokenStore`). Auth still owns branded employee-vs-candidate entry UX; this is the invite landing path.
 
-Nav and home link to Quizzes when the user has `quizzes.read`. Assignments nav when `assignments.read`. Create assignment hidden without `assignments.write`. Recruiter seed has `assignments.write`; a typical template author does not. Create quiz is hidden without `quizzes.write`. Recruiter (read only on quizzes) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden unless the user has **both** `quizzes.write` and `templates.read`. Publish-as-template is hidden without `templates.write`. Question bank nav (shell + home **Question bank**) when `questions.read`. Include from question bank on the quiz editor requires `quizzes.write` **and** `questions.read` on an existing saved quiz (hidden on create-new). Recruiter without `questions.*` does not see bank nav or include. Saved filters live on list screens (openings / quizzes / templates), not a separate admin module, **not** on the question bank list (no `FilterTarget = questions`), and **not** on the assignment list (no `FilterTarget = assignments`). Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); candidate `/attempt` uses in-memory `CandidateSession` isolated from employee `TokenStore`; permissions are `PermissionService`. There is no global entity store.
+Nav and home link to Quizzes when the user has `quizzes.read`. Assignments nav when `assignments.read`. Reporting nav when `reports.read`, after Assignments. Create assignment hidden without `assignments.write`. Recruiter seed has `assignments.write`; a typical template author does not. Create quiz is hidden without `quizzes.write`. Recruiter (read only on quizzes) sees a disabled form; author (write) gets the full editor. Templates nav when `templates.read`. Clone-into-opening is hidden unless the user has **both** `quizzes.write` and `templates.read`. Publish-as-template is hidden without `templates.write`. Question bank nav (shell + home **Question bank**) when `questions.read`. Include from question bank on the quiz editor requires `quizzes.write` **and** `questions.read` on an existing saved quiz (hidden on create-new). Recruiter without `questions.*` does not see bank nav or include. Saved filters live on list screens (openings / quizzes / templates) and on each Reporting v1 report (`reportsFunnel`, `reportsScores`, `reportsTime`, `reportsQuestions`, `reportsCandidates`, `reportsPendingReview`), not a separate admin module, **not** on the question bank list (no `FilterTarget = questions`), and **not** on the assignment list (no `FilterTarget = assignments`). Feature screens keep list/editor state in component signals. Session is `AuthService` (`currentUser`, `sessionReady`); candidate `/attempt` uses in-memory `CandidateSession` isolated from employee `TokenStore`; permissions are `PermissionService`. There is no global entity store.
 
 Shared UI primitives: [`docs/components/README.md`](components/README.md). Playbook markdown pages are the source of API tables. OSS Storybook 10 (`@storybook/angular-vite`, Angular 21 zoneless application builder) is the isolated gallery for those primitives (`npm run storybook` in `src/interview-quiz-web` → http://localhost:6006). No Chromatic.
 
@@ -875,7 +881,7 @@ Host registers `AddDeliveryModule` / `AddEvaluationModule` for `DeliveryDbContex
 
 ### 16.8 PWA
 
-ADR 0004 unchanged: installable, online-first, `ngsw-config.json` **`dataGroups: []`**. **Never cache** `/api/assignments/**`, `/api/attempts/**`, `/api/auth/magic-link/**`, tokens, or quiz/answer payloads. Candidate taking a quiz while offline shows the existing offline banner — no IndexedDB/outbox.
+ADR 0004 unchanged: installable, online-first, `ngsw-config.json` **`dataGroups: []`**. **Never cache** `/api/assignments/**`, `/api/attempts/**`, `/api/reports/**`, `/api/auth/magic-link/**`, tokens, or quiz/answer payloads. Candidate taking a quiz while offline shows the existing offline banner — no IndexedDB/outbox.
 
 Interceptor: `/api/auth/magic-link/consume` is on the anonymous allowlist (no employee bearer required). Candidate APIs send the **candidate** access token only (`CandidateSession`).
 

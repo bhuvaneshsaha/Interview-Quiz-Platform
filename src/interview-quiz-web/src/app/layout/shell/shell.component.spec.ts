@@ -45,6 +45,7 @@ describe('Shell', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('a[href="/assignments"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/reports"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/quizzes"]')).not.toBeNull();
   });
 
@@ -56,5 +57,14 @@ describe('Shell', () => {
     expect(fixture.nativeElement.querySelector('a[href="/assignments"]')?.textContent).toContain(
       'Assignments',
     );
+    expect(fixture.nativeElement.querySelector('a[href="/reports"]')).toBeNull();
+  });
+
+  it('shows Reporting nav when reports.read is granted', async () => {
+    permissions.set([PermissionCodes.ReportsRead]);
+    fixture = TestBed.createComponent(Shell);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('a[href="/reports"]')?.textContent).toContain('Reporting');
   });
 });
