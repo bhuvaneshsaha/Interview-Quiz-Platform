@@ -30,6 +30,7 @@ const sampleVersion: TemplateVersionResponse = {
   publishedFromQuizId: sampleTemplate.originQuizId,
   publishedAtUtc: '2026-01-01T00:00:00Z',
   publishedByUserId: 'author-1',
+  publishedByDisplayName: 'Ada Author',
   changeNote: 'Published from quiz',
   questionCount: 1,
   description: sampleTemplate.description,
@@ -120,7 +121,8 @@ describe('TemplateDetail', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="clone-template"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/templates/' + sampleTemplate.id + '/edit"]')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Backend interview template');
-    expect(fixture.nativeElement.textContent).toContain('author-1');
+    expect(fixture.nativeElement.textContent).toContain('Ada Author');
+    expect(fixture.nativeElement.textContent).not.toContain('author-1');
     expect(fixture.nativeElement.textContent).toContain('Published from quiz');
   });
 

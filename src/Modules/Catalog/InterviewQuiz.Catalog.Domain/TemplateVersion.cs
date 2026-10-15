@@ -24,7 +24,16 @@ public sealed class TemplateVersion
     public DateTimeOffset PublishedAtUtc { get; private set; }
     public string PublishedByUserId { get; private set; } = null!;
     public string ChangeNote { get; private set; } = "";
+
+    /// <summary>
+    /// When set, this version reuses that version's question rows and does not own copies.
+    /// Null means this version owns <see cref="Questions"/>.
+    /// </summary>
+    public Guid? ContentVersionId { get; private set; }
+
     public List<Question> Questions { get; private set; } = [];
+
+    private List<Question> _sharedQuestions = [];
 
     public static TemplateVersion FromQuiz(
         Guid templateId,
@@ -70,7 +79,8 @@ public sealed class TemplateVersion
         IReadOnlyList<Question> questions,
         IClock clock,
         Guid? id = null,
-        string? changeNote = null)
+        string? changeNote = null,
+        Guid? contentVersionId = null)
     {
         if (templateId == Guid.Empty)
         {
@@ -106,6 +116,19 @@ public sealed class TemplateVersion
         }
 
         var list = (questions ?? []).ToList();
+        if (contentVersionId is { } sharedId)
+        {
+            if (sharedId == Guid.Empty)
+            {
+                throw new DomainException("Content version is required.");
+            }
+
+            if (list.Count > 0)
+            {
+                throw new DomainException("A metadata version reuses question content and does not copy questions.");
+            }
+        }
+
         var seen = new HashSet<Guid>();
         foreach (var question in list)
         {
@@ -128,9 +151,33 @@ public sealed class TemplateVersion
             PublishedAtUtc = clock.UtcNow,
             PublishedByUserId = trimmedPublisher,
             ChangeNote = NormalizeChangeNote(changeNote),
+            ContentVersionId = contentVersionId,
             Questions = list
         };
     }
+
+    /// <summary>
+    /// Questions this version presents. Metadata versions reuse another version's rows.
+    /// </summary>
+    public IReadOnlyList<Question> ReadQuestions()
+        => ContentVersionId is null ? Questions : _sharedQuestions;
+
+    public int ReadQuestionCount() => ReadQuestions().Count;
+
+    public void UseSharedQuestions(IReadOnlyList<Question> questions)
+    {
+        if (ContentVersionId is null)
+        {
+            throw new InvalidOperationException("This version owns its questions.");
+        }
+
+        _sharedQuestions = questions.ToList();
+    }
+
+    /// <summary>
+    /// Version whose question rows this version presents. Owners point at themselves.
+    /// </summary>
+    public Guid QuestionContentVersionId => ContentVersionId ?? Id;
 
     private static string NormalizeChangeNote(string? changeNote)
     {

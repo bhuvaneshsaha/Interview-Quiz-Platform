@@ -67,6 +67,8 @@ Set `ASPNETCORE_ENVIRONMENT` in that same PowerShell session before `dotnet run`
 
 In Development the host applies EF migrations on startup for `AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `DeliveryDbContext`, `EvaluationDbContext`, and `SearchDbContext` (`Program.cs`), then seeds Development-only data. The manual `dotnet ef database update` steps under [Migrate and run](#migrate-and-run) are optional for this path.
 
+ASP.NET Core Data Protection keys are written to PostgreSQL (`access.data_protection_keys`) by that same migration. Stopping this PowerShell `dotnet run` and starting it again, or redeploying the API against this Compose database, still unprotects invite tokens, so **Resend** keeps working. There is no key file to copy and no extra environment variable. Production uses the same table in the production database. Every API instance must share that database and the application name `InterviewQuiz`. If the table is lost, existing links must be re-issued; new links still work.
+
 On first run, ERR log lines about `__EFMigrationsHistory` are harmless, including lines that name the `delivery` or `evaluation` schemas. The host queries that table before it exists, then creates it and applies migrations for `access`, `openings`, `catalog`, `delivery`, `evaluation`, and `search`. Startup continues.
 
 `appsettings.Development.json` already contains the Compose connection string, so this `dotnet run` does not need `ConnectionStrings__InterviewQuiz`.
@@ -352,7 +354,13 @@ dotnet run --project src/InterviewQuiz.Host
 
 Open `http://localhost:8025` to read the message. Tests never use this path: the Testing environment registers `RecordingInviteMailer`, which keeps messages in memory and does not open a socket.
 
-`Invite__DefaultLifetimeHours` defaults to `168`. Set it to `0` when new invites should stay valid until a recruiter sets `expiresAt`, revokes them, or rotates them. An expired or revoked link cannot be consumed. A candidate JWT that was already issued stays valid until that JWT expires; opening the link again is what hits the expiry page. After submit, an invite that is still active can be consumed to view the summary (ADR 0008). Expiry and revoke are additional stops (ADR 0009).
+`Invite__DefaultLifetimeHours` defaults to `168`. Set it to `0` when new invites should stay valid until a recruiter sets `expiresAt`, revokes them, or rotates them. An expired or revoked link cannot be consumed. After submit, an invite that is still active can be consumed to view the summary (ADR 0008). Expiry and revoke are additional stops (ADR 0009).
+
+Expiry does not cut off a candidate who already started. Their JWT can still save and submit until the attempt is submitted or the quiz timer (`dueAtUtc`) runs out. Opening the link again shows the expiry page. Revoke is different: it ends the in-progress attempt immediately, scores the answers saved so far, and the candidate page says the quiz has ended. They cannot keep answering.
+
+Invite delivery is email only. Ticketing is out of scope.
+
+The resend token is protected with ASP.NET Core Data Protection. Keys are persisted in PostgreSQL table `access.data_protection_keys` (application name `InterviewQuiz`), in Development and in production. A restart or a new instance that uses the same database can still resend the current link. Do not point instances at different databases if they must resend each other's links. There is no filesystem key ring to mount. On Windows, the PowerShell `dotnet run` in [Windows (PowerShell) quick start](#windows-powershell-quick-start) uses the Compose database for those keys; restarting that session does not invalidate resend.
 
 Development seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (opening `3a7c1f10-6b2d-4c9a-9e11-0f8c2b6a1001`, quiz `4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001`, `candidate.dev@example.com`). To copy an invite URL after `dotnet run` (Development):
 
@@ -473,7 +481,7 @@ $env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=inter
 dotnet test InterviewQuiz.slnx
 ```
 
-When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **214 passed** (unit plus host integration). `npm test` reports **110 passed**.
+When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). That coverage includes metadata versions that reuse question rows, author display names, revoke ending an in-progress attempt, expiry leaving that attempt runnable, and invite resend after a new host reads the Postgres data-protection keys. With PostgreSQL set, `dotnet test` reports **235 passed** (unit plus host integration). `npm test` reports **114 passed**.
 
 Angular (Vitest):
 
@@ -482,7 +490,7 @@ cd src/interview-quiz-web
 ng test --watch=false
 ```
 
-Playwright covers the candidate welcome, hidden type and points, ordering drag-and-drop (including the keyboard alternative), recruiter attempt detail, and a mobile project at 375×812 (`mobile-layout.spec.ts`: assignment list, attempt questions, openings, quizzes, templates, question bank). It mocks `/api`, so the database is not required. On Windows, install Chromium with `npx playwright install chromium` and do not pass `--with-deps`. Full steps are in `src/interview-quiz-web/README.md`.
+Playwright covers the candidate welcome, hidden type and points, ordering drag-and-drop (including the keyboard alternative), recruiter attempt detail, template metadata reuse plus slot editing, revoke ending an in-progress attempt, and a mobile project at 375×812 (`mobile-layout.spec.ts`: assignment list, attempt questions, openings, quizzes, templates, question bank). It mocks `/api`, so the database is not required. On Windows, install Chromium with `npx playwright install chromium` and do not pass `--with-deps`. Full steps are in `src/interview-quiz-web/README.md`.
 
 ```bash
 cd src/interview-quiz-web

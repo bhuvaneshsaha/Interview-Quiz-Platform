@@ -2,12 +2,14 @@ using InterviewQuiz.Access.Application;
 using InterviewQuiz.Kernel.Users;
 using InterviewQuiz.Access.Application.Services;
 using InterviewQuiz.Access.Authentication;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Access.Authorization;
 using InterviewQuiz.Access.Domain;
 using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Identity;
 using InterviewQuiz.Access.Infrastructure.Seeding;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +38,9 @@ public static class AccessModule
         });
         services.Configure<BootstrapOptions>(configuration.GetSection(BootstrapOptions.SectionName));
         services.Configure<InviteOptions>(configuration.GetSection(InviteOptions.SectionName));
-        services.AddDataProtection();
+        services.AddDataProtection()
+            .SetApplicationName("InterviewQuiz")
+            .PersistKeysToDbContext<AccessDbContext>();
 
         services.AddDbContext<AccessDbContext>(options =>
         {
@@ -80,6 +84,7 @@ public static class AccessModule
         services.AddSingleton<IJwtAccessTokenIssuer, JwtAccessTokenIssuer>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
         services.AddScoped<IMagicLinkInviteStore, MagicLinkInviteStore>();
+        services.AddScoped<IInviteContinuation, InviteContinuation>();
         services.AddScoped<IMagicLinkService, MagicLinkService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IIdentityUserDirectory, IdentityUserDirectory>();

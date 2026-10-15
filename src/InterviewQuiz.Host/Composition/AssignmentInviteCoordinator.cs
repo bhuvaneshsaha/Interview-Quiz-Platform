@@ -3,6 +3,8 @@ using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Delivery.Application.Services;
+using InterviewQuiz.Evaluation.Application;
+using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Mail;
 
 namespace InterviewQuiz.Host.Composition;
@@ -12,17 +14,20 @@ public sealed class AssignmentInviteCoordinator
     private readonly IAssignmentService _assignments;
     private readonly IMagicLinkService _magicLinks;
     private readonly IInviteMailer _mailer;
+    private readonly IRevokedInviteAttemptCloser _attemptCloser;
     private readonly ILogger<AssignmentInviteCoordinator> _logger;
 
     public AssignmentInviteCoordinator(
         IAssignmentService assignments,
         IMagicLinkService magicLinks,
         IInviteMailer mailer,
+        IRevokedInviteAttemptCloser attemptCloser,
         ILogger<AssignmentInviteCoordinator> logger)
     {
         _assignments = assignments;
         _magicLinks = magicLinks;
         _mailer = mailer;
+        _attemptCloser = attemptCloser;
         _logger = logger;
     }
 
@@ -68,7 +73,20 @@ public sealed class AssignmentInviteCoordinator
     public async Task<InviteLifetimeResponse> RevokeAsync(Guid assignmentId, CancellationToken cancellationToken)
     {
         await _assignments.EnsureInvitableAsync(assignmentId, cancellationToken);
-        await _magicLinks.RevokeAsync(assignmentId, cancellationToken);
+        try
+        {
+            await _magicLinks.RevokeAsync(assignmentId, cancellationToken);
+        }
+        catch (DomainException ex) when (ex.Message == MagicLinkInviteStore.NoInviteToRevokeMessage)
+        {
+            var existing = await _magicLinks.GetStatusAsync(assignmentId, cancellationToken);
+            if (existing.State != MagicLinkInviteStatus.Revoked)
+            {
+                throw;
+            }
+        }
+
+        await _attemptCloser.CloseInProgressAsync(assignmentId, cancellationToken);
         var status = await _magicLinks.GetStatusAsync(assignmentId, cancellationToken);
         return new InviteLifetimeResponse(assignmentId, status.State, status.ExpiresAt);
     }

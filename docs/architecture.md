@@ -28,7 +28,7 @@ Master defaults are **accepted**; Architecture does not override them:
 
 | Topic | Assumption |
 |--------|------------|
-| Template edits | New version; existing assignments keep the old version. Metadata and content edits (`PUT /api/templates/{id}/metadata` and `PUT /api/templates/{id}/content`) create version N+1 with copied questions (new ids, `sourceQuestionId` preserved). Publishing a quiz still versions the same lineage. Fork-to-new-lineage stays out of scope. |
+| Template edits | New version; existing assignments keep the old version. A metadata edit (`PUT /api/templates/{id}/metadata`) creates version N+1 that reuses the previous question rows (`ContentVersionId`) and does not copy them. A content edit (`PUT /api/templates/{id}/content`) still copies questions (new ids, `sourceQuestionId` preserved). Publishing a quiz still versions the same lineage. Fork-to-new-lineage stays out of scope. |
 | Assignment | Stores a snapshot of questions, keys, and scoring rules. |
 | Quiz reuse | A quiz belongs to **one** opening. Reuse across openings is via **template**. This overrides Brief §6.2 “linked to one or more openings” in favor of Brief §16. |
 | Question bank | Catalog-owned **item** library. Same types/scoring/credit as quiz questions. **Copy-on-include** (new quiz question id; `sourceQuestionId` provenance). Not a new bounded context. Distinct from templates (whole-quiz reuse) and from the drag-drop `dragDropSharedBank` question type. ADR 0007. Bank CRUD + Angular UI is **slice 4** (implemented); groundwork is in slice 3. |
@@ -505,7 +505,7 @@ Concurrent publish: unique `(templateId, versionNumber)`; loser retries. Publish
 
 **Not in this product yet:** fork-to-new-lineage flag. Bank include is slice 4. Template metadata and content edits are live (below).
 
-Template tables (Catalog schema `catalog`): `templates` (lineage: `id`, `originQuizId`, timestamps) and `template_versions` (version number, metadata snapshot from the quiz at publish, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, owned questions with the same `Question` shape including `sourceQuestionId`). List/search uses **latest version** metadata (title, description, experience, tags).
+Template tables (Catalog schema `catalog`): `templates` (lineage: `id`, `originQuizId`, timestamps) and `template_versions` (version number, metadata snapshot from the quiz at publish, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, optional `ContentVersionId`, owned questions with the same `Question` shape including `sourceQuestionId`). List/search uses **latest version** metadata (title, description, experience, tags). A metadata version leaves `template_version_questions` empty and sets `ContentVersionId` to the version that owns the questions. Reads, clone, and preview follow that pointer. Content edits and publish still insert new question rows.
 
 ### 15.2 Publish, list, get, clone
 
@@ -517,7 +517,7 @@ Template tables (Catalog schema `catalog`): `templates` (lineage: `id`, `originQ
 | `GET` | `/api/templates/{id}/versions` | `templates.read` | `PagedResult<TemplateVersionSummaryResponse>` or a full list if short — prefer paged with same `page`/`pageSize` |
 | `GET` | `/api/templates/{id}/versions/{versionId}` | `templates.read` | `TemplateVersionResponse` (full `questions`) |
 | `POST` | `/api/templates/{id}/versions/{versionId}/clone` | `quizzes.write` **and** `templates.read` | `QuizResponse` 201, `Location: /api/quizzes/{newId}` |
-| `PUT` | `/api/templates/{id}/metadata` | `templates.write` | `TemplateResponse` 200. New version, questions copied, previous versions unchanged. Body: title, description, experience, tags, `rowVersion`, `changeNote`. |
+| `PUT` | `/api/templates/{id}/metadata` | `templates.write` | `TemplateResponse` 200. New version that reuses the previous question content (`ContentVersionId`). Previous versions unchanged. Body: title, description, experience, tags, `rowVersion`, `changeNote`. |
 | `PUT` | `/api/templates/{id}/content` | `templates.write` | `TemplateResponse` 200. Same concurrency and change note. Questions are mapped then copied (new ids, `sourceQuestionId` preserved). |
 
 Unknown template/version, or `versionId` not under `{id}` → 404. Unknown `openingId` on clone → 400 `"Opening does not exist."` via `IOpeningLookup` (Catalog does not read the `openings` schema).
@@ -528,7 +528,7 @@ Unknown template/version, or `versionId` not under `{id}` → 404. Unknown `open
 
 **`TemplateResponse`:** summary fields plus `createdAtUtc`. Client loads questions from the version endpoint.
 
-**`TemplateVersionSummaryResponse`:** `id`, `templateId`, `versionNumber`, `title`, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, `changeNote`, `questionCount`.
+**`TemplateVersionSummaryResponse`:** `id`, `templateId`, `versionNumber`, `title`, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, `publishedByDisplayName`, `changeNote`, `questionCount`. `publishedByDisplayName` comes from the staff directory (`IAssignableUserLookup`). When the user id is unknown, the API returns the id so the history row is never blank. The template page shows the display name.
 
 **`TemplateVersionResponse`:** summary plus `description`, `expectedExperienceYears`, `tags`, `questions` (`QuestionResponse[]` with `sourceQuestionId`).
 
@@ -734,7 +734,9 @@ Activities: `assignments.list`, `assignments.get`, `assignments.create`, `assign
 
 **`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume while the attempt is not started or in progress, and again after submit so the candidate can reopen the link and see the submitted summary. Consume never creates an attempt and never sets `dueAtUtc`. Live mode and a rotated/unknown token still reject consume. A new invite cannot be issued once the assignment is submitted.
 
-**Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, optional `expiresAt`, created at, revoked at, and a data-protected token for resend. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match) and stores email status. Other modules do not read Access or Delivery tables across the boundary. An active invite stays reusable until submit (ADR 0008). Expired and revoked invites cannot be consumed (ADR 0009).
+**Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, optional `expiresAt`, created at, revoked at, and a data-protected token for resend. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match) and stores email status. Other modules do not read Access or Delivery tables across the boundary. An active invite stays reusable until submit (ADR 0008). Expired and revoked invites cannot be consumed (ADR 0009). Data Protection keys live in `access.data_protection_keys` (application name `InterviewQuiz`), so resend still unprotects the token after a restart or redeploy that uses the same database.
+
+**Revoke versus expiry for an attempt already started:** expiry does not end it. Save and submit keep working until the candidate submits or `dueAtUtc` passes. Opening the link again still shows the expiry page. Revoke ends the in-progress attempt immediately: the saved answers are scored and the attempt is submitted, and later candidate calls return `This invite has been revoked.` The quiz page shows that the quiz has ended. Ticketing is not an invite channel.
 
 **Candidate JWT** (same `Jwt__Issuer` / `Jwt__Audience` / `Jwt__SigningKey` as employees):
 

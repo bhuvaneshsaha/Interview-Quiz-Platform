@@ -25,6 +25,8 @@ public sealed class TemplateVersionConfiguration : IEntityTypeConfiguration<Temp
             .HasMaxLength(TemplateVersion.ChangeNoteMaxLength)
             .IsRequired()
             .HasDefaultValue("");
+        builder.Property(e => e.ContentVersionId);
+        builder.HasIndex(e => e.ContentVersionId);
 
         builder.Property(e => e.Tags)
             .HasColumnType("jsonb")

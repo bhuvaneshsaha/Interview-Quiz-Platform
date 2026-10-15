@@ -5,6 +5,7 @@ using InterviewQuiz.Catalog.Application.Services;
 using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
+using InterviewQuiz.Kernel.Users;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Openings.Application;
 using InterviewQuiz.Openings.Application.Contracts;
@@ -179,9 +180,36 @@ public sealed class TemplateServiceTests
         var versionTwo = templates.Versions.Single(version => version.VersionNumber == 2);
         Assert.Equal("Rename only", versionTwo.ChangeNote);
         Assert.Equal("author-2", versionTwo.PublishedByUserId);
-        Assert.NotEqual(originalQuestionId, versionTwo.Questions.Single().Id);
-        Assert.Equal(BankItemId, versionTwo.Questions.Single().SourceQuestionId);
+        Assert.Empty(versionTwo.Questions);
+        Assert.Equal(versionOne.Id, versionTwo.ContentVersionId);
         Assert.Equal(versionOne.PublishedFromQuizId, versionTwo.PublishedFromQuizId);
+
+        var loaded = await service.GetVersionAsync(
+            published.TemplateId,
+            versionTwo.Id,
+            CancellationToken.None);
+        Assert.Equal(originalQuestionId, loaded.Questions.Single().Id);
+        Assert.Equal(BankItemId, loaded.Questions.Single().SourceQuestionId);
+        Assert.Equal("Ada Author", loaded.PublishedByDisplayName);
+
+        var again = await service.UpdateMetadataAsync(
+            published.TemplateId,
+            new UpdateTemplateMetadataRequest
+            {
+                Title = "Renamed again",
+                Description = "Still the same questions",
+                ExpectedExperienceYears = 6,
+                Tags = new Dictionary<string, string> { ["Role"] = "Backend" },
+                RowVersion = updated.RowVersion,
+                ChangeNote = "Second rename"
+            },
+            "author-2",
+            CancellationToken.None);
+        Assert.Equal(3, again.LatestVersionNumber);
+        var versionThree = templates.Versions.Single(version => version.VersionNumber == 3);
+        Assert.Empty(versionThree.Questions);
+        Assert.Equal(versionOne.Id, versionThree.ContentVersionId);
+        Assert.Equal(originalQuestionId, versionOne.Questions.Single().Id);
     }
 
     [Fact]
@@ -267,6 +295,7 @@ public sealed class TemplateServiceTests
             templates,
             quizzes,
             new FakeOpeningLookup(openingExists ? OpeningId : null),
+            new FakeUsers(),
             _clock,
             NullLogger<TemplateService>.Instance);
 
@@ -378,13 +407,20 @@ public sealed class TemplateServiceTests
             => Task.FromResult(Templates.FirstOrDefault(t => t.OriginQuizId == quizId));
 
         public Task<TemplateVersion?> GetVersionAsync(Guid templateId, Guid versionId, CancellationToken cancellationToken)
-            => Task.FromResult(Versions.FirstOrDefault(v => v.TemplateId == templateId && v.Id == versionId));
+        {
+            var version = Versions.FirstOrDefault(v => v.TemplateId == templateId && v.Id == versionId);
+            Hydrate(version);
+            return Task.FromResult(version);
+        }
 
         public Task<TemplateVersion?> GetLatestVersionAsync(Guid templateId, CancellationToken cancellationToken)
-            => Task.FromResult(
-                Versions.Where(v => v.TemplateId == templateId)
-                    .OrderByDescending(v => v.VersionNumber)
-                    .FirstOrDefault());
+        {
+            var version = Versions.Where(v => v.TemplateId == templateId)
+                .OrderByDescending(v => v.VersionNumber)
+                .FirstOrDefault();
+            Hydrate(version);
+            return Task.FromResult(version);
+        }
 
         public Task<int> GetMaxVersionNumberAsync(Guid templateId, CancellationToken cancellationToken)
             => Task.FromResult(
@@ -427,10 +463,51 @@ public sealed class TemplateServiceTests
                 .Where(v => v.TemplateId == templateId)
                 .OrderByDescending(v => v.VersionNumber)
                 .ToList();
+            foreach (var version in items)
+            {
+                Hydrate(version);
+            }
+
             return Task.FromResult(new PagedResult<TemplateVersion>(items, page.Page, page.PageSize, items.Count));
         }
 
+        private void Hydrate(TemplateVersion? version)
+        {
+            if (version?.ContentVersionId is not { } contentId)
+            {
+                return;
+            }
+
+            var owner = Versions.Single(item => item.Id == contentId);
+            version.UseSharedQuestions(owner.ReadQuestions());
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeUsers : IAssignableUserLookup
+    {
+        public Task<IReadOnlyList<AssignableUserDto>> SearchAsync(
+            string? query,
+            int limit,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<AssignableUserDto>>([]);
+
+        public Task<IReadOnlyDictionary<string, AssignableUserDto>> GetByIdsAsync(
+            IReadOnlyCollection<string> userIds,
+            CancellationToken cancellationToken)
+        {
+            var map = new Dictionary<string, AssignableUserDto>(StringComparer.Ordinal);
+            foreach (var id in userIds)
+            {
+                if (id == "author-2")
+                {
+                    map[id] = new AssignableUserDto(id, "Ada Author", "ada@example.com");
+                }
+            }
+
+            return Task.FromResult<IReadOnlyDictionary<string, AssignableUserDto>>(map);
+        }
     }
 
     private sealed class FakeQuestionBankReader : IQuestionBankReader

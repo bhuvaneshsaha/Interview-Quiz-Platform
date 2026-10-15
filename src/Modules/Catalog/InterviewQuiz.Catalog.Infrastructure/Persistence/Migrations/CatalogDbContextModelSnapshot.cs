@@ -200,6 +200,9 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasDefaultValue("");
 
+                    b.Property<Guid?>("ContentVersionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(8000)
@@ -235,6 +238,8 @@ namespace InterviewQuiz.Catalog.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContentVersionId");
 
                     b.HasIndex("PublishedAtUtc");
 

@@ -439,6 +439,7 @@ export interface TemplateVersionSummaryResponse {
   publishedFromQuizId: string;
   publishedAtUtc: string;
   publishedByUserId: string;
+  publishedByDisplayName: string;
   changeNote: string;
   questionCount: number;
 }

@@ -11,9 +11,10 @@
 >
   <form [formGroup]="form" (ngSubmit)="save()">
     <p class="hint">
-      Save creates version {{ (template()?.latestVersionNumber ?? 0) + 1 }}. Questions are copied
-      with new ids. Earlier versions, quizzes cloned from them, and assignment snapshots do not
-      change.
+      Save creates version {{ (template()?.latestVersionNumber ?? 0) + 1 }} and copies the questions
+      (new ids, same source). Drag-and-drop slots are part of that copy. Earlier versions, quizzes
+      cloned from them, and assignment snapshots do not change. A name-only change belongs on the
+      template page and reuses these questions instead of copying them.
     </p>
     <div class="field">
       <label for="edit-title">Title</label>
@@ -37,36 +38,36 @@
       <p>This version has no questions. Saving keeps it empty.</p>
     }
     <div formArrayName="questions">
-      @for (question of questions.controls; track $index) {
-        <fieldset class="question" [formGroupName]="$index">
-          <legend>Question {{ $index + 1 }}</legend>
-          <p class="hint">{{ draftsType($index) }}</p>
+      @for (question of questions.controls; track $index; let qi = $index) {
+        <fieldset class="question" [formGroupName]="qi">
+          <legend>Question {{ qi + 1 }}</legend>
+          <p class="hint">{{ typeLabels[draftsType(qi)] }}</p>
           <div class="field">
-            <label [attr.for]="'stem-' + $index">Stem</label>
-            <textarea [id]="'stem-' + $index" rows="3" formControlName="stem"></textarea>
+            <label [attr.for]="'stem-' + qi">Stem</label>
+            <textarea [id]="'stem-' + qi" rows="3" formControlName="stem"></textarea>
           </div>
           <div class="field-row">
             <div class="field">
-              <label [attr.for]="'points-' + $index">Points</label>
-              <input [id]="'points-' + $index" type="number" formControlName="points" min="1" />
+              <label [attr.for]="'points-' + qi">Points</label>
+              <input [id]="'points-' + qi" type="number" formControlName="points" min="1" />
             </div>
             <div class="field">
-              <label [attr.for]="'scoring-' + $index">Scoring</label>
-              <select [id]="'scoring-' + $index" formControlName="scoringMode">
+              <label [attr.for]="'scoring-' + qi">Scoring</label>
+              <select [id]="'scoring-' + qi" formControlName="scoringMode">
                 @for (mode of scoringModes; track mode) {
                   <option [value]="mode">{{ scoringLabels[mode] }}</option>
                 }
               </select>
             </div>
-            @if (requiresCreditMode(draftsType($index))) {
+            @if (requiresCreditMode(draftsType(qi))) {
               <div class="field">
-                <label [attr.for]="'credit-' + $index">Credit mode</label>
-                <select [id]="'credit-' + $index" formControlName="creditMode">
+                <label [attr.for]="'credit-' + qi">Credit mode</label>
+                <select [id]="'credit-' + qi" formControlName="creditMode">
                   @for (mode of creditModes; track mode) {
                     <option [value]="mode">{{ creditLabels[mode] }}</option>
                   }
                 </select>
-                @if (draftsType($index) === 'ordering') {
+                @if (draftsType(qi) === 'ordering') {
                   <p class="hint">
                     Partial credit counts a hit only when positions i and i+1 match the keyed pair.
                     The answer must be the same items. A neighboring pair in the wrong place does not
@@ -76,6 +77,122 @@
               </div>
             }
           </div>
+
+          @if (draftsType(qi) === 'dragDropSharedBank') {
+            <div formGroupName="body">
+              <fieldset class="inner-fieldset">
+                <legend>Bank</legend>
+                @for (item of bankArray(qi).controls; track $index; let j = $index) {
+                  <div class="item-row" [formGroup]="bankGroup(qi, j)">
+                    <div class="field grow">
+                      <label [attr.for]="'q-' + qi + '-bank-' + j">Bank item {{ j + 1 }}</label>
+                      <input [id]="'q-' + qi + '-bank-' + j" type="text" formControlName="text" />
+                    </div>
+                    <div class="field">
+                      <label [attr.for]="'q-' + qi + '-dist-' + j">
+                        <input [id]="'q-' + qi + '-dist-' + j" type="checkbox" formControlName="isDistractor" />
+                        Distractor
+                      </label>
+                    </div>
+                    <button type="button" class="button button-quiet" (click)="removeBankItem(qi, j)">
+                      Remove bank item
+                    </button>
+                  </div>
+                }
+                <button type="button" class="button button-quiet" (click)="addBankItem(qi)">
+                  Add bank item
+                </button>
+              </fieldset>
+              <fieldset class="inner-fieldset">
+                <legend>Slots</legend>
+                @for (slot of slotsArray(qi).controls; track $index; let j = $index) {
+                  <div class="item-row" [formGroup]="slotGroup(qi, j)">
+                    <div class="field grow">
+                      <label [attr.for]="'q-' + qi + '-slot-' + j">Slot label {{ j + 1 }}</label>
+                      <input
+                        [id]="'q-' + qi + '-slot-' + j"
+                        type="text"
+                        formControlName="label"
+                        data-testid="shared-slot-label"
+                      />
+                    </div>
+                    <div class="field grow">
+                      <label [attr.for]="'q-' + qi + '-slot-correct-' + j">Correct bank item</label>
+                      <select [id]="'q-' + qi + '-slot-correct-' + j" formControlName="correctItemId">
+                        @for (item of bankItems(qi); track item.id) {
+                          <option [value]="item.id">{{ item.text || item.id }}</option>
+                        }
+                      </select>
+                    </div>
+                    <button type="button" class="button button-quiet" (click)="removeSharedSlot(qi, j)">
+                      Remove slot
+                    </button>
+                  </div>
+                }
+                <button type="button" class="button button-quiet" (click)="addSharedSlot(qi)">
+                  Add slot
+                </button>
+              </fieldset>
+            </div>
+          }
+
+          @if (draftsType(qi) === 'dragDropPerSlot') {
+            <div formGroupName="body">
+              @for (slot of slotsArray(qi).controls; track $index; let j = $index) {
+                <fieldset class="inner-fieldset" [formGroup]="slotGroup(qi, j)">
+                  <legend>Slot {{ j + 1 }}</legend>
+                  <div class="field">
+                    <label [attr.for]="'q-' + qi + '-pslot-' + j">Label</label>
+                    <input
+                      [id]="'q-' + qi + '-pslot-' + j"
+                      type="text"
+                      formControlName="label"
+                      data-testid="per-slot-label"
+                    />
+                  </div>
+                  @for (option of slotOptions(qi, j).controls; track $index; let k = $index) {
+                    <div class="item-row" [formGroup]="slotOptionGroup(qi, j, k)">
+                      <div class="field grow">
+                        <label [attr.for]="'q-' + qi + '-pslot-' + j + '-opt-' + k">Option {{ k + 1 }}</label>
+                        <input
+                          [id]="'q-' + qi + '-pslot-' + j + '-opt-' + k"
+                          type="text"
+                          formControlName="text"
+                        />
+                      </div>
+                      <div class="field">
+                        <label [attr.for]="'q-' + qi + '-pslot-' + j + '-correct-' + k">
+                          <input
+                            [id]="'q-' + qi + '-pslot-' + j + '-correct-' + k"
+                            type="checkbox"
+                            formControlName="isCorrect"
+                            (change)="markSlotCorrect(qi, j, k, $event)"
+                          />
+                          Correct
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        class="button button-quiet"
+                        (click)="removePerSlotOption(qi, j, k)"
+                      >
+                        Remove option
+                      </button>
+                    </div>
+                  }
+                  <div class="question-toolbar">
+                    <button type="button" class="button button-quiet" (click)="addPerSlotOption(qi, j)">
+                      Add option
+                    </button>
+                    <button type="button" class="button button-quiet" (click)="removePerSlot(qi, j)">
+                      Remove slot
+                    </button>
+                  </div>
+                </fieldset>
+              }
+              <button type="button" class="button button-quiet" (click)="addPerSlot(qi)">Add slot</button>
+            </div>
+          }
         </fieldset>
       }
     </div>

@@ -201,6 +201,43 @@ public sealed class InviteAndTemplateAssignApiTests
     }
 
     [RequiresDatabaseFact]
+    public async Task Resend_after_a_new_host_still_reads_the_protected_token()
+    {
+        var client = RecruiterClient();
+        var created = await (await client.PostAsJsonAsync("/api/assignments", ValidCreate()))
+            .Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
+        Assert.False(string.IsNullOrWhiteSpace(created!.InviteUrl));
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
+            Assert.True(await db.DataProtectionKeys.AnyAsync());
+        }
+
+        var restarted = new InterviewQuizWebApplicationFactory();
+        try
+        {
+            await restarted.InitializeAsync();
+            var restartedClient = restarted.CreateClient();
+            restartedClient.DefaultRequestHeaders.Authorization = client.DefaultRequestHeaders.Authorization;
+            var mail = restarted.Services.GetRequiredService<RecordingInviteMailer>();
+            mail.Clear();
+
+            var resend = await restartedClient.PostAsync($"/api/assignments/{created.Id}/invite/resend", null);
+            var body = await resend.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, resend.StatusCode);
+            var sent = Assert.Single(mail.Messages, message => message.AssignmentId == created.Id);
+            Assert.Equal(created.InviteUrl, sent.InviteUrl);
+            Assert.True(sent.Resend);
+            Assert.DoesNotContain("Re-issue", body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await restarted.DisposeAsync();
+        }
+    }
+
+    [RequiresDatabaseFact]
     public async Task From_template_without_templates_read_is_forbidden()
     {
         var client = RecruiterClient(includeTemplatesRead: false);
