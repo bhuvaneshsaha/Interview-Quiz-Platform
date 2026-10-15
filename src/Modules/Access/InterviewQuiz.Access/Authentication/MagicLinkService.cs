@@ -20,7 +20,6 @@ public sealed class MagicLinkService : IMagicLinkService
 
     private static readonly HashSet<string> TerminalStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
-        "submitted",
         "pendingReview",
         "completed"
     };

@@ -19,6 +19,10 @@
     }
   </div>
   <div class="field">
+    <label for="quiz-filter">Quiz id</label>
+    <input id="quiz-filter" type="text" [formControl]="quizFilter" autocomplete="off" />
+  </div>
+  <div class="field">
     <label for="assignment-keyword">Keyword</label>
     <input
       id="assignment-keyword"
@@ -45,7 +49,7 @@
   @if (quizId()) {
     <p class="hint" role="status">Showing assignments for this quiz. Results are not comparable across revisions.</p>
   }
-  <table class="data-table stack-table">
+  <table class="data-table data-table-cards stack-table">
     <thead>
       <tr>
         <th scope="col">Candidate</th>

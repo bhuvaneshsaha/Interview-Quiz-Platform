@@ -11,6 +11,11 @@ public sealed class AccessRole
 
     public string? Description { get; set; }
 
+    /// <summary>
+    /// System roles are seeded and locked. Authorization still uses permission codes, never this flag or the name.
+    /// </summary>
+    public bool IsSystem { get; set; }
+
     public ICollection<RolePermission> Permissions { get; set; } = new List<RolePermission>();
 
     public ICollection<UserRoleAssignment> UserRoles { get; set; } = new List<UserRoleAssignment>();

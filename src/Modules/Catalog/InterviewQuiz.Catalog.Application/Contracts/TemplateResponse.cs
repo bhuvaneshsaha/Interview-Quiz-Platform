@@ -11,6 +11,7 @@ public sealed class TemplateSummaryResponse
     public required int LatestVersionNumber { get; init; }
     public required Guid OriginQuizId { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; init; }
+    public required uint RowVersion { get; init; }
 }
 
 public sealed class TemplateResponse
@@ -25,4 +26,5 @@ public sealed class TemplateResponse
     public required Guid OriginQuizId { get; init; }
     public required DateTimeOffset CreatedAtUtc { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; init; }
+    public required uint RowVersion { get; init; }
 }

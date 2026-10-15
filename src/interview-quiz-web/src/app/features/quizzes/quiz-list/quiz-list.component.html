@@ -45,7 +45,7 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading quizzes."
 >
-  <table class="data-table stack-table">
+  <table class="data-table data-table-cards stack-table">
     <thead>
       <tr>
         <th scope="col">Title</th>
@@ -59,7 +59,7 @@
     <tbody>
       @for (quiz of quizzes(); track quiz.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Title">
             <a [routerLink]="['/quizzes', quiz.id]">{{ quiz.title }}</a>
           </th>
           <td data-label="Opening">{{ openingTitle(quiz.openingId) }}</td>

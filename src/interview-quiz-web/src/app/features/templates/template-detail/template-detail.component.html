@@ -46,15 +46,69 @@
       </ul>
     }
 
+    @if (canWrite) {
+      <p>
+        <a class="button" [routerLink]="['/templates', item.id, 'edit']">Edit template</a>
+      </p>
+      <form class="metadata-form" [formGroup]="metadata" (ngSubmit)="saveMetadata()">
+        <h2>Rename / metadata</h2>
+        <p class="hint">
+          Saving creates a new version with the same questions. Earlier versions, cloned quizzes, and
+          assignment snapshots stay as they were.
+        </p>
+        @if (saveError(); as message) {
+          <p class="status status-error" role="alert">{{ message }}</p>
+        }
+        <div class="field">
+          <label for="template-title">Title</label>
+          <input id="template-title" type="text" formControlName="title" maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="template-description">Description</label>
+          <textarea id="template-description" rows="3" formControlName="description"></textarea>
+        </div>
+        <div class="field">
+          <label for="template-experience">Expected experience (years)</label>
+          <input id="template-experience" type="number" formControlName="expectedExperienceYears" min="0" max="80" />
+        </div>
+        <fieldset formArrayName="tags">
+          <legend>Tags</legend>
+          @for (tag of tags.controls; track $index) {
+            <div class="tag-row" [formGroupName]="$index">
+              <div class="field">
+                <label [attr.for]="'tag-key-' + $index">Key</label>
+                <input [id]="'tag-key-' + $index" type="text" formControlName="key" />
+              </div>
+              <div class="field">
+                <label [attr.for]="'tag-value-' + $index">Value</label>
+                <input [id]="'tag-value-' + $index" type="text" formControlName="value" />
+              </div>
+              <button type="button" class="button button-quiet" (click)="removeTag($index)">Remove tag</button>
+            </div>
+          }
+          <button type="button" class="button button-quiet" (click)="addTag()">Add tag</button>
+        </fieldset>
+        <div class="field">
+          <label for="template-note">Change note</label>
+          <input id="template-note" type="text" formControlName="changeNote" maxlength="500" />
+        </div>
+        <button type="submit" class="button" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save metadata' }}
+        </button>
+      </form>
+    }
+
     <h2>Versions</h2>
     @if (versionsLoading()) {
       <p class="status" role="status">Loading versions.</p>
     }
-    <table class="data-table">
+    <table class="data-table data-table-cards">
       <thead>
         <tr>
           <th scope="col">Version</th>
           <th scope="col">Title</th>
+          <th scope="col">Author</th>
+          <th scope="col">Change note</th>
           <th scope="col">Questions</th>
           <th scope="col">Published</th>
           <th scope="col">Questions view</th>
@@ -63,11 +117,13 @@
       <tbody>
         @for (version of versions(); track version.id) {
           <tr>
-            <th scope="row">{{ version.versionNumber }}</th>
-            <td>{{ version.title }}</td>
-            <td>{{ version.questionCount }}</td>
-            <td>{{ formatWhen(version.publishedAtUtc) }}</td>
-            <td>
+            <th scope="row" data-label="Version">{{ version.versionNumber }}</th>
+            <td data-label="Title">{{ version.title }}</td>
+            <td data-label="Author">{{ version.publishedByUserId }}</td>
+            <td data-label="Change note">{{ version.changeNote || '—' }}</td>
+            <td data-label="Questions">{{ version.questionCount }}</td>
+            <td data-label="Published">{{ formatWhen(version.publishedAtUtc) }}</td>
+            <td data-label="Questions view">
               <button
                 type="button"
                 class="button button-quiet"

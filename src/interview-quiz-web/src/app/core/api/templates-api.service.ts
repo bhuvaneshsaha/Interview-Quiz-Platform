@@ -7,11 +7,13 @@ import {
   CloneTemplateVersionRequest,
   PagedResult,
   QuizResponse,
+  SaveTemplateContentRequest,
   TemplateListCriteria,
   TemplateResponse,
   TemplateSummaryResponse,
   TemplateVersionResponse,
   TemplateVersionSummaryResponse,
+  UpdateTemplateMetadataRequest,
 } from './contracts';
 import { pageAndCriteria } from './list-query';
 
@@ -52,6 +54,14 @@ export class TemplatesApi {
 
   clone(id: string, versionId: string, body: CloneTemplateVersionRequest): Observable<QuizResponse> {
     return this.http.post<QuizResponse>(`/api/templates/${id}/versions/${versionId}/clone`, body);
+  }
+
+  updateMetadata(id: string, body: UpdateTemplateMetadataRequest): Observable<TemplateResponse> {
+    return this.http.put<TemplateResponse>(`/api/templates/${id}/metadata`, body);
+  }
+
+  saveContent(id: string, body: SaveTemplateContentRequest): Observable<TemplateResponse> {
+    return this.http.put<TemplateResponse>(`/api/templates/${id}/content`, body);
   }
 
   previewVersion(id: string, versionId: string): Observable<CandidateQuizPreviewResponse> {

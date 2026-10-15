@@ -36,7 +36,7 @@
   emptyMessage="No templates match this filter."
   loadingMessage="Loading templates."
 >
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th scope="col">Title</th>
@@ -48,12 +48,12 @@
     <tbody>
       @for (template of templates(); track template.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Title">
             <a [routerLink]="['/templates', template.id]">{{ template.title }}</a>
           </th>
-          <td>{{ template.expectedExperienceYears }}</td>
-          <td>{{ template.latestVersionNumber }}</td>
-          <td>{{ formatUpdated(template.updatedAtUtc) }}</td>
+          <td data-label="Experience">{{ template.expectedExperienceYears }}</td>
+          <td data-label="Latest version">{{ template.latestVersionNumber }}</td>
+          <td data-label="Updated">{{ formatUpdated(template.updatedAtUtc) }}</td>
         </tr>
       }
     </tbody>

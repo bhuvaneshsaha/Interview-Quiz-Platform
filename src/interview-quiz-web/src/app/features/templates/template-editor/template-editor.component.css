@@ -1,0 +1,23 @@
+.hint {
+  color: var(--color-muted);
+  margin: 0 0 0.75rem;
+}
+
+.question {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.field-row .field {
+  flex: 1 1 10rem;
+  min-width: 0;
+}

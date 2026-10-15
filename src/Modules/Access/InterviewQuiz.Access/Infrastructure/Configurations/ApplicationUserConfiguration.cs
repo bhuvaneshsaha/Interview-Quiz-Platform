@@ -11,5 +11,8 @@ public sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Appl
         builder.ToTable("identity_users");
         builder.Property(user => user.IsDisabled).IsRequired();
         builder.Property(user => user.CreatedAt).IsRequired();
+        builder.Property(user => user.MustSetPassword).IsRequired().HasDefaultValue(false);
+        builder.Property(user => user.BootstrapTokenHash).HasMaxLength(128);
+        builder.Property(user => user.BootstrapTokenExpiresAt);
     }
 }

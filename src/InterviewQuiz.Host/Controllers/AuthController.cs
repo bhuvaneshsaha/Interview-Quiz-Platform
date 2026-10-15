@@ -11,10 +11,12 @@ namespace InterviewQuiz.Host.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
+    private readonly IBootstrapPasswordService _bootstrapPasswords;
 
-    public AuthController(IAuthService auth)
+    public AuthController(IAuthService auth, IBootstrapPasswordService bootstrapPasswords)
     {
         _auth = auth;
+        _bootstrapPasswords = bootstrapPasswords;
     }
 
     [HttpPost("login")]
@@ -49,6 +51,19 @@ public sealed class AuthController : ControllerBase
         }
 
         return Ok(tokens);
+    }
+
+    [HttpPost("bootstrap/set-password")]
+    public async Task<IActionResult> SetBootstrapPassword(
+        [FromBody] SetBootstrapPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _bootstrapPasswords.CompleteAsync(
+            request.Email,
+            request.Token,
+            request.NewPassword,
+            cancellationToken);
+        return NoContent();
     }
 
     [HttpPost("logout")]

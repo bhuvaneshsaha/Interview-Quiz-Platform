@@ -1,6 +1,8 @@
 using InterviewQuiz.Access.Application;
 using InterviewQuiz.Access.Application.Contracts;
+using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Authorization;
+using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -62,7 +64,12 @@ public sealed class RolesController : ControllerBase
         [FromBody] AssignRoleRequest request,
         CancellationToken cancellationToken)
     {
-        await _roles.AssignUserAsync(id, request.UserId, cancellationToken);
+        await _roles.AssignUserAsync(
+            id,
+            request.UserId,
+            RequireUserId(),
+            HttpContext.TraceIdentifier,
+            cancellationToken);
         return NoContent();
     }
 
@@ -73,7 +80,15 @@ public sealed class RolesController : ControllerBase
         string userId,
         CancellationToken cancellationToken)
     {
-        await _roles.UnassignUserAsync(id, userId, cancellationToken);
+        await _roles.UnassignUserAsync(
+            id,
+            userId,
+            RequireUserId(),
+            HttpContext.TraceIdentifier,
+            cancellationToken);
         return NoContent();
     }
+
+    private string RequireUserId()
+        => User.FindUserId() ?? throw new ForbiddenException("Authenticated user id is required.");
 }

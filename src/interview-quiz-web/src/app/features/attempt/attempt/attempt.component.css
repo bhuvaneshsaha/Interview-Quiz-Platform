@@ -27,6 +27,24 @@
   padding: 1.25rem 1.25rem 2.5rem;
   max-width: 56rem;
   margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .attempt-header,
+  .attempt-main {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .question {
+    padding: 0.85rem;
+  }
+
+  .order-item .button,
+  .question .button {
+    flex: 1 1 auto;
+  }
 }
 
 .attempt-layout {

@@ -28,12 +28,12 @@ Master defaults are **accepted**; Architecture does not override them:
 
 | Topic | Assumption |
 |--------|------------|
-| Template edits | New version; existing assignments keep the old version. Working copy is always a **quiz**. Slice 3 has no in-place template editor — clone → edit quiz → publish creates the next version. |
+| Template edits | New version; existing assignments keep the old version. Metadata and content edits (`PUT /api/templates/{id}/metadata` and `PUT /api/templates/{id}/content`) create version N+1 with copied questions (new ids, `sourceQuestionId` preserved). Publishing a quiz still versions the same lineage. Fork-to-new-lineage stays out of scope. |
 | Assignment | Stores a snapshot of questions, keys, and scoring rules. |
 | Quiz reuse | A quiz belongs to **one** opening. Reuse across openings is via **template**. This overrides Brief §6.2 “linked to one or more openings” in favor of Brief §16. |
 | Question bank | Catalog-owned **item** library. Same types/scoring/credit as quiz questions. **Copy-on-include** (new quiz question id; `sourceQuestionId` provenance). Not a new bounded context. Distinct from templates (whole-quiz reuse) and from the drag-drop `dragDropSharedBank` question type. ADR 0007. Bank CRUD + Angular UI is **slice 4** (implemented); groundwork is in slice 3. |
 | Template lineage | First publish of a quiz with no origin creates a template. Later publish from **that quiz** or from a quiz **cloned from that template** creates a **new version** of the same lineage. No always-new-template. No fork-to-new-lineage in slice 3. |
-| Ordering partial credit | Default formula: **adjacent-pair**. Slice 5 auto-score uses it for ordering `partial`; slice 7 review still later. Ties/duplicates remain Evaluation-owned. |
+| Ordering partial credit | **Adjacent-pair, positional.** The answer must be the same item set (same count, no duplicates). `allOrNothing` requires the full sequence. `partial` awards a share of the points only when `candidate[i]` and `candidate[i+1]` both match the key at those positions. A neighboring pair that sits somewhere else does not score. That is stricter than a casual “order matters.” |
 | Retention | Configurable archive (default 5 years). **No hard delete.** Separate restore rules for resumes, attempts, quiz content. Restore is an admin permission (split codes below). |
 | Company AI rules | Versioned JSON: global layer + required fields per question type. Concrete schema deferred to the AI slice. |
 | Async attempts | One attempt unless the assignment override allows another. |
@@ -171,6 +171,7 @@ flowchart TB
 
 - `GET|POST|PUT /api/openings`
 - `GET /api/openings/{id}`
+- `GET /api/openings/{id}/summary` (`openings.read`; quiz rows need `quizzes.read`, candidate counts need `assignments.read`; composed in the host, no cross-schema joins)
 - `GET|PUT /api/opening-field-definitions` (`openings.fields.manage`)
 
 **In-process:** `GetOpening(id)` for Catalog (quiz must reference one opening) and Delivery.
@@ -502,7 +503,7 @@ Quiz carries server-owned `originTemplateId` (nullable Guid) on `QuizResponse`. 
 
 Concurrent publish: unique `(templateId, versionNumber)`; loser retries. Publishing updates `quiz.originTemplateId` and increments quiz `rowVersion`.
 
-**Not in slice 3:** in-place `PUT /api/templates/{id}`; fork-to-new-lineage flag; bank include API.
+**Not in this product yet:** fork-to-new-lineage flag. Bank include is slice 4. Template metadata and content edits are live (below).
 
 Template tables (Catalog schema `catalog`): `templates` (lineage: `id`, `originQuizId`, timestamps) and `template_versions` (version number, metadata snapshot from the quiz at publish, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, owned questions with the same `Question` shape including `sourceQuestionId`). List/search uses **latest version** metadata (title, description, experience, tags).
 
@@ -516,16 +517,18 @@ Template tables (Catalog schema `catalog`): `templates` (lineage: `id`, `originQ
 | `GET` | `/api/templates/{id}/versions` | `templates.read` | `PagedResult<TemplateVersionSummaryResponse>` or a full list if short — prefer paged with same `page`/`pageSize` |
 | `GET` | `/api/templates/{id}/versions/{versionId}` | `templates.read` | `TemplateVersionResponse` (full `questions`) |
 | `POST` | `/api/templates/{id}/versions/{versionId}/clone` | `quizzes.write` **and** `templates.read` | `QuizResponse` 201, `Location: /api/quizzes/{newId}` |
+| `PUT` | `/api/templates/{id}/metadata` | `templates.write` | `TemplateResponse` 200. New version, questions copied, previous versions unchanged. Body: title, description, experience, tags, `rowVersion`, `changeNote`. |
+| `PUT` | `/api/templates/{id}/content` | `templates.write` | `TemplateResponse` 200. Same concurrency and change note. Questions are mapped then copied (new ids, `sourceQuestionId` preserved). |
 
 Unknown template/version, or `versionId` not under `{id}` → 404. Unknown `openingId` on clone → 400 `"Opening does not exist."` via `IOpeningLookup` (Catalog does not read the `openings` schema).
 
 **`PublishTemplateResponse`:** `templateId`, `versionId`, `versionNumber` (int, 1-based), `createdNewTemplate` (bool).
 
-**`TemplateSummaryResponse`:** `id`, `title`, `description`, `expectedExperienceYears`, `tags`, `latestVersionId`, `latestVersionNumber`, `originQuizId`, `updatedAtUtc`.
+**`TemplateSummaryResponse`:** `id`, `title`, `description`, `expectedExperienceYears`, `tags`, `latestVersionId`, `latestVersionNumber`, `originQuizId`, `updatedAtUtc`, `rowVersion`.
 
 **`TemplateResponse`:** summary fields plus `createdAtUtc`. Client loads questions from the version endpoint.
 
-**`TemplateVersionSummaryResponse`:** `id`, `templateId`, `versionNumber`, `title`, `publishedFromQuizId`, `publishedAtUtc`, `questionCount`.
+**`TemplateVersionSummaryResponse`:** `id`, `templateId`, `versionNumber`, `title`, `publishedFromQuizId`, `publishedAtUtc`, `publishedByUserId`, `changeNote`, `questionCount`.
 
 **`TemplateVersionResponse`:** summary plus `description`, `expectedExperienceYears`, `tags`, `questions` (`QuestionResponse[]` with `sourceQuestionId`).
 
@@ -667,7 +670,7 @@ One aggregate: **assignment** binds a frozen quiz graph to a candidate under an 
 | `mode` | `async` \| `live` stored. Slice 5 **executes async only**. Live rows exist so slice 6 does not change the model. |
 | `overallDurationMinutes` | **Required for `async`** (integer 1–480). Quiz has **no section aggregate**, so **per-section timing is deferred** (not stored, not in create body). Live may omit duration in slice 5 (`null` until slice 6). |
 | `attemptLimit` | Integer ≥ 1, default **1** (async one-attempt policy). Omit on create → 1. Cap 20. |
-| `status` | `notStarted` \| `inProgress` \| `submitted` \| `pendingReview` \| `completed`. Delivery stores it; Evaluation updates via `IAssignmentLifecycle` (Delivery must not read `evaluation` tables). |
+| `status` | `notStarted` \| `inProgress` \| `pendingReview` \| `completed`. There is no assignment status `submitted`. `AttemptStatus.Submitted` is the attempt row. Legal moves: `notStarted` → `inProgress`; `notStarted` or `inProgress` → `pendingReview` (result incomplete) or `completed` (result complete). A second start while `inProgress` is a no-op. Terminal states do not move (409). Delivery stores the status; Evaluation updates it via `IAssignmentLifecycle`. |
 | `snapshotId` | New Guid for the snapshot **row**. |
 | `createdAtUtc` / `updatedAtUtc` | Clock |
 | `createdByUserId` | Employee `sub` who POSTed |
@@ -765,7 +768,7 @@ Resource: path `{id}` must equal JWT `assignment_id`. Permission: `candidate.att
 
 **Preview:** `attemptStatus` is `notStarted` \| `inProgress` \| `submitted`, plus `quizTitle`, `openingName`, `durationMinutes`, `questionCount`. No questions, no answers, no `dueAtUtc`. Opening the invite and calling preview leaves zero attempt rows.
 
-**Start:** creates `evaluation.attempts` row; `startedAtUtc` = clock; `dueAtUtc` = start + `overallDurationMinutes`; notifies `IAssignmentLifecycle.NotifyAttemptStarted`. Questions from **snapshot only**. **Strip keys** in the candidate payload (below). Freeze **ordering** item order on the attempt (`promptOrder`) so refresh is stable and **not** the keyed order. Second start while in progress returns the same attempt (200). Second start after submit, or when the assignment is already `submitted` / `pendingReview` / `completed`: **409** `Attempt limit reached.` Live mode → 400.
+**Start:** creates `evaluation.attempts` row; `startedAtUtc` = clock; `dueAtUtc` = start + `overallDurationMinutes`; notifies `IAssignmentLifecycle.NotifyAttemptStarted`. Questions from **snapshot only**. **Strip keys** in the candidate payload (below). Freeze **ordering** item order on the attempt (`promptOrder`) so refresh is stable and **not** the keyed order. Second start while in progress returns the same attempt (200). Second start after submit, or when the assignment is already `pendingReview` / `completed`: **409** `Attempt limit reached.` Live mode → 400.
 
 **Timer:** **lazy expiry**. First candidate GET/PUT/submit after `dueAtUtc` auto-submits **last saved** answers (unanswered stay empty) if not already submitted, then behaves as submitted (PUT → 409 `Attempt already submitted.`). Explicit submit before due is the happy path.
 
@@ -798,8 +801,8 @@ Resource: path `{id}` must equal JWT `assignment_id`. Permission: `candidate.att
 |-------------|------|
 | MC single, true/false | All-or-nothing vs snapshot key |
 | MC multi | `creditMode`: `allOrNothing` (exact set) or `partial` (proportion of correctly selected options vs the key; Evaluation owns the exact fraction — do not invent penalty fields) |
-| Ordering `partial` | **Adjacent-pair** (existing product assumption). Ties/duplicates: Evaluation owns edge cases |
-| Ordering `allOrNothing` | Exact sequence |
+| Ordering `partial` | **Positional adjacent-pair.** Same item set required (count matches, no duplicates, set equals the key). A hit is `candidate[i] == key[i]` and `candidate[i+1] == key[i+1]`. Points × hits / (n − 1). A pair that is adjacent somewhere else does not score. |
+| Ordering `allOrNothing` | Exact sequence of that same item set. Anything else is zero. |
 | Short text `auto` | Trim; honor `caseSensitive` |
 | Both drag-drop `auto` | Exact slot matches |
 | `aiAssist` / `humanOnly` | Skip |

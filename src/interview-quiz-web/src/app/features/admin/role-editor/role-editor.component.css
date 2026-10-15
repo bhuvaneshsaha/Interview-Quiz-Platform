@@ -29,6 +29,17 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.system-badge {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #8a5a00;
+  border-radius: 4px;
+  background: #fff4d6;
+  color: #6b3f00;
+  font-weight: 650;
 }

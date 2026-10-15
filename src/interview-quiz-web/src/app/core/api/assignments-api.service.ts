@@ -23,8 +23,8 @@ export class AssignmentsApi {
   ): Observable<PagedResult<AssignmentSummaryResponse>> {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     const openingId = query?.openingId?.trim();
-    const keyword = query?.keyword?.trim();
     const quizId = query?.quizId?.trim();
+    const keyword = query?.keyword?.trim();
     if (openingId) {
       params = params.set('openingId', openingId);
     }

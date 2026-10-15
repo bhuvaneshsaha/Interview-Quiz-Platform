@@ -1,4 +1,5 @@
 using InterviewQuiz.Access.Authorization;
+using InterviewQuiz.Host.Composition;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using InterviewQuiz.Openings.Application;
@@ -14,10 +15,12 @@ namespace InterviewQuiz.Host.Controllers;
 public sealed class OpeningsController : ControllerBase
 {
     private readonly IOpeningService _openings;
+    private readonly OpeningSummaryComposer _summary;
 
-    public OpeningsController(IOpeningService openings)
+    public OpeningsController(IOpeningService openings, OpeningSummaryComposer summary)
     {
         _openings = openings;
+        _summary = summary;
     }
 
     [HttpGet]
@@ -31,6 +34,11 @@ public sealed class OpeningsController : ControllerBase
         var result = await _openings.ListAsync(criteria, page, cancellationToken);
         return Ok(result);
     }
+
+    [HttpGet("{id:guid}/summary")]
+    [HasPermission(PermissionCodes.Openings.Read)]
+    public async Task<ActionResult<OpeningSummaryResponse>> Summary(Guid id, CancellationToken cancellationToken)
+        => Ok(await _summary.GetAsync(id, User, cancellationToken));
 
     [HttpGet("{id:guid}")]
     [HasPermission(PermissionCodes.Openings.Read)]

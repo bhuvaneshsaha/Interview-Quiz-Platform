@@ -13,7 +13,7 @@ import { INVITE_LIFETIME_NOTE } from '../invite-lifetime';
 import { resultStatusLabel, statusLabel } from '../../../shared/labels/status-labels';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 
-const TERMINAL_STATUSES = new Set(['submitted', 'pendingReview', 'completed']);
+const TERMINAL_STATUSES = new Set(['pendingReview', 'completed']);
 
 @Component({
   selector: 'app-assignment-detail',

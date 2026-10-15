@@ -117,6 +117,8 @@ Do not pass `--with-deps` on Windows. That flag installs Linux system packages. 
 | `Jwt__RefreshTokenDays` | Refresh token lifetime (default `14`) |
 | `Jwt__CandidateAccessTokenMinutes` | Candidate magic-link access token lifetime (default `60`, range 1–180). No candidate refresh token |
 | `PublicBaseUrl` | Public origin for recruiter-copied invite URLs (no trailing slash; not a secret). Access `IMagicLinkService.BuildInviteUrl` produces `{PublicBaseUrl}/attempt?token=` |
+| `Bootstrap__SuperAdminEmail` | Optional mailbox for the first Super Admin. Empty seeds the role and no user. No password is stored in git |
+| `Bootstrap__ResetSuperAdminSetup` | `true` re-issues the one-time password token on startup while the user still must set a password |
 
 Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault). The Development signing key in `appsettings.Development.json` is **local-only** and not for Production.
 
@@ -360,11 +362,12 @@ Employee routes used in slices 2–5 (permission on the route, same codes as the
 | `/quizzes/new` | `quizzes.write` | Create quiz |
 | `/quizzes/:id` | `quizzes.read` **or** `quizzes.write` | View / edit quiz; `templates.write` can publish as template; include from bank when `quizzes.write` **and** `questions.read` on an existing saved quiz |
 | `/templates` | `templates.read` | Template list (keyword, experience, tags, saved filters) |
-| `/templates/:id` | `templates.read` | Template detail, versions, read-only questions |
+| `/templates/:id` | `templates.read` | Template detail, version history (author, date, change note). Metadata edit when `templates.write` |
+| `/templates/:id/edit` | `templates.write` | Edit the latest version. Save creates the next version |
 | `/questions` | `questions.read` | Question bank list (keyword, type, experience, tags; archived-only toggle only with `questions.write`). **No** SavedFilters |
 | `/questions/new` | `questions.write` | Create bank question |
 | `/questions/:id` | `questions.read` **or** `questions.write` | View / edit bank question; archive/unarchive with write |
-| `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager). **No** SavedFilters |
+| `/assignments` | `assignments.read` | Assignment list (opening, quiz id, keyword, pager). **No** SavedFilters |
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
 
@@ -416,7 +419,7 @@ $env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=inter
 dotnet test InterviewQuiz.slnx
 ```
 
-When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **185 passed** (unit plus host integration). `npm test` reports **109 passed**.
+When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **214 passed** (unit plus host integration). `npm test` reports **110 passed**.
 
 Angular (Vitest):
 
@@ -425,7 +428,7 @@ cd src/interview-quiz-web
 ng test --watch=false
 ```
 
-Playwright covers the Sprint 1 candidate welcome, hidden type and points, ordering drag-and-drop (including the keyboard alternative), and recruiter attempt detail. It mocks `/api`, so the database is not required. On Windows, install Chromium with `npx playwright install chromium` and do not pass `--with-deps`. Full steps are in `src/interview-quiz-web/README.md`.
+Playwright covers the candidate welcome, hidden type and points, ordering drag-and-drop (including the keyboard alternative), recruiter attempt detail, and a mobile project at 375×812 (`mobile-layout.spec.ts`: assignment list, attempt questions, openings, quizzes, templates, question bank). It mocks `/api`, so the database is not required. On Windows, install Chromium with `npx playwright install chromium` and do not pass `--with-deps`. Full steps are in `src/interview-quiz-web/README.md`.
 
 ```bash
 cd src/interview-quiz-web

@@ -92,4 +92,46 @@
       {{ saving() ? 'Saving…' : 'Save opening' }}
     </button>
   </form>
+
+  @if (!isNew() && canReadQuizzes) {
+    <section class="opening-quizzes" aria-labelledby="opening-quizzes-heading">
+      <h2 id="opening-quizzes-heading">Quizzes</h2>
+      @if (!summary() || (summary()?.quizzes?.length ?? 0) === 0) {
+        <p>No quizzes are linked to this opening.</p>
+      } @else {
+        <ul class="quiz-cards">
+          @for (quiz of summary()?.quizzes ?? []; track quiz.id) {
+            <li>
+              <a [routerLink]="['/quizzes', quiz.id]">{{ quiz.title }}</a>
+              <p class="hint">
+                {{ quiz.questionCount }} questions · updated {{ formatUpdated(quiz.updatedAtUtc) }}
+              </p>
+              @if (canReadAssignments && quiz.candidates; as counts) {
+                <p class="count-links">
+                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Assigned {{ counts.assigned }}</a>
+                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Appeared {{ counts.appeared }}</a>
+                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Submitted {{ counts.submitted }}</a>
+                </p>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  @if (!isNew() && canReadAssignments) {
+    <section aria-labelledby="opening-candidates-heading">
+      <h2 id="opening-candidates-heading">Candidates</h2>
+      @if ((summary()?.candidates?.assigned ?? 0) === 0) {
+        <p>No candidates have been assigned to this opening.</p>
+      } @else if (summary()?.candidates; as counts) {
+        <p class="count-links">
+          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Assigned {{ counts.assigned }}</a>
+          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Appeared {{ counts.appeared }}</a>
+          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Submitted {{ counts.submitted }}</a>
+        </p>
+      }
+    </section>
+  }
 </app-page-status>

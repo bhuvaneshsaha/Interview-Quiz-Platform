@@ -13,6 +13,10 @@ public sealed class TemplateConfiguration : IEntityTypeConfiguration<Template>
         builder.Property(e => e.OriginQuizId).IsRequired();
         builder.Property(e => e.CreatedAtUtc).IsRequired();
         builder.Property(e => e.UpdatedAtUtc).IsRequired();
+        builder.Property(e => e.RowVersion)
+            .HasColumnName("row_version")
+            .IsConcurrencyToken()
+            .HasDefaultValue(1u);
         builder.HasIndex(e => e.OriginQuizId).IsUnique();
         builder.HasIndex(e => e.UpdatedAtUtc);
     }

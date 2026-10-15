@@ -24,6 +24,8 @@ public sealed class AccessDbContext : IdentityUserContext<ApplicationUser>
 
     public DbSet<MagicLinkInvite> MagicLinkInvites => Set<MagicLinkInvite>();
 
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -237,7 +237,7 @@ public sealed class QuizService : IQuizService, IQuizSnapshotReader
         }
     }
 
-    private static List<Question> MapQuestions(IReadOnlyList<QuestionRequest> requests)
+    internal static List<Question> MapQuestions(IReadOnlyList<QuestionRequest> requests)
     {
         var questions = new List<Question>(requests.Count);
         for (var i = 0; i < requests.Count; i++)

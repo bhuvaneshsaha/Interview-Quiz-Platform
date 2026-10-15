@@ -89,6 +89,11 @@ public sealed class UserAdminService : IUserAdminService
         CancellationToken cancellationToken)
     {
         var user = await RequireUserAsync(userId, cancellationToken);
+        if (request.IsDisabled && !user.IsDisabled)
+        {
+            await EnsureNotLastActiveSuperAdminAsync(user.Id, cancellationToken);
+        }
+
         user.IsDisabled = request.IsDisabled;
         await _users.UpdateAsync(user, cancellationToken);
 
@@ -99,6 +104,27 @@ public sealed class UserAdminService : IUserAdminService
 
         var roles = await LoadRoleIdsAsync([user.Id], cancellationToken);
         return Map(user, roles.GetValueOrDefault(user.Id, []));
+    }
+
+    private async Task EnsureNotLastActiveSuperAdminAsync(string userId, CancellationToken cancellationToken)
+    {
+        var holds = await _db.UserRoles.AsNoTracking().AnyAsync(
+            assignment => assignment.RoleId == SuperAdminRole.Id && assignment.UserId == userId,
+            cancellationToken);
+        if (!holds)
+        {
+            return;
+        }
+
+        var active = await (
+            from assignment in _db.UserRoles.AsNoTracking()
+            join user in _db.Users.AsNoTracking() on assignment.UserId equals user.Id
+            where assignment.RoleId == SuperAdminRole.Id && !user.IsDisabled
+            select user.Id).CountAsync(cancellationToken);
+        if (active <= 1)
+        {
+            throw new ConflictException(SuperAdminRole.LastHolderDeactivateMessage);
+        }
     }
 
     private async Task<ApplicationUser> RequireUserAsync(string userId, CancellationToken cancellationToken)

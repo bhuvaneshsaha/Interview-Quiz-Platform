@@ -36,6 +36,7 @@ export interface RoleResponse {
   description: string | null;
   permissionCodes: string[];
   userIds: string[];
+  isSystem: boolean;
 }
 
 export interface CreateRoleRequest {
@@ -400,6 +401,7 @@ export interface TemplateSummaryResponse {
   latestVersionNumber: number;
   originQuizId: string;
   updatedAtUtc: string;
+  rowVersion: number;
 }
 
 export interface TemplateResponse {
@@ -413,6 +415,20 @@ export interface TemplateResponse {
   originQuizId: string;
   createdAtUtc: string;
   updatedAtUtc: string;
+  rowVersion: number;
+}
+
+export interface UpdateTemplateMetadataRequest {
+  title: string;
+  description: string;
+  expectedExperienceYears: number;
+  tags: Record<string, string>;
+  rowVersion: number;
+  changeNote: string;
+}
+
+export interface SaveTemplateContentRequest extends UpdateTemplateMetadataRequest {
+  questions: QuestionRequest[];
 }
 
 export interface TemplateVersionSummaryResponse {
@@ -422,6 +438,8 @@ export interface TemplateVersionSummaryResponse {
   title: string;
   publishedFromQuizId: string;
   publishedAtUtc: string;
+  publishedByUserId: string;
+  changeNote: string;
   questionCount: number;
 }
 
@@ -456,17 +474,32 @@ export interface ProblemDetails {
 
 export type AssignmentMode = 'async' | 'live';
 
-export type AssignmentStatus =
-  | 'notStarted'
-  | 'inProgress'
-  | 'submitted'
-  | 'pendingReview'
-  | 'completed';
+export type AssignmentStatus = 'notStarted' | 'inProgress' | 'pendingReview' | 'completed';
 
 export interface AssignmentListQuery {
   openingId?: string;
   quizId?: string;
   keyword?: string;
+}
+
+export interface OpeningCandidateCounts {
+  assigned: number;
+  appeared: number;
+  submitted: number;
+}
+
+export interface OpeningQuizSummary {
+  id: string;
+  title: string | null;
+  questionCount: number | null;
+  updatedAtUtc: string | null;
+  candidates: OpeningCandidateCounts | null;
+}
+
+export interface OpeningSummaryResponse {
+  openingId: string;
+  quizzes: OpeningQuizSummary[] | null;
+  candidates: OpeningCandidateCounts | null;
 }
 
 export interface AssignmentTimingRequest {

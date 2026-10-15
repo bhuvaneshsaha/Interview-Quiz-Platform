@@ -8,7 +8,14 @@
 
 .filter-row .field {
   margin: 0;
-  min-width: 16rem;
+  min-width: min(16rem, 100%);
+}
+
+@media (max-width: 480px) {
+  .filter-row .field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
 }
 
 .pager {

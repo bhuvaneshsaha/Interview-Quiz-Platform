@@ -1,7 +1,9 @@
+using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Authorization;
 using InterviewQuiz.Catalog.Application;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Evaluation.Application.Scoring;
+using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Pagination;
 using InterviewQuiz.Kernel.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -64,6 +66,28 @@ public sealed class TemplatesController : ControllerBase
         return Ok(version);
     }
 
+    [HttpPut("{id:guid}/metadata")]
+    [HasPermission(PermissionCodes.Catalog.TemplatesWrite)]
+    public async Task<ActionResult<TemplateResponse>> UpdateMetadata(
+        Guid id,
+        [FromBody] UpdateTemplateMetadataRequest request,
+        CancellationToken cancellationToken)
+    {
+        var template = await _templates.UpdateMetadataAsync(id, request, RequireUserId(), cancellationToken);
+        return Ok(template);
+    }
+
+    [HttpPut("{id:guid}/content")]
+    [HasPermission(PermissionCodes.Catalog.TemplatesWrite)]
+    public async Task<ActionResult<TemplateResponse>> SaveContent(
+        Guid id,
+        [FromBody] SaveTemplateContentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var template = await _templates.SaveContentAsync(id, request, RequireUserId(), cancellationToken);
+        return Ok(template);
+    }
+
     [HttpPost("{id:guid}/versions/{versionId:guid}/clone")]
     [HasPermission(PermissionCodes.Catalog.QuizzesWrite)]
     [HasPermission(PermissionCodes.Catalog.TemplatesRead)]
@@ -96,4 +120,7 @@ public sealed class TemplatesController : ControllerBase
         var snapshot = await _templates.GetVersionSnapshotAsync(id, versionId, cancellationToken);
         return Ok(CandidatePreviewScorer.Score(snapshot, request.Answers));
     }
+
+    private string RequireUserId()
+        => User.FindUserId() ?? throw new ForbiddenException("Authenticated user id is required.");
 }

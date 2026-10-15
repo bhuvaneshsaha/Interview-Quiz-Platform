@@ -1,6 +1,8 @@
 using InterviewQuiz.Access.Application;
 using InterviewQuiz.Access.Application.Contracts;
+using InterviewQuiz.Access.Domain;
 using InterviewQuiz.Access.Infrastructure.Identity;
+using InterviewQuiz.Kernel.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace InterviewQuiz.Access.Authentication;
@@ -45,6 +47,11 @@ public sealed class AuthService : IAuthService
         {
             _logger.LogInformation("Login rejected for locked-out user {UserId}", user.Id);
             return null;
+        }
+
+        if (user.MustSetPassword)
+        {
+            throw new ConflictException(SuperAdminRole.PasswordSetupRequiredMessage);
         }
 
         if (!await _users.CheckPasswordAsync(user, request.Password))

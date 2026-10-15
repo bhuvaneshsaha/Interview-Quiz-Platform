@@ -161,10 +161,12 @@ public sealed class MagicLinkServiceTests
         Assert.Equal(MagicLinkService.LiveModeMessage, ex.Message);
     }
 
-    [Fact]
-    public async Task Issue_rejects_submitted_assignment()
+    [Theory]
+    [InlineData("pendingReview")]
+    [InlineData("completed")]
+    public async Task Issue_rejects_terminal_assignment(string status)
     {
-        var harness = Harness.Create(status: "submitted");
+        var harness = Harness.Create(status: status);
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
             harness.MagicLinks.IssueAsync(AssignmentId, CancellationToken.None));
         Assert.Equal(MagicLinkService.NoLongerInvitableMessage, ex.Message);

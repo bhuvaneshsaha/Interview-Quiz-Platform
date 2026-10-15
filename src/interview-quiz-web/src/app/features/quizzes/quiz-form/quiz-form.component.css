@@ -13,6 +13,14 @@
 
 .field-row .field {
   flex: 1 1 12rem;
+  min-width: min(12rem, 100%);
+}
+
+@media (max-width: 480px) {
+  .field-row .field {
+    flex-basis: 100%;
+    min-width: 0;
+  }
 }
 
 .tag-fieldset,

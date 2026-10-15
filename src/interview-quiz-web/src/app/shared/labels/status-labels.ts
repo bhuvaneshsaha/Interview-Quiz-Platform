@@ -1,10 +1,12 @@
-const STATUS_LABELS: Record<string, string> = {
+/** Live assignment statuses. Attempt submit is not its own status. */
+export const ASSIGNMENT_STATUS_LABELS: Record<string, string> = {
   notStarted: 'Not started',
   inProgress: 'In progress',
-  submitted: 'Submitted',
   pendingReview: 'Pending review',
   completed: 'Completed',
 };
+
+const STATUS_LABELS = ASSIGNMENT_STATUS_LABELS;
 
 const RESULT_STATUS_LABELS: Record<string, string> = {
   complete: 'Complete',

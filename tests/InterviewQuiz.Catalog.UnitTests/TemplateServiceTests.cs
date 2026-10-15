@@ -145,6 +145,120 @@ public sealed class TemplateServiceTests
         Assert.Equal("Opening does not exist.", ex.Message);
     }
 
+    [Fact]
+    public async Task Metadata_edit_creates_the_next_version_and_leaves_the_previous_questions_unchanged()
+    {
+        var quizzes = new FakeQuizRepository();
+        var templates = new FakeTemplateRepository();
+        var service = CreateService(quizzes, templates);
+        var quiz = await CreateQuizWithProvenance(service: null, quizzes);
+        var published = await service.PublishAsync(quiz.Id, "author-1", CancellationToken.None);
+        var versionOne = templates.Versions.Single(version => version.Id == published.VersionId);
+        var originalQuestionId = versionOne.Questions.Single().Id;
+        var rowVersion = templates.Templates.Single().RowVersion;
+
+        var updated = await service.UpdateMetadataAsync(
+            published.TemplateId,
+            new UpdateTemplateMetadataRequest
+            {
+                Title = "Renamed template",
+                Description = "Title fix",
+                ExpectedExperienceYears = 6,
+                Tags = new Dictionary<string, string> { ["Role"] = "Backend" },
+                RowVersion = rowVersion,
+                ChangeNote = "Rename only"
+            },
+            "author-2",
+            CancellationToken.None);
+
+        Assert.Equal(2, updated.LatestVersionNumber);
+        Assert.Equal("Renamed template", updated.Title);
+        Assert.Equal(rowVersion + 1, updated.RowVersion);
+        Assert.Equal(originalQuestionId, versionOne.Questions.Single().Id);
+
+        var versionTwo = templates.Versions.Single(version => version.VersionNumber == 2);
+        Assert.Equal("Rename only", versionTwo.ChangeNote);
+        Assert.Equal("author-2", versionTwo.PublishedByUserId);
+        Assert.NotEqual(originalQuestionId, versionTwo.Questions.Single().Id);
+        Assert.Equal(BankItemId, versionTwo.Questions.Single().SourceQuestionId);
+        Assert.Equal(versionOne.PublishedFromQuizId, versionTwo.PublishedFromQuizId);
+    }
+
+    [Fact]
+    public async Task Content_edit_copies_questions_with_new_ids_and_rejects_a_stale_row_version()
+    {
+        var quizzes = new FakeQuizRepository();
+        var templates = new FakeTemplateRepository();
+        var service = CreateService(quizzes, templates);
+        var quiz = await CreateQuizWithProvenance(service: null, quizzes);
+        var published = await service.PublishAsync(quiz.Id, "author-1", CancellationToken.None);
+        var rowVersion = templates.Templates.Single().RowVersion;
+
+        var stale = await Assert.ThrowsAsync<ConcurrencyException>(() =>
+            service.SaveContentAsync(
+                published.TemplateId,
+                new SaveTemplateContentRequest
+                {
+                    Title = "Backend working copy",
+                    Description = "Authoring sample",
+                    ExpectedExperienceYears = 5,
+                    RowVersion = rowVersion + 9,
+                    ChangeNote = "Should fail",
+                    Questions = []
+                },
+                "author-1",
+                CancellationToken.None));
+        Assert.Contains("Reload and retry", stale.Message, StringComparison.Ordinal);
+
+        var emptyNote = await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateMetadataAsync(
+                published.TemplateId,
+                new UpdateTemplateMetadataRequest
+                {
+                    Title = "Backend working copy",
+                    ExpectedExperienceYears = 5,
+                    RowVersion = rowVersion,
+                    ChangeNote = "  "
+                },
+                "author-1",
+                CancellationToken.None));
+        Assert.Equal("Change note is required.", emptyNote.Message);
+
+        var saved = await service.SaveContentAsync(
+            published.TemplateId,
+            new SaveTemplateContentRequest
+            {
+                Title = "Edited content",
+                Description = "Authoring sample",
+                ExpectedExperienceYears = 5,
+                Tags = new Dictionary<string, string> { ["Role"] = "Backend" },
+                RowVersion = rowVersion,
+                ChangeNote = "Tighten the stem",
+                Questions =
+                [
+                    new QuestionRequest
+                    {
+                        Type = QuestionType.TrueFalse,
+                        Stem = "A template edit copies questions.",
+                        ScoringMode = ScoringMode.Auto,
+                        Points = 2,
+                        Body = JsonDocument.Parse("""{ "correct": true }""").RootElement,
+                        SourceQuestionId = BankItemId
+                    }
+                ]
+            },
+            "author-1",
+            CancellationToken.None);
+
+        Assert.Equal(2, saved.LatestVersionNumber);
+        var versionTwo = templates.Versions.Single(version => version.VersionNumber == 2);
+        Assert.Equal("A template edit copies questions.", versionTwo.Questions.Single().Stem);
+        Assert.Equal(BankItemId, versionTwo.Questions.Single().SourceQuestionId);
+        Assert.NotEqual(
+            templates.Versions.Single(version => version.VersionNumber == 1).Questions.Single().Id,
+            versionTwo.Questions.Single().Id);
+    }
+
     private TemplateService CreateService(
         FakeQuizRepository quizzes,
         FakeTemplateRepository templates,

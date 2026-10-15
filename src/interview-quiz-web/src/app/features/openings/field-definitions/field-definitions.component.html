@@ -11,7 +11,7 @@
     <p class="status" role="status">Field defaults saved.</p>
   }
   <form [formGroup]="form" (ngSubmit)="submit()">
-    <table class="data-table">
+    <table class="data-table data-table-cards">
       <thead>
         <tr>
           <th scope="col">Key</th>
@@ -23,19 +23,19 @@
       <tbody formArrayName="items">
         @for (item of items.controls; track $index; let i = $index) {
           <tr [formGroupName]="i">
-            <td>
+            <td data-label="Key">
               <label class="visually-hidden" [attr.for]="'field-key-' + i">Key</label>
               <input [id]="'field-key-' + i" type="text" formControlName="key" />
             </td>
-            <td>
+            <td data-label="Display name">
               <label class="visually-hidden" [attr.for]="'field-name-' + i">Display name</label>
               <input [id]="'field-name-' + i" type="text" formControlName="displayName" />
             </td>
-            <td>
+            <td data-label="Sort order">
               <label class="visually-hidden" [attr.for]="'field-sort-' + i">Sort order</label>
               <input [id]="'field-sort-' + i" type="number" min="0" formControlName="sortOrder" />
             </td>
-            <td>
+            <td data-label="Actions">
               <button type="button" class="button button-quiet" (click)="remove(i)">Remove</button>
             </td>
           </tr>

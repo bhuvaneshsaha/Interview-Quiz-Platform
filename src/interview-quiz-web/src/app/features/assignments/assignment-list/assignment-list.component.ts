@@ -29,6 +29,7 @@ export class AssignmentList implements OnInit {
   readonly filtered = computed(
     () =>
       this.appliedOpeningId().trim().length > 0 ||
+      this.appliedQuizId().trim().length > 0 ||
       this.appliedKeyword().trim().length > 0 ||
       this.quizId().trim().length > 0,
   );
@@ -39,6 +40,7 @@ export class AssignmentList implements OnInit {
   readonly emptyActionLink = computed(() => (this.canWrite() ? '/assignments/new' : null));
   readonly statusLabel = statusLabel;
   readonly openingFilter = new FormControl('', { nonNullable: true });
+  readonly quizFilter = new FormControl('', { nonNullable: true });
   readonly keyword = new FormControl('', { nonNullable: true });
 
   readonly loading = signal(true);
@@ -50,11 +52,22 @@ export class AssignmentList implements OnInit {
   readonly totalCount = signal(0);
   readonly pageSize = 20;
   readonly appliedOpeningId = signal('');
+  readonly appliedQuizId = signal('');
   readonly appliedKeyword = signal('');
   readonly quizId = signal('');
 
   ngOnInit(): void {
-    this.quizId.set(this.route.snapshot.queryParamMap.get('quizId')?.trim() ?? '');
+    const params = this.route.snapshot.queryParamMap;
+    const openingId = params.get('openingId') ?? '';
+    const quizId = params.get('quizId')?.trim() ?? '';
+    const keyword = params.get('keyword') ?? '';
+    this.openingFilter.setValue(openingId);
+    this.quizFilter.setValue(quizId);
+    this.keyword.setValue(keyword);
+    this.appliedOpeningId.set(openingId);
+    this.appliedQuizId.set(quizId);
+    this.appliedKeyword.set(keyword);
+    this.quizId.set(quizId);
     if (this.canReadOpenings) {
       this.openingsApi.list(1, 100).subscribe({
         next: (result) => this.openings.set(result.items),
@@ -71,7 +84,15 @@ export class AssignmentList implements OnInit {
       this.correlationId.set(null);
       return;
     }
+    const rawQuiz = this.quizFilter.value.trim();
+    if (rawQuiz && !isUuid(rawQuiz)) {
+      this.error.set('Quiz filter must be a valid quiz id.');
+      this.correlationId.set(null);
+      return;
+    }
     this.appliedOpeningId.set(rawOpening);
+    this.appliedQuizId.set(rawQuiz);
+    this.quizId.set(rawQuiz);
     this.appliedKeyword.set(this.keyword.value.trim());
     this.load(1);
   }
@@ -80,8 +101,15 @@ export class AssignmentList implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     const openingId = this.appliedOpeningId();
+    const quizId = this.appliedQuizId();
     if (openingId && !isUuid(openingId)) {
       this.error.set('Opening filter must be a valid opening id.');
+      this.correlationId.set(null);
+      this.loading.set(false);
+      return;
+    }
+    if (quizId && !isUuid(quizId)) {
+      this.error.set('Quiz filter must be a valid quiz id.');
       this.correlationId.set(null);
       this.loading.set(false);
       return;
@@ -89,8 +117,8 @@ export class AssignmentList implements OnInit {
     this.api
       .list(page, this.pageSize, {
         openingId: openingId || undefined,
+        quizId: quizId || this.quizId() || undefined,
         keyword: this.appliedKeyword() || undefined,
-        quizId: this.quizId() || undefined,
       })
       .subscribe({
         next: (result) => {

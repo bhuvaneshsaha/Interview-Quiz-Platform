@@ -34,6 +34,7 @@ public static class AccessModule
         {
             options.PublicBaseUrl = configuration[PublicBaseUrlOptions.ConfigurationKey]?.Trim() ?? "";
         });
+        services.Configure<BootstrapOptions>(configuration.GetSection(BootstrapOptions.SectionName));
 
         services.AddDbContext<AccessDbContext>(options =>
         {
@@ -85,6 +86,9 @@ public static class AccessModule
         services.AddScoped<ICurrentUserQuery, CurrentUserQuery>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IBootstrapPasswordService, BootstrapPasswordService>();
+        services.AddScoped<SuperAdminBootstrap>();
+        services.AddHostedService<SuperAdminBootstrapHostedService>();
         services.AddScoped<IAssignableUserLookup, AssignableUserLookup>();
         services.AddScoped<DevelopmentAccessSeeder>();
 

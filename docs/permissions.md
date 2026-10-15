@@ -125,6 +125,26 @@ Do not implement as `[Authorize(Roles = "Candidate")]`.
 
 ---
 
+## Super Admin (system role)
+
+`Super Admin` is a system role, not a sample bundle. Stable id `f8c1a0b2-6d4e-4a11-9c3e-1b7a5d0e0001`, `isSystem=true`. The Access migration inserts it, and startup re-syncs its permission rows in every environment. It is granted every catalog code except `candidate.attempt.participate`. Token issue computes that set from `PermissionCodes.All`, so a new code is included even when the stored rows are stale. Startup writes the same set onto `access.role_permissions` for codes that exist in `access.permissions`.
+
+The API still authorizes with permission codes. The extra rule for assigning or revoking this role checks the stable role id, never the display name. That call also requires `roles.manage`, and the actor must already hold the role. Each assign and revoke writes `access.audit_events` (actor, action, target, time, correlation id).
+
+The role cannot be renamed, deleted, or reduced. The API returns 409 if the last active holder (not disabled) is unassigned or deactivated. The role editor shows it read-only with a warning badge.
+
+### Break-glass
+
+Keep the number of holders minimal. The first holder is not a password in git.
+
+1. Set `Bootstrap__SuperAdminEmail` to a company mailbox (environment or protected config). Leave it empty to seed the role without a user.
+2. Start the API. Startup creates the user with no password and logs a one-time setup token once at warning. Treat that log line as a secret. The token is stored only as a SHA-256 hash and expires after 72 hours.
+3. `POST /api/auth/bootstrap/set-password` with `{ email, token, newPassword }`. The token is single use. Sign-in before that call returns 409.
+4. `Bootstrap__ResetSuperAdminSetup=true` re-issues a token on the next start when the user still must set a password. Turn it off after the new token is used.
+5. A second holder is assigned in the role editor by someone who already holds Super Admin. If every holder is locked out, set the bootstrap email to an existing account that already has a password (it is assigned the role and is not forced to reset) or to a new mailbox and repeat the token flow.
+
+---
+
 ## Suggested Development seed bundles (not product roles)
 
 Names below are **sample Identity role rows** for local seed only. Production operators create their own bundles. Code and UI must not branch on these names.

@@ -23,7 +23,7 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading openings."
 >
-  <table class="data-table stack-table">
+  <table class="data-table data-table-cards stack-table">
     <thead>
       <tr>
         <th scope="col">Title</th>
@@ -36,13 +36,13 @@
     <tbody>
       @for (opening of openings(); track opening.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Title">
             <a [routerLink]="['/openings', opening.id]">{{ opening.title }}</a>
           </th>
           <td data-label="Owner">{{ opening.ownerName || opening.owner }}</td>
           <td data-label="Start">{{ opening.startDate }}</td>
           <td data-label="Headcount">{{ opening.headcount }}</td>
-          <td data-label="Experience">{{ opening.expectedExperienceYears }}</td>
+          <td data-label="Experience (years)">{{ opening.expectedExperienceYears }}</td>
         </tr>
       }
     </tbody>

@@ -12,7 +12,7 @@
   emptyMessage="No roles yet."
   loadingMessage="Loading roles."
 >
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th scope="col">Name</th>
@@ -24,12 +24,15 @@
     <tbody>
       @for (role of roles(); track role.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Name">
             <a [routerLink]="['/roles', role.id]">{{ role.name }}</a>
+            @if (role.isSystem) {
+              <span class="system-badge">System</span>
+            }
           </th>
-          <td>{{ role.description ?? '—' }}</td>
-          <td>{{ role.permissionCodes.length }}</td>
-          <td>{{ role.userIds.length }}</td>
+          <td data-label="Description">{{ role.description ?? '—' }}</td>
+          <td data-label="Permissions">{{ role.permissionCodes.length }}</td>
+          <td data-label="Assigned users">{{ role.userIds.length }}</td>
         </tr>
       }
     </tbody>

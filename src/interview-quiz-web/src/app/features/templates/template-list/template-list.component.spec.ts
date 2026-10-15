@@ -18,6 +18,7 @@ const sampleTemplate: TemplateSummaryResponse = {
   latestVersionNumber: 1,
   originQuizId: '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001',
   updatedAtUtc: '2026-01-01T00:00:00Z',
+  rowVersion: 1,
 };
 
 describe('TemplateList', () => {

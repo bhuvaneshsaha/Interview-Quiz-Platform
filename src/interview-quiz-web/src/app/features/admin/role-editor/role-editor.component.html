@@ -3,6 +3,13 @@
   <a routerLink="/roles">Back to roles</a>
 </div>
 
+@if (isSystem()) {
+  <p class="system-badge" role="status">
+    System role. Super Admin includes every employee permission except candidate attempt access. It
+    cannot be renamed, deleted, or reduced.
+  </p>
+}
+
 <app-page-status
   [loading]="loading()"
   [error]="error()"
@@ -30,6 +37,7 @@
               <input
                 type="checkbox"
                 [checked]="isSelected(permission.code)"
+                [disabled]="isSystem()"
                 (change)="toggle(permission.code, $event)"
               />
               <span>
@@ -42,15 +50,17 @@
       }
     </fieldset>
 
-    <div class="actions">
-      <button type="submit" class="button" [disabled]="saving()">
-        {{ saving() ? 'Saving…' : 'Save role' }}
-      </button>
-      @if (!isNew()) {
-        <button type="button" class="button button-quiet" [disabled]="saving()" (click)="deleteRole()">
-          Delete role
+    @if (!isSystem()) {
+      <div class="actions">
+        <button type="submit" class="button" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save role' }}
         </button>
-      }
-    </div>
+        @if (!isNew()) {
+          <button type="button" class="button button-quiet" [disabled]="saving()" (click)="deleteRole()">
+            Delete role
+          </button>
+        }
+      </div>
+    }
   </form>
 </app-page-status>

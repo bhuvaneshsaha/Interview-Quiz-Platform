@@ -74,7 +74,13 @@ public sealed class TemplateService : ITemplateService
         }
 
         var nextNumber = await _templates.GetMaxVersionNumberAsync(template.Id, cancellationToken) + 1;
-        var version = TemplateVersion.FromQuiz(template.Id, nextNumber, quiz, publishedByUserId, _clock);
+        var version = TemplateVersion.FromQuiz(
+            template.Id,
+            nextNumber,
+            quiz,
+            publishedByUserId,
+            _clock,
+            changeNote: "Published from quiz");
         template.Touch(_clock);
         await _templates.AddVersionAsync(version, cancellationToken);
         await _templates.SaveChangesAsync(cancellationToken);
@@ -116,6 +122,111 @@ public sealed class TemplateService : ITemplateService
             ?? throw new EntityNotFoundException(nameof(TemplateVersion), id);
 
         return MapDetail(template, latest);
+    }
+
+    public async Task<TemplateResponse> UpdateMetadataAsync(
+        Guid id,
+        UpdateTemplateMetadataRequest request,
+        string editedByUserId,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("templates.metadata");
+        return await AppendVersionAsync(
+            id,
+            request.Title,
+            request.Description,
+            request.ExpectedExperienceYears,
+            request.Tags,
+            request.RowVersion,
+            request.ChangeNote,
+            editedByUserId,
+            questions: null,
+            cancellationToken);
+    }
+
+    public async Task<TemplateResponse> SaveContentAsync(
+        Guid id,
+        SaveTemplateContentRequest request,
+        string editedByUserId,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("templates.content");
+        var mapped = QuizService.MapQuestions(request.Questions ?? []);
+        var copies = mapped.Select((question, index) => question.CopyWithNewId(index)).ToList();
+        return await AppendVersionAsync(
+            id,
+            request.Title,
+            request.Description,
+            request.ExpectedExperienceYears,
+            request.Tags,
+            request.RowVersion,
+            request.ChangeNote,
+            editedByUserId,
+            copies,
+            cancellationToken);
+    }
+
+    private async Task<TemplateResponse> AppendVersionAsync(
+        Guid id,
+        string? title,
+        string? description,
+        int expectedExperienceYears,
+        IReadOnlyDictionary<string, string>? tags,
+        uint rowVersion,
+        string? changeNote,
+        string editedByUserId,
+        IReadOnlyList<Question>? questions,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(editedByUserId))
+        {
+            throw new DomainException("Edited-by user is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(changeNote))
+        {
+            throw new DomainException("Change note is required.");
+        }
+
+        var template = await _templates.GetAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Template), id);
+        template.EnsureRowVersion(rowVersion);
+
+        var latest = await _templates.GetLatestVersionAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(TemplateVersion), id);
+
+        var nextNumber = await _templates.GetMaxVersionNumberAsync(id, cancellationToken) + 1;
+        var copies = questions
+            ?? latest.Questions
+                .OrderBy(q => q.SortOrder)
+                .ThenBy(q => q.Id)
+                .Select((question, index) => question.CopyWithNewId(index))
+                .ToList();
+
+        var version = TemplateVersion.Create(
+            template.Id,
+            nextNumber,
+            title ?? "",
+            description ?? "",
+            expectedExperienceYears,
+            tags,
+            latest.PublishedFromQuizId,
+            editedByUserId,
+            copies,
+            _clock,
+            changeNote: changeNote);
+
+        template.Touch(_clock);
+        await _templates.AddVersionAsync(version, cancellationToken);
+        await _templates.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Template {TemplateId} version {VersionNumber} saved by {UserId}",
+            template.Id,
+            version.VersionNumber,
+            editedByUserId);
+
+        return MapDetail(template, version);
     }
 
     public async Task<PagedResult<TemplateVersionSummaryResponse>> ListVersionsAsync(
@@ -251,7 +362,8 @@ public sealed class TemplateService : ITemplateService
             LatestVersionId = row.LatestVersion.Id,
             LatestVersionNumber = row.LatestVersion.VersionNumber,
             OriginQuizId = row.Template.OriginQuizId,
-            UpdatedAtUtc = row.Template.UpdatedAtUtc
+            UpdatedAtUtc = row.Template.UpdatedAtUtc,
+            RowVersion = row.Template.RowVersion
         };
 
     internal static TemplateResponse MapDetail(Template template, TemplateVersion latest)
@@ -266,7 +378,8 @@ public sealed class TemplateService : ITemplateService
             LatestVersionNumber = latest.VersionNumber,
             OriginQuizId = template.OriginQuizId,
             CreatedAtUtc = template.CreatedAtUtc,
-            UpdatedAtUtc = template.UpdatedAtUtc
+            UpdatedAtUtc = template.UpdatedAtUtc,
+            RowVersion = template.RowVersion
         };
 
     internal static TemplateVersionSummaryResponse MapVersionSummary(TemplateVersion version)
@@ -278,6 +391,8 @@ public sealed class TemplateService : ITemplateService
             Title = version.Title,
             PublishedFromQuizId = version.PublishedFromQuizId,
             PublishedAtUtc = version.PublishedAtUtc,
+            PublishedByUserId = version.PublishedByUserId,
+            ChangeNote = version.ChangeNote,
             QuestionCount = version.Questions.Count
         };
 
@@ -290,6 +405,8 @@ public sealed class TemplateService : ITemplateService
             Title = version.Title,
             PublishedFromQuizId = version.PublishedFromQuizId,
             PublishedAtUtc = version.PublishedAtUtc,
+            PublishedByUserId = version.PublishedByUserId,
+            ChangeNote = version.ChangeNote,
             QuestionCount = version.Questions.Count,
             Description = version.Description,
             ExpectedExperienceYears = version.ExpectedExperienceYears,
