@@ -24,8 +24,12 @@ export class AssignmentsApi {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     const openingId = query?.openingId?.trim();
     const keyword = query?.keyword?.trim();
+    const quizId = query?.quizId?.trim();
     if (openingId) {
       params = params.set('openingId', openingId);
+    }
+    if (quizId) {
+      params = params.set('quizId', quizId);
     }
     if (keyword) {
       params = params.set('keyword', keyword);

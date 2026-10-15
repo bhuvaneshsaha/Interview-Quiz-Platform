@@ -32,4 +32,14 @@ public interface ITemplateService
         Guid versionId,
         CloneTemplateVersionRequest request,
         CancellationToken cancellationToken);
+
+    Task<CandidateQuizPreviewResponse> PreviewVersionAsync(
+        Guid templateId,
+        Guid versionId,
+        CancellationToken cancellationToken);
+
+    Task<QuizSnapshotDto> GetVersionSnapshotAsync(
+        Guid templateId,
+        Guid versionId,
+        CancellationToken cancellationToken);
 }

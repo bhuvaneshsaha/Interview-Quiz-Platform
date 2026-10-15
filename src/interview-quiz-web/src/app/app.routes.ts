@@ -18,6 +18,30 @@ export const routes: Routes = [
     title: 'Quiz attempt',
   },
   {
+    path: 'quizzes/:id/preview',
+    canActivate: [authGuard, permissionGuard],
+    data: { permission: PermissionCodes.QuizzesRead, previewKind: 'quiz' },
+    loadComponent: () =>
+      import('./features/attempt/attempt/attempt.component').then((m) => m.Attempt),
+    title: 'Preview quiz',
+  },
+  {
+    path: 'quiz-preview',
+    canActivate: [authGuard, permissionGuard],
+    data: { permission: PermissionCodes.QuizzesRead, previewKind: 'draft' },
+    loadComponent: () =>
+      import('./features/attempt/attempt/attempt.component').then((m) => m.Attempt),
+    title: 'Preview quiz',
+  },
+  {
+    path: 'templates/:id/versions/:versionId/preview',
+    canActivate: [authGuard, permissionGuard],
+    data: { permission: PermissionCodes.TemplatesRead, previewKind: 'template' },
+    loadComponent: () =>
+      import('./features/attempt/attempt/attempt.component').then((m) => m.Attempt),
+    title: 'Preview template',
+  },
+  {
     path: '',
     loadComponent: () => import('./layout/shell/shell.component').then((m) => m.Shell),
     canActivate: [authGuard],

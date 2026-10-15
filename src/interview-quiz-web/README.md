@@ -75,11 +75,11 @@ ng test --watch=false
 
 Production build registers the Angular service worker. Dev `ng serve` does not (service worker `enabled: !isDevMode()`).
 
-The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. `npm test` reports **108 passed**.
+The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. `npm test` reports **109 passed**.
 
 ## End-to-end tests (Playwright)
 
-Sprint 1 flows run in Chromium with the API mocked, so PostgreSQL and the .NET host are not required: candidate welcome (the timer starts only from Start quiz), hidden question type and points, drag-and-drop ordering plus Move up / Move down, and recruiter attempt detail showing option text.
+Chromium runs with the API mocked, so PostgreSQL and the .NET host are not required. Covered flows: candidate welcome (the timer starts only from Start quiz), one question at a time with Previous/Next, mark for review, and a 375px attempt layout; hidden question type and points; drag-and-drop ordering plus Move up / Move down; recruiter attempt detail showing option text; quiz edit confirmation; candidate preview; and opening owner/handler pickers.
 
 ```bash
 cd src/interview-quiz-web

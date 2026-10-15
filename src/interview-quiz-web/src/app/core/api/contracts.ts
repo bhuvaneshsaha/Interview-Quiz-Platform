@@ -82,15 +82,32 @@ export interface OpeningResponse {
   title: string;
   jobDescription: string;
   owner: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerResolved?: boolean;
   startDate: string;
   expectedCloseDate: string | null;
   headcount: number;
   expectedExperienceYears: number;
   handlers: string[];
+  handlerPeople?: OpeningPerson[];
   tags: Record<string, string>;
   rowVersion: number;
   createdAtUtc: string;
   updatedAtUtc: string;
+}
+
+export interface OpeningPerson {
+  userId: string;
+  name: string;
+  email: string;
+  resolved: boolean;
+}
+
+export interface AssignableUser {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export interface CreateOpeningRequest {
@@ -236,6 +253,7 @@ export interface QuizResponse {
   rowVersion: number;
   createdAtUtc: string;
   updatedAtUtc: string;
+  assignmentCount?: number;
 }
 
 export interface QuestionRequest {
@@ -447,6 +465,7 @@ export type AssignmentStatus =
 
 export interface AssignmentListQuery {
   openingId?: string;
+  quizId?: string;
   keyword?: string;
 }
 
@@ -470,6 +489,7 @@ export interface AssignmentSummaryResponse {
   snapshotId: string;
   snapshotTitle: string;
   snapshotQuestionCount: number;
+  snapshotQuizRowVersion: number;
   candidateEmail: string;
   mode: AssignmentMode | string;
   overallDurationMinutes: number | null;
@@ -567,6 +587,28 @@ export interface CandidateItemResult {
   pointsAwarded: number | null;
 }
 
+export interface CandidateQuizPreviewResponse {
+  title: string;
+  openingName: string;
+  questionCount: number;
+  suggestedDurationMinutes: number;
+  rowVersion: number;
+  questions: CandidateQuestion[];
+}
+
+export interface CandidatePreviewScoreItem {
+  questionId: string;
+  status: string;
+  pointsAwarded: number | null;
+  points: number;
+}
+
+export interface CandidatePreviewScoreResponse {
+  autoPointsAwarded: number;
+  autoPointsAvailable: number;
+  items: CandidatePreviewScoreItem[];
+}
+
 export interface CandidateAttemptPreview {
   attemptStatus: 'notStarted' | 'inProgress' | 'submitted' | string;
   quizTitle: string;
@@ -614,6 +656,7 @@ export interface AttemptSummaryResponse {
   autoPointsAwarded: number;
   autoPointsAvailable: number;
   totalPointsAvailable: number;
+  quizRowVersion?: number;
 }
 
 export interface AttemptResultItem {

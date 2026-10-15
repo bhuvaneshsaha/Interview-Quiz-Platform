@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AssignmentSummaryResponse, OpeningResponse } from '../../../core/api/contracts';
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
@@ -21,12 +21,16 @@ export class AssignmentList implements OnInit {
   private readonly api = inject(AssignmentsApi);
   private readonly openingsApi = inject(OpeningsApi);
   private readonly permissions = inject(PermissionService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
   readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.AssignmentsWrite));
   readonly filtered = computed(
-    () => this.appliedOpeningId().trim().length > 0 || this.appliedKeyword().trim().length > 0,
+    () =>
+      this.appliedOpeningId().trim().length > 0 ||
+      this.appliedKeyword().trim().length > 0 ||
+      this.quizId().trim().length > 0,
   );
   readonly emptyMessage = computed(() =>
     this.filtered() ? 'No assignments match this filter.' : 'No assignments yet.',
@@ -47,8 +51,10 @@ export class AssignmentList implements OnInit {
   readonly pageSize = 20;
   readonly appliedOpeningId = signal('');
   readonly appliedKeyword = signal('');
+  readonly quizId = signal('');
 
   ngOnInit(): void {
+    this.quizId.set(this.route.snapshot.queryParamMap.get('quizId')?.trim() ?? '');
     if (this.canReadOpenings) {
       this.openingsApi.list(1, 100).subscribe({
         next: (result) => this.openings.set(result.items),
@@ -84,6 +90,7 @@ export class AssignmentList implements OnInit {
       .list(page, this.pageSize, {
         openingId: openingId || undefined,
         keyword: this.appliedKeyword() || undefined,
+        quizId: this.quizId() || undefined,
       })
       .subscribe({
         next: (result) => {

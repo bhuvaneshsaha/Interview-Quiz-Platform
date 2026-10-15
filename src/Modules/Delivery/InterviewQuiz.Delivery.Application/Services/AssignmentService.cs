@@ -79,7 +79,8 @@ public sealed class AssignmentService :
             snapshotDto.Title,
             snapshotDto.Questions.Count,
             payload,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            snapshotDto.RowVersion);
 
         var assignment = Assignment.Create(
             request.OpeningId,
@@ -128,7 +129,7 @@ public sealed class AssignmentService :
     {
         using var activity = ActivitySource.StartActivity("assignments.list");
         var page = new PageRequest(query.Page, query.PageSize);
-        var result = await _assignments.ListAsync(query.OpeningId, query.Keyword, page, cancellationToken);
+        var result = await _assignments.ListAsync(query.OpeningId, query.QuizId, query.Keyword, page, cancellationToken);
         var items = result.Items.Select(MapSummary).ToList();
         return new PagedResult<AssignmentSummaryResponse>(items, result.Page, result.PageSize, result.TotalCount);
     }
@@ -224,6 +225,7 @@ public sealed class AssignmentService :
             SnapshotId = assignment.SnapshotId,
             SnapshotTitle = assignment.Snapshot.Title,
             SnapshotQuestionCount = assignment.Snapshot.QuestionCount,
+            SnapshotQuizRowVersion = assignment.Snapshot.QuizRowVersion,
             CandidateEmail = assignment.CandidateEmail,
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,
@@ -243,6 +245,7 @@ public sealed class AssignmentService :
             SnapshotId = assignment.SnapshotId,
             SnapshotTitle = assignment.Snapshot.Title,
             SnapshotQuestionCount = assignment.Snapshot.QuestionCount,
+            SnapshotQuizRowVersion = assignment.Snapshot.QuizRowVersion,
             CandidateEmail = assignment.CandidateEmail,
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,

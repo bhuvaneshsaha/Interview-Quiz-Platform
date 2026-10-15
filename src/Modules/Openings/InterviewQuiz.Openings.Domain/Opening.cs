@@ -166,7 +166,7 @@ public sealed class Opening
     private static List<string> NormalizeHandlers(IEnumerable<string>? handlers)
     {
         var result = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var handler in handlers ?? [])
         {
             if (string.IsNullOrWhiteSpace(handler))

@@ -42,11 +42,15 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading assignments."
 >
-  <table class="data-table">
+  @if (quizId()) {
+    <p class="hint" role="status">Showing assignments for this quiz. Results are not comparable across revisions.</p>
+  }
+  <table class="data-table stack-table">
     <thead>
       <tr>
         <th scope="col">Candidate</th>
         <th scope="col">Quiz</th>
+        <th scope="col">Revision</th>
         <th scope="col">Opening</th>
         <th scope="col">Mode</th>
         <th scope="col">Status</th>
@@ -56,14 +60,15 @@
     <tbody>
       @for (assignment of assignments(); track assignment.id) {
         <tr>
-          <th scope="row">
+          <th scope="row" data-label="Candidate">
             <a [routerLink]="['/assignments', assignment.id]">{{ assignment.candidateEmail }}</a>
           </th>
-          <td>{{ assignment.snapshotTitle }}</td>
-          <td>{{ openingTitle(assignment.openingId) }}</td>
-          <td>{{ modeLabel(assignment.mode) }}</td>
-          <td>{{ statusLabel(assignment.status) }}</td>
-          <td>{{ formatUpdated(assignment.updatedAtUtc) }}</td>
+          <td data-label="Quiz">{{ assignment.snapshotTitle }}</td>
+          <td data-label="Revision">Quiz revision {{ assignment.snapshotQuizRowVersion }}</td>
+          <td data-label="Opening">{{ openingTitle(assignment.openingId) }}</td>
+          <td data-label="Mode">{{ modeLabel(assignment.mode) }}</td>
+          <td data-label="Status">{{ statusLabel(assignment.status) }}</td>
+          <td data-label="Updated">{{ formatUpdated(assignment.updatedAtUtc) }}</td>
         </tr>
       }
     </tbody>

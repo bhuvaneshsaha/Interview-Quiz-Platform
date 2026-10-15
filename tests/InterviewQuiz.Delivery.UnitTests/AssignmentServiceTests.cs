@@ -212,8 +212,12 @@ public sealed class AssignmentServiceTests
             return Task.CompletedTask;
         }
 
+        public Task<int> CountByQuizAsync(Guid quizId, CancellationToken cancellationToken)
+            => Task.FromResult(Items.Count(a => a.QuizId == quizId));
+
         public Task<PagedResult<Assignment>> ListAsync(
             Guid? openingId,
+            Guid? quizId,
             string? keyword,
             PageRequest page,
             CancellationToken cancellationToken)
@@ -222,6 +226,11 @@ public sealed class AssignmentServiceTests
             if (openingId is { } opening)
             {
                 query = query.Where(a => a.OpeningId == opening);
+            }
+
+            if (quizId is { } quiz)
+            {
+                query = query.Where(a => a.QuizId == quiz);
             }
 
             var list = query.OrderByDescending(a => a.CreatedAtUtc).ThenBy(a => a.Id).ToList();

@@ -5,7 +5,7 @@
 
 <form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
   <div class="field">
-    <label for="owner-filter">Owner</label>
+    <label for="owner-filter">Owner name or email</label>
     <input id="owner-filter" type="text" [formControl]="ownerFilter" />
   </div>
   <button type="submit" class="button">Filter</button>
@@ -23,7 +23,7 @@
   [emptyActionLink]="emptyActionLink()"
   loadingMessage="Loading openings."
 >
-  <table class="data-table">
+  <table class="data-table stack-table">
     <thead>
       <tr>
         <th scope="col">Title</th>
@@ -39,10 +39,10 @@
           <th scope="row">
             <a [routerLink]="['/openings', opening.id]">{{ opening.title }}</a>
           </th>
-          <td>{{ opening.owner }}</td>
-          <td>{{ opening.startDate }}</td>
-          <td>{{ opening.headcount }}</td>
-          <td>{{ opening.expectedExperienceYears }}</td>
+          <td data-label="Owner">{{ opening.ownerName || opening.owner }}</td>
+          <td data-label="Start">{{ opening.startDate }}</td>
+          <td data-label="Headcount">{{ opening.headcount }}</td>
+          <td data-label="Experience">{{ opening.expectedExperienceYears }}</td>
         </tr>
       }
     </tbody>

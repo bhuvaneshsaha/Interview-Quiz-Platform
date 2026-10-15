@@ -19,7 +19,7 @@ public sealed class OpeningTests
             expectedCloseDate: new DateOnly(2026, 11, 1),
             headcount: 2,
             expectedExperienceYears: 5,
-            handlers: ["a@example.com", "A@example.com", "b@example.com"],
+            handlers: ["user-a", "user-a", "user-b"],
             tags: new Dictionary<string, string> { ["Client"] = " Acme " },
             clock: _clock);
 

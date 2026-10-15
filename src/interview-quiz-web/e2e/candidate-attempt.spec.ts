@@ -30,7 +30,8 @@ test('welcome page waits for Start quiz before the timer and questions', async (
 
   await page.getByRole('button', { name: 'Start quiz' }).click();
   await expect(page.getByRole('timer')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Question 1' })).toBeVisible();
+  await expect(page.getByText('Question 1 of 2')).toBeVisible();
+  await expect(page.getByRole('heading', { name: candidateAttempt.questions[0].stem })).toBeVisible();
   await expect(page.getByText(candidateAttempt.questions[0].stem)).toBeVisible();
   await expect(page.getByText('Select one answer.')).toBeVisible();
   await expect(page.getByText('201 Created')).toBeVisible();
@@ -63,6 +64,8 @@ test('an in-progress refresh skips welcome and keeps the server timer', async ({
 test('ordering can be dragged and reordered from the keyboard', async ({ page }) => {
   await installCandidateApi(page, inProgressPreview);
   await page.goto(`/attempt?token=opaque-token`);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: candidateAttempt.questions[1].stem })).toBeVisible();
 
   const texts = page.locator('.order-text');
   await expect(texts).toHaveText(['Authentication', 'Authorization', 'Endpoint']);
@@ -85,6 +88,56 @@ test('ordering can be dragged and reordered from the keyboard', async ({ page })
   expect(main).not.toContain('pts');
 
   await page.screenshot({ path: screenshotPath('after-attempt-ordering.png'), fullPage: true });
+});
+
+test('one question at a time can be reviewed, jumped, and submitted with counts', async ({ page }) => {
+  await installCandidateApi(page, inProgressPreview);
+  await page.goto(`/attempt?token=opaque-token`);
+
+  await expect(page.getByRole('heading', { name: candidateAttempt.questions[0].stem })).toBeVisible();
+  await expect(page.getByText(candidateAttempt.questions[1].stem)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  await expect(page.getByText('Answered 1 of 2')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mark for review', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Marked for review', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Marked for review', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Question 2, answered' }).click();
+  await expect(page.getByRole('heading', { name: candidateAttempt.questions[1].stem })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+  await expect(page.getByText(candidateAttempt.questions[0].stem)).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Submit quiz' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText("You won't be able to change answers");
+  await expect(dialog).toContainText('1 unanswered');
+  await expect(dialog).toContainText('1 marked for review');
+  await page.screenshot({ path: screenshotPath('after-question-nav.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('attempt navigation fits a phone width', async ({ page }) => {
+  await installCandidateApi(page, inProgressPreview);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`/attempt?token=opaque-token`);
+
+  await expect(page.getByRole('button', { name: 'Questions' })).toBeVisible();
+  await page.getByRole('button', { name: 'Questions' }).click();
+  await expect(page.getByRole('button', { name: 'Question 2, answered' })).toBeVisible();
+  await page.getByRole('button', { name: 'Submit quiz' }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Submit quiz' })).toBeVisible();
+  await expect(page.getByRole('timer')).toBeVisible();
+
+  const overflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(overflows).toBe(false);
+  await page.screenshot({ path: screenshotPath('after-mobile-attempt.png'), fullPage: true });
 });
 
 test('candidate routes stay outside the employee shell', async ({ page }) => {

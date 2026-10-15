@@ -1,0 +1,59 @@
+<div class="user-picker">
+  @if (selected().length > 0) {
+    <ul class="chips">
+      @for (user of selected(); track user.id) {
+        <li class="chip">
+          <span>{{ user.name }}</span>
+          @if (user.email) {
+            <span class="chip-email">{{ user.email }}</span>
+          }
+          <button
+            type="button"
+            class="chip-remove"
+            [disabled]="disabled()"
+            [attr.aria-label]="'Remove ' + user.name"
+            (click)="remove(user.id)"
+          >
+            Remove
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  @if (multiple() || selected().length === 0) {
+    <input
+      [id]="inputId()"
+      type="search"
+      role="combobox"
+      autocomplete="off"
+      [attr.aria-labelledby]="labelledBy()"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="inputId() + '-list'"
+      [disabled]="disabled()"
+      [value]="query()"
+      placeholder="Search by name or email"
+      (input)="onQuery($any($event.target).value)"
+      (focus)="onQuery(query())"
+      (blur)="blur()"
+    />
+  }
+  @if (open() && !disabled()) {
+    <ul class="picker-list" role="listbox" [id]="inputId() + '-list'">
+      @if (searching()) {
+        <li class="picker-status">Searching…</li>
+      }
+      @for (user of results(); track user.id) {
+        <li>
+          <button type="button" role="option" (mousedown)="$event.preventDefault()" (click)="choose(user)">
+            {{ user.name }}
+            <span class="chip-email">{{ user.email }}</span>
+          </button>
+        </li>
+      } @empty {
+        @if (!searching()) {
+          <li class="picker-status">No matching users.</li>
+        }
+      }
+    </ul>
+  }
+</div>

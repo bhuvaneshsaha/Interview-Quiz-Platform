@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using InterviewQuiz.Catalog.Application.CandidatePreview;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
 using InterviewQuiz.Kernel.Clock;
@@ -185,6 +186,49 @@ public sealed class TemplateService : ITemplateService
             quiz.Id);
 
         return QuizService.Map(quiz);
+    }
+
+    public async Task<CandidateQuizPreviewResponse> PreviewVersionAsync(
+        Guid templateId,
+        Guid versionId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await GetVersionSnapshotAsync(templateId, versionId, cancellationToken);
+        return CandidatePreviewBuilder.FromSnapshot(snapshot, "Template preview");
+    }
+
+    public async Task<QuizSnapshotDto> GetVersionSnapshotAsync(
+        Guid templateId,
+        Guid versionId,
+        CancellationToken cancellationToken)
+    {
+        var version = await _templates.GetVersionAsync(templateId, versionId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(TemplateVersion), versionId);
+
+        return new QuizSnapshotDto(
+            version.PublishedFromQuizId,
+            Guid.Empty,
+            version.Title,
+            version.Description,
+            version.ExpectedExperienceYears,
+            version.Tags,
+            version.Questions
+                .OrderBy(q => q.SortOrder)
+                .ThenBy(q => q.Id)
+                .Select(q => new QuizSnapshotQuestionDto(
+                    q.Id,
+                    q.SortOrder,
+                    q.Type,
+                    q.Stem,
+                    q.ScoringMode,
+                    q.CreditMode,
+                    q.Points,
+                    q.Body.RootElement.Clone(),
+                    q.SourceQuestionId))
+                .ToList(),
+            0,
+            version.PublishedAtUtc,
+            version.PublishedAtUtc);
     }
 
     private async Task EnsureOpeningExistsAsync(Guid openingId, CancellationToken cancellationToken)

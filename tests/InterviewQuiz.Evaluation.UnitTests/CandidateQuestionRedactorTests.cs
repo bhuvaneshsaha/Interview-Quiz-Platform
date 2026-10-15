@@ -1,7 +1,7 @@
 using System.Text.Json;
 using InterviewQuiz.Catalog.Application.Contracts;
 using InterviewQuiz.Catalog.Domain;
-using InterviewQuiz.Evaluation.Application.Scoring;
+using InterviewQuiz.Catalog.Application.CandidatePreview;
 
 namespace InterviewQuiz.Evaluation.UnitTests;
 
