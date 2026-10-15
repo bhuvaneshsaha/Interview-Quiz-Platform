@@ -196,6 +196,20 @@ export const routes: Routes = [
         title: 'Attempt',
       },
       {
+        path: 'assignments/:id/live',
+        canActivate: [permissionGuard],
+        data: {
+          permission: [
+            PermissionCodes.AssignmentsRead,
+            PermissionCodes.AttemptsRead,
+            PermissionCodes.SessionsLiveRun,
+          ],
+        },
+        loadComponent: () =>
+          import('./features/assignments/live-session/live-session.component').then((m) => m.LiveSession),
+        title: 'Live session',
+      },
+      {
         path: 'assignments/:id',
         canActivate: [permissionGuard],
         data: { permission: PermissionCodes.AssignmentsRead },

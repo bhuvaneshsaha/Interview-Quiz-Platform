@@ -165,11 +165,9 @@ export class AssignmentForm implements OnInit {
       if (isUuid(versionId)) {
         body.templateVersionId = versionId;
       }
-      if (value.mode === 'async') {
-        body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
-        if (inviteExpiresAt) {
-          body.inviteExpiresAt = inviteExpiresAt;
-        }
+      body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
+      if (value.mode === 'async' && inviteExpiresAt) {
+        body.inviteExpiresAt = inviteExpiresAt;
       }
       this.api.createFromTemplate(body).subscribe({
         next: (created) => {
@@ -193,11 +191,9 @@ export class AssignmentForm implements OnInit {
       mode: value.mode,
       attemptLimit: Number(value.attemptLimit),
     };
-    if (value.mode === 'async') {
-      body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
-      if (inviteExpiresAt) {
-        body.inviteExpiresAt = inviteExpiresAt;
-      }
+    body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
+    if (value.mode === 'async' && inviteExpiresAt) {
+      body.inviteExpiresAt = inviteExpiresAt;
     }
     this.api.create(body).subscribe({
       next: (created) => {
@@ -287,13 +283,9 @@ export class AssignmentForm implements OnInit {
     });
   }
 
-  private syncDurationValidators(mode: AssignmentMode): void {
+  private syncDurationValidators(_mode: AssignmentMode): void {
     const control = this.form.controls.overallDurationMinutes;
-    if (mode === 'async') {
-      control.setValidators([Validators.required, Validators.min(1), Validators.max(480)]);
-    } else {
-      control.clearValidators();
-    }
+    control.setValidators([Validators.required, Validators.min(1), Validators.max(480)]);
     control.updateValueAndValidity({ emitEvent: false });
   }
 }

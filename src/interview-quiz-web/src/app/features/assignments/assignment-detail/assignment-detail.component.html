@@ -73,7 +73,11 @@
     </dl>
 
     @if (item.mode === 'live') {
-      <p class="hint" role="note">Live invite links and candidate start are in slice 6.</p>
+      <p>
+        <a class="button" data-testid="open-live-session" [routerLink]="['/assignments', item.id, 'live']">
+          Open live session
+        </a>
+      </p>
     }
 
     @if (canInvite) {
@@ -85,11 +89,23 @@
           [disabled]="inviting()"
           (click)="requestInvite()"
         >
-          {{ inviting() ? 'Issuing invite…' : inviteUrl() ? 'Re-issue invite link' : 'Issue invite link' }}
+          {{
+            inviting()
+              ? 'Issuing invite…'
+              : item.mode === 'live'
+                ? inviteUrl()
+                  ? 'Re-issue join link'
+                  : 'Get join link'
+                : inviteUrl()
+                  ? 'Re-issue invite link'
+                  : 'Issue invite link'
+          }}
         </button>
-        <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="resendEmail()">
-          Resend email
-        </button>
+        @if (item.mode !== 'live') {
+          <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="resendEmail()">
+            Resend email
+          </button>
+        }
         <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="requestRevoke()">
           Revoke invite
         </button>

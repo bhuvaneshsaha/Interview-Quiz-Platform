@@ -13,10 +13,12 @@ export class CandidateSession {
   private readonly access = signal<string | null>(null);
   private readonly assignment = signal<string | null>(null);
   private readonly attemptApp = signal(false);
+  private readonly invite = signal<string | null>(null);
 
   readonly accessToken = this.access.asReadonly();
   readonly assignmentId = this.assignment.asReadonly();
   readonly active = this.attemptApp.asReadonly();
+  readonly inviteToken = this.invite.asReadonly();
 
   enterAttempt(): void {
     this.attemptApp.set(true);
@@ -25,6 +27,12 @@ export class CandidateSession {
   leaveAttempt(): void {
     this.attemptApp.set(false);
     this.clear();
+    this.invite.set(null);
+  }
+
+  setInviteToken(token: string): void {
+    const trimmed = token.trim();
+    this.invite.set(trimmed.length > 0 ? trimmed : null);
   }
 
   setSession(tokens: CandidateTokenResponse): void {

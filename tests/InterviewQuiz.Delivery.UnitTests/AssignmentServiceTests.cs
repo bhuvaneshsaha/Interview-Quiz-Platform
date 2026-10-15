@@ -105,15 +105,22 @@ public sealed class AssignmentServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_live_omits_duration()
+    public async Task CreateAsync_live_requires_duration_and_omits_invite()
     {
         var service = CreateService(openingExists: true, snapshot: Snapshot());
+        var missing = ValidCreate();
+        missing.Mode = "live";
+        missing.Timing = null;
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(missing, "user-1", CancellationToken.None));
+        Assert.Equal(Assignment.LiveDurationRequiredMessage, ex.Message);
+
         var request = ValidCreate();
         request.Mode = "live";
-        request.Timing = null;
+        request.Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 };
         var created = await service.CreateAsync(request, "user-1", CancellationToken.None);
         Assert.Equal("live", created.Mode);
-        Assert.Null(created.OverallDurationMinutes);
+        Assert.Equal(30, created.OverallDurationMinutes);
         Assert.Null(created.InviteUrl);
     }
 

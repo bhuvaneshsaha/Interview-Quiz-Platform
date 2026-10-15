@@ -31,6 +31,7 @@ public static class EvaluationModule
         services.AddScoped<IAssignmentAttemptReader, AssignmentAttemptReader>();
         services.AddScoped<AttemptService>();
         services.AddScoped<IAttemptService>(sp => sp.GetRequiredService<AttemptService>());
+        services.AddScoped<IAttemptClock>(sp => sp.GetRequiredService<AttemptService>());
         services.AddScoped<ICandidateAttemptIdLookup>(sp => sp.GetRequiredService<AttemptService>());
         services.AddScoped<IRevokedInviteAttemptCloser>(sp => sp.GetRequiredService<AttemptService>());
         return services;

@@ -12,4 +12,7 @@ public sealed class CandidateAttemptPreviewResponse
     public string OpeningName { get; init; } = "";
     public int DurationMinutes { get; init; }
     public int QuestionCount { get; init; }
+
+    /// <summary>Live only: <c>waiting</c>, <c>running</c>, <c>paused</c>, or <c>ended</c>.</summary>
+    public string? LiveState { get; init; }
 }

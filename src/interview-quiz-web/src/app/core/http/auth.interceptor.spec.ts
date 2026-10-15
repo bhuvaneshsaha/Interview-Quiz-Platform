@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, provideHttpClient, withInterceptors } fr
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
+import { MagicLinkApi } from '../api/magic-link-api.service';
 import { AuthService } from '../auth/auth.service';
 import { TokenStore } from '../auth/token-store.service';
 import { TokenResponse } from '../api/contracts';
@@ -15,6 +16,12 @@ describe('authInterceptor', () => {
   let refreshImpl: () => Observable<TokenResponse>;
   let logoutCalls = 0;
   let refreshCalls = 0;
+  let consumeImpl: () => Observable<{
+    accessToken: string;
+    accessTokenExpiresAt: string;
+    tokenType: string;
+    assignmentId: string;
+  }>;
 
   const rotated: TokenResponse = {
     accessToken: 'access-2',
@@ -37,10 +44,23 @@ describe('authInterceptor', () => {
     logoutCalls = 0;
     refreshCalls = 0;
     refreshImpl = () => of(rotated);
+    consumeImpl = () =>
+      of({
+        accessToken: 'candidate-2',
+        accessTokenExpiresAt: '2099-01-01T01:00:00Z',
+        tokenType: 'Bearer',
+        assignmentId: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+      });
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
+        {
+          provide: MagicLinkApi,
+          useValue: {
+            consume: () => consumeImpl(),
+          },
+        },
         {
           provide: AuthService,
           useValue: {
@@ -183,6 +203,27 @@ describe('authInterceptor', () => {
     expect(logoutCalls).toBe(0);
     expect(failed).toBe(true);
     expect(tokens.accessToken()).toBe('access-1');
+    candidate.leaveAttempt();
+  });
+
+  it('re-consumes the magic link once when a candidate token expires', () => {
+    const candidate = TestBed.inject(CandidateSession);
+    candidate.enterAttempt();
+    candidate.setInviteToken('opaque-token');
+    candidate.setSession({
+      accessToken: 'candidate-1',
+      accessTokenExpiresAt: '2099-01-01T00:00:00Z',
+      tokenType: 'Bearer',
+      assignmentId: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+    });
+    http.get('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts/current').subscribe();
+    httpMock
+      .expectOne('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts/current')
+      .flush({ title: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    const retry = httpMock.expectOne('/api/assignments/7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001/attempts/current');
+    expect(retry.request.headers.get('Authorization')).toBe('Bearer candidate-2');
+    retry.flush({ id: 'attempt' });
+    expect(refreshCalls).toBe(0);
     candidate.leaveAttempt();
   });
 });

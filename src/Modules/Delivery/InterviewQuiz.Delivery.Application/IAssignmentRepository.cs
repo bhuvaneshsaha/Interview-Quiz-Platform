@@ -20,4 +20,8 @@ public interface IAssignmentRepository
         CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    void AddLiveEvent(LiveSessionEvent liveEvent)
+    {
+    }
 }

@@ -26,6 +26,20 @@ public sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignmen
         builder.Property(e => e.InviteEmailLastAttemptAt);
         builder.Property(e => e.InviteEmailLastError).HasMaxLength(Assignment.InviteEmailErrorMaxLength);
 
+        builder.Property(e => e.LiveState)
+            .HasConversion(CamelCaseEnumConverter.ForNullable<LiveSessionState>())
+            .HasMaxLength(32);
+        builder.Property(e => e.LiveStartedAtUtc);
+        builder.Property(e => e.PausedAtUtc);
+        builder.Property(e => e.TotalPausedSeconds).IsRequired().HasDefaultValue(0);
+        builder.Property(e => e.LiveEndedAtUtc);
+        builder.Property(e => e.SessionEndReason)
+            .HasConversion(CamelCaseEnumConverter.ForNullable<LiveEndReason>())
+            .HasMaxLength(32);
+        builder.Property(e => e.CandidateLastSeenAtUtc);
+        builder.Property(e => e.CurrentQuestionIndex);
+        builder.Property(e => e.LastActivityAtUtc);
+
         builder.Property(e => e.Mode)
             .HasConversion(CamelCaseEnumConverter.For<AssignmentMode>())
             .HasMaxLength(16)

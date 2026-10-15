@@ -13,6 +13,7 @@ public sealed class DeliveryDbContext : DbContext
 
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<AssignmentSnapshot> AssignmentSnapshots => Set<AssignmentSnapshot>();
+    public DbSet<LiveSessionEvent> LiveSessionEvents => Set<LiveSessionEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

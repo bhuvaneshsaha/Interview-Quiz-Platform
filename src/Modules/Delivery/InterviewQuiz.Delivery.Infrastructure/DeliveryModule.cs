@@ -36,6 +36,10 @@ public static class DeliveryModule
         services.AddScoped<IAssignmentInviteInfo>(sp => sp.GetRequiredService<AssignmentService>());
         services.AddScoped<IAssignmentSnapshotReader>(sp => sp.GetRequiredService<AssignmentService>());
         services.AddScoped<IAssignmentLifecycle>(sp => sp.GetRequiredService<AssignmentService>());
+        services.AddScoped<LiveSessionService>();
+        services.AddScoped<ILiveCandidatePresence>(sp => sp.GetRequiredService<LiveSessionService>());
+        services.AddScoped<ILiveSessionGateway>(sp => sp.GetRequiredService<LiveSessionService>());
+        services.AddScoped<ILiveSessionCommands>(sp => sp.GetRequiredService<LiveSessionService>());
         services.AddScoped<DevelopmentAssignmentSeeder>();
         return services;
     }

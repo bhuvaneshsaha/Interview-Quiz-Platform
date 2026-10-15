@@ -14,7 +14,7 @@ ADR 0008 made the opaque invite reusable until the candidate submits, and until 
 
 ### Expiry and revoke versus reusable-until-submit
 
-1. **Reusable until submit still holds for an invite that is active.** Consume does not burn the token. After submit, consume of an **active** invite still returns a candidate JWT so `/attempt?token=` can show the submitted summary. Live mode still rejects consume. A new invite still cannot be issued once the assignment is submitted.
+1. **Reusable until submit still holds for an invite that is active.** Consume does not burn the token. After submit, consume of an **active** invite still returns a candidate JWT so `/attempt?token=` can show the submitted summary. Live mode uses the same consume path ([ADR 0010](0010-live-quiz-sessions.md)). A new invite still cannot be issued once the assignment is submitted.
 
 2. **Expiry and revoke are extra stops. They do not rotate.**
    - `ExpiresAt` is optional on `access.magic_link_invites`.

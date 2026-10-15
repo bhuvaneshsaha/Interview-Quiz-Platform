@@ -1,6 +1,6 @@
 # Slice 5 MVP boundary
 
-What this branch executes. Later slices are named so a stored live row or a seeded permission is not treated as a working feature.
+What slice 5 executes. Live run shipped afterwards in [ADR 0010](adr/0010-live-quiz-sessions.md). The rows below describe the slice 5 boundary; the live rows note what slice 6 changed.
 
 ## Async execute only
 
@@ -12,10 +12,10 @@ There is no live start, pause, or monitor. There is no human or AI review, no En
 
 | What you can see | What it means in slice 5 |
 |------------------|--------------------------|
-| Live on the create form | The choice is disabled (Coming soon). A live row can still exist from the API, but it has no invite and the candidate cannot start. Live run is slice 6. |
+| Live on the create form | Slice 5 left the choice disabled. Slice 6 enables it, requires a duration (1–480), and runs the session from the assignment. Create still omits `inviteUrl`. |
 | SMTP / email | Async issue and resend send mail. Development defaults to a file sink. Mailpit or real SMTP is configuration (`InviteMail__Mode`). Tests do not open SMTP. The recruiter can still copy `inviteUrl`. Ticketing is out of scope. |
 | Result `pendingReview` | At least one item is unsettled (`aiAssist` or `humanOnly`). Auto totals are not a final decision. Human or AI-assist review is slice 7. |
-| `sessions.live.run` | Seeded on Dev Recruiter. **Inactive until slice 6.** |
+| `sessions.live.run` | Seeded on Dev Recruiter. **Active in slice 6** for start, pause, resume, and end. |
 | `attempts.review` | Seeded on Dev Reviewer. **Inactive until slice 7.** |
 
 ## Invite and session

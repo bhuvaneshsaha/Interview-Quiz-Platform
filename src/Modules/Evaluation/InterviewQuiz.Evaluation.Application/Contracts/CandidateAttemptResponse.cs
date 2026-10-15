@@ -12,4 +12,8 @@ public sealed class CandidateAttemptResponse
     public IReadOnlyList<CandidateQuestionDto> Questions { get; init; } = [];
     public IReadOnlyList<AnswerDto> Answers { get; init; } = [];
     public IReadOnlyList<CandidateItemResultDto>? ItemResults { get; init; }
+    public string? LiveState { get; init; }
+    public bool Paused { get; init; }
+    public string? LiveEndReason { get; init; }
+    public IReadOnlyList<Guid> FlaggedQuestionIds { get; init; } = [];
 }

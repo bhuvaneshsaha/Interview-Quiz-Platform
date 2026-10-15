@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Mail;
@@ -20,7 +21,8 @@ public sealed class Assignment
     public const string QuizHasNoQuestionsMessage = "Quiz has no questions.";
     public const string AsyncDurationRequiredMessage = "Overall duration is required for async assignments.";
     public const string AsyncDurationRangeMessage = "Overall duration must be between 1 and 480 minutes.";
-    public const string LiveStartUnavailableMessage = "Assignment is live; start is not available.";
+    public const string LiveStartUnavailableMessage = LiveSessionMessages.WaitingForHost;
+    public const string LiveDurationRequiredMessage = "Overall duration is required for live assignments.";
     public const string InviteLiveMessage = "Invite links are for async assignments.";
     public const string InviteNoLongerInvitableMessage = "Assignment is no longer invitable.";
     public const int InviteEmailErrorMaxLength = 500;
@@ -53,6 +55,16 @@ public sealed class Assignment
     public int InviteEmailAttemptCount { get; private set; }
     public DateTimeOffset? InviteEmailLastAttemptAt { get; private set; }
     public string? InviteEmailLastError { get; private set; }
+
+    public LiveSessionState? LiveState { get; private set; }
+    public DateTimeOffset? LiveStartedAtUtc { get; private set; }
+    public DateTimeOffset? PausedAtUtc { get; private set; }
+    public int TotalPausedSeconds { get; private set; }
+    public DateTimeOffset? LiveEndedAtUtc { get; private set; }
+    public LiveEndReason? SessionEndReason { get; private set; }
+    public DateTimeOffset? CandidateLastSeenAtUtc { get; private set; }
+    public int? CurrentQuestionIndex { get; private set; }
+    public DateTimeOffset? LastActivityAtUtc { get; private set; }
 
     public const string InvalidResultStatusMessage = "Result status is invalid.";
 
@@ -87,7 +99,9 @@ public sealed class Assignment
             _ => throw new DomainException("Assignment status is invalid.")
         };
 
-    public bool IsInvitable => Mode == AssignmentMode.Async && !IsTerminal;
+    public bool IsInvitable => Mode is AssignmentMode.Async or AssignmentMode.Live && !IsTerminal;
+
+    public LiveSessionState EffectiveLiveState => LiveState ?? LiveSessionState.Created;
 
     public static Assignment Create(
         Guid openingId,
@@ -138,6 +152,7 @@ public sealed class Assignment
             OverallDurationMinutes = NormalizeDuration(mode, overallDurationMinutes),
             AttemptLimit = NormalizeAttemptLimit(attemptLimit),
             Status = AssignmentStatus.NotStarted,
+            LiveState = mode == AssignmentMode.Live ? LiveSessionState.Created : null,
             CreatedByUserId = createdByUserId.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
@@ -203,7 +218,7 @@ public sealed class Assignment
 
     public void EnsureInvitable()
     {
-        if (Mode != AssignmentMode.Async)
+        if (Mode is not (AssignmentMode.Async or AssignmentMode.Live))
         {
             throw new DomainException(InviteLiveMessage);
         }
@@ -211,6 +226,196 @@ public sealed class Assignment
         if (IsTerminal)
         {
             throw new DomainException(InviteNoLongerInvitableMessage);
+        }
+    }
+
+    /// <summary>
+    /// First consume moves Created to Lobby and returns true so the caller can audit once.
+    /// Later consumes and heartbeats only refresh last seen.
+    /// </summary>
+    public bool NoteCandidateJoined(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (Mode != AssignmentMode.Live)
+        {
+            return false;
+        }
+
+        var first = EffectiveLiveState == LiveSessionState.Created;
+        if (first)
+        {
+            LiveState = LiveSessionState.Lobby;
+        }
+
+        NoteCandidateSeen(clock);
+        return first;
+    }
+
+    public void NoteCandidateSeen(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (Mode != AssignmentMode.Live)
+        {
+            return;
+        }
+
+        var now = clock.UtcNow;
+        CandidateLastSeenAtUtc = now;
+        if (EffectiveLiveState is not (LiveSessionState.Ended or LiveSessionState.Submitted))
+        {
+            LastActivityAtUtc = now;
+        }
+
+        Touch(clock);
+    }
+
+    public void MarkLiveRunning(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        EnsureLive();
+        if (EffectiveLiveState is LiveSessionState.Running or LiveSessionState.Paused)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.AlreadyStarted);
+        }
+
+        if (EffectiveLiveState is LiveSessionState.Ended or LiveSessionState.Submitted)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.Ended);
+        }
+
+        if (EffectiveLiveState != LiveSessionState.Lobby || !LivePauseRules.JoinedRecently(CandidateLastSeenAtUtc, clock.UtcNow))
+        {
+            throw new ConcurrencyException(LiveSessionMessages.CandidateNotJoined);
+        }
+
+        LiveState = LiveSessionState.Running;
+        LiveStartedAtUtc = clock.UtcNow;
+        Touch(clock);
+    }
+
+    public void MarkLivePaused(DateTimeOffset pausedAtUtc, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        EnsureLive();
+        if (EffectiveLiveState != LiveSessionState.Running)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.NotRunning);
+        }
+
+        LiveState = LiveSessionState.Paused;
+        PausedAtUtc = pausedAtUtc;
+        Touch(clock);
+    }
+
+    public void MarkLiveResumed(int pausedSeconds, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        EnsureLive();
+        if (EffectiveLiveState != LiveSessionState.Paused)
+        {
+            throw new ConcurrencyException(LiveSessionMessages.NotPaused);
+        }
+
+        if (pausedSeconds < 0)
+        {
+            pausedSeconds = 0;
+        }
+
+        TotalPausedSeconds += pausedSeconds;
+        PausedAtUtc = null;
+        LiveState = LiveSessionState.Running;
+        Touch(clock);
+    }
+
+    /// <summary>
+    /// Returns false when the session was already terminal so the caller does not audit twice.
+    /// </summary>
+    public bool MarkLiveEnded(LiveEndReason reason, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        EnsureLive();
+        if (EffectiveLiveState is LiveSessionState.Ended or LiveSessionState.Submitted)
+        {
+            return false;
+        }
+
+        LiveState = LiveSessionState.Ended;
+        SessionEndReason = reason;
+        LiveEndedAtUtc = clock.UtcNow;
+        PausedAtUtc = null;
+        Touch(clock);
+        return true;
+    }
+
+    /// <summary>
+    /// Attempt submit. A host, timeout, or pause-limit end keeps its reason and does not audit again.
+    /// </summary>
+    public bool NoteLiveAttemptSubmitted(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (Mode != AssignmentMode.Live)
+        {
+            return false;
+        }
+
+        if (EffectiveLiveState == LiveSessionState.Submitted)
+        {
+            return false;
+        }
+
+        if (EffectiveLiveState == LiveSessionState.Ended)
+        {
+            LiveState = LiveSessionState.Submitted;
+            Touch(clock);
+            return false;
+        }
+
+        LiveState = LiveSessionState.Submitted;
+        SessionEndReason = LiveEndReason.Submitted;
+        LiveEndedAtUtc = clock.UtcNow;
+        PausedAtUtc = null;
+        Touch(clock);
+        return true;
+    }
+
+    public void SetCurrentQuestion(int questionIndex, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        EnsureLive();
+        if (EffectiveLiveState is not (LiveSessionState.Running or LiveSessionState.Paused))
+        {
+            throw new ConcurrencyException(LiveSessionMessages.NotRunning);
+        }
+
+        var count = Snapshot?.QuestionCount ?? 0;
+        if (questionIndex < 0 || questionIndex >= count)
+        {
+            throw new DomainException(LiveSessionMessages.QuestionIndexInvalid);
+        }
+
+        CurrentQuestionIndex = questionIndex;
+        var now = clock.UtcNow;
+        CandidateLastSeenAtUtc = now;
+        LastActivityAtUtc = now;
+        Touch(clock);
+    }
+
+    public bool PauseLimitExceeded(IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (Mode != AssignmentMode.Live || EffectiveLiveState != LiveSessionState.Paused || PausedAtUtc is null)
+        {
+            return false;
+        }
+
+        return LivePauseRules.Exceeded(PausedAtUtc.Value, TotalPausedSeconds, clock.UtcNow);
+    }
+
+    private void EnsureLive()
+    {
+        if (Mode != AssignmentMode.Live)
+        {
+            throw new DomainException(LiveSessionMessages.NotLive);
         }
     }
 
@@ -284,24 +489,10 @@ public sealed class Assignment
 
     public static int? NormalizeDuration(AssignmentMode mode, int? overallDurationMinutes)
     {
-        if (mode == AssignmentMode.Live)
-        {
-            if (overallDurationMinutes is null)
-            {
-                return null;
-            }
-
-            if (overallDurationMinutes < MinDurationMinutes || overallDurationMinutes > MaxDurationMinutes)
-            {
-                throw new DomainException(AsyncDurationRangeMessage);
-            }
-
-            return overallDurationMinutes;
-        }
-
         if (overallDurationMinutes is null)
         {
-            throw new DomainException(AsyncDurationRequiredMessage);
+            throw new DomainException(
+                mode == AssignmentMode.Live ? LiveDurationRequiredMessage : AsyncDurationRequiredMessage);
         }
 
         if (overallDurationMinutes < MinDurationMinutes || overallDurationMinutes > MaxDurationMinutes)

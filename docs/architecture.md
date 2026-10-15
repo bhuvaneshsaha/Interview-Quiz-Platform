@@ -1,6 +1,6 @@
 # Interview Quiz Platform — Architecture
 
-Status: v1 architecture record — slices **1–5 implemented**; **slice 6** live start/pause later.  
+Status: v1 architecture record — slices **1–6 implemented** (live sessions: [ADR 0010](adr/0010-live-quiz-sessions.md)).  
 Platform skill: `enterprise-architecture-onprem.md`  
 Client shape: **Angular SPA + installable PWA, online-first** (no Ionic / Capacitor)  
 AuthN (given, not chosen here): **JWT bearer**; ASP.NET Core Identity as the user store; candidate magic-link (protocol in ADR 0008 + §16.3, **implemented**); Entra ID later as external login. Auth owns issuance, storage, and protocol **within that lock**.  
@@ -224,7 +224,7 @@ Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable
 
 **Language:** assignment, candidate contact, mode (live | async), timing rules, attempt policy, snapshot, live session.
 
-**Owns:** binding of a quiz snapshot to a candidate under an opening; live vs async as a **property of the assignment**; **overall** duration (per-section timing **deferred** — quizzes have no section aggregate); attempt limit (default one async attempt); live start / pause / monitor (**slice 6** REST, not slice 5); magic-link **target** (token hash + consume are Access). Snapshot **row + JSONB** at assign time.
+**Owns:** binding of a quiz snapshot to a candidate under an opening; live vs async as a **property of the assignment**; **overall** duration (per-section timing **deferred** — quizzes have no section aggregate); attempt limit (default one async attempt); live start / pause / monitor (REST polling, [ADR 0010](adr/0010-live-quiz-sessions.md)); magic-link **target** (token hash + consume are Access). Snapshot **row + JSONB** at assign time. Live session state lives on the assignment. It is not a separate aggregate.
 
 **Does not own:** scoring, review workflow, template library, question bank, JWT protocol.
 
@@ -240,7 +240,7 @@ Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable
 - `IAssignmentInviteInfo.GetAsync(id)` for Auth (mode, status, candidate email, invitable?)
 - `IAssignmentLifecycle.NotifyAttemptStarted` / `NotifyAttemptSubmitted` (Evaluation → Delivery; keeps list status without Delivery reading `evaluation` tables)
 
-**Permissions:** `assignments.read`, `assignments.write`, `sessions.live.run` (live run unused until slice 6).
+**Permissions:** `assignments.read`, `assignments.write`, `sessions.live.run` (start, pause, resume, end). Progress is also readable with `attempts.read`.
 
 ### 4.5 Evaluation
 
@@ -331,7 +331,8 @@ Candidate and employee UIs may share the SPA with different routes; Auth owns br
 | `/users`, `/users/new`, `/users/:id` | `users.manage` | User list / form |
 | `/assignments` | `assignments.read` | Assignment list (opening, keyword, pager; **no** SavedFilters) |
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
-| `/assignments/:id` | `assignments.read` | Assignment detail, copy invite (`assignments.write`), basic results if `attempts.read` |
+| `/assignments/:id` | `assignments.read` | Assignment detail, join or invite link (`assignments.write`), Open live session when live, basic results if `attempts.read` |
+| `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress. Start, pause, resume, and end require `sessions.live.run` |
 | `/assignments/:assignmentId/attempts/:attemptId` | `attempts.read` | Attempt detail: stem, candidate answer, auto points or awaiting human review. No answer keys |
 
 **Candidate (not the employee shell; implemented):** `/attempt?token=` — consume magic-link (ADR 0008). Isolated in-memory `CandidateSession` (not employee `TokenStore`). Auth still owns branded employee-vs-candidate entry UX; this is the invite landing path.
@@ -432,7 +433,7 @@ Vertical slices. Each slice is not done until the collaboration skill DoD holds 
 | **3 Templates and search** | Implemented | Publish template, versions, list/search, clone into opening, saved/shared filters; **question-bank groundwork** (`sourceQuestionId`, reserved `IQuestionBankReader`, `questions.*` seeded) | Catalog, Search, Access, Angular |
 | **4 Question bank** | Implemented | Authoring library + include-into-quiz (copy-on-include); Angular list/editor and quiz include panel; `questions.read` / `questions.write` on Dev Template author seed | Catalog, Angular |
 | **5 Assignments** | **Implemented** | Candidate assignment, snapshot, async timed link, auto-score, basic results, Angular employee + `/attempt` | Delivery, Evaluation (submit + auto-score), Access (magic-link), Angular |
-| **6 Live mode** | Later | Start/pause/monitor on the **same** assignment model | Delivery |
+| **6 Live mode** | Implemented | Start/pause/monitor on the **same** assignment model. REST polling. [ADR 0010](adr/0010-live-quiz-sessions.md) | Delivery |
 | **7 Review** | Later | Human + AI-assist marking, auditable drafts, finalise | Evaluation |
 | **8 AI draft** | Later | Resume + opening + rules → draft → forced human edit | Catalog (+ file store, operator LLM HTTP) |
 
@@ -461,7 +462,7 @@ Permission catalog: [`docs/permissions.md`](permissions.md). Slice 5 REST: §16.
 
 Slices **1–5** are implemented. Hosting and auth ADRs (0001, 0006) are unchanged. ADR 0007 records the bank. ADR 0008 records the magic-link (implemented).
 
-Still later: live mode (slice 6), review (slice 7), AI draft (slice 8), production runbook, self-hosted CI (DevOps). No LLM in slices 1–6. Entra and SMTP are out of slice 5.
+Still later: review (slice 7), AI draft (slice 8), production runbook, self-hosted CI (DevOps). Live mode is implemented ([ADR 0010](adr/0010-live-quiz-sessions.md)). No LLM in slices 1–6. Entra and SMTP are out of slice 5.
 
 ---
 
@@ -667,8 +668,8 @@ One aggregate: **assignment** binds a frozen quiz graph to a candidate under an 
 | `openingId` | Required. Must exist (`IOpeningLookup`). |
 | `quizId` | **Source working-copy id at assign time only.** Audit/lineage. Never used to load questions at attempt time. |
 | `candidateEmail` | Required contact. Trim, lowercase for compare/store. Not an Identity FK at create. |
-| `mode` | `async` \| `live` stored. Slice 5 **executes async only**. Live rows exist so slice 6 does not change the model. |
-| `overallDurationMinutes` | **Required for `async`** (integer 1–480). Quiz has **no section aggregate**, so **per-section timing is deferred** (not stored, not in create body). Live may omit duration in slice 5 (`null` until slice 6). |
+| `mode` | `async` \| `live`. Both use the same assignment and attempt model. Live clock control is [ADR 0010](adr/0010-live-quiz-sessions.md). |
+| `overallDurationMinutes` | **Required for `async` and `live`** (integer 1–480). Quiz has **no section aggregate**, so **per-section timing is deferred** (not stored, not in create body). A legacy live row with `null` duration cannot be started (`Set a duration before starting.`). |
 | `attemptLimit` | Integer ≥ 1, default **1** (async one-attempt policy). Omit on create → 1. Cap 20. |
 | `status` | `notStarted` \| `inProgress` \| `pendingReview` \| `completed`. There is no assignment status `submitted`. `AttemptStatus.Submitted` is the attempt row. Legal moves: `notStarted` → `inProgress`; `notStarted` or `inProgress` → `pendingReview` (result incomplete) or `completed` (result complete). A second start while `inProgress` is a no-op. Terminal states do not move (409). Delivery stores the status; Evaluation updates it via `IAssignmentLifecycle`. |
 | `snapshotId` | New Guid for the snapshot **row**. |
@@ -679,7 +680,7 @@ One aggregate: **assignment** binds a frozen quiz graph to a candidate under an 
 
 **Invariants on create:** opening exists; quiz exists; `quiz.openingId == request.openingId` (and snapshot `openingId` matches); quiz has **at least one** question; async has duration. Empty or mismatched quiz → 400.
 
-**Not an aggregate:** live session (slice 6). Mode is only a property here.
+**Not an aggregate:** live session. `LiveState` and the audit rows live on the assignment. Mode is a property here.
 
 ### 16.2 Employee assignment REST
 
@@ -698,7 +699,7 @@ No PUT/DELETE/cancel in slice 5. No `sessions.live.run` on these paths.
 
 **`CreateAssignmentRequest`:** `openingId` (Guid), `quizId` (Guid), `candidateEmail` (string), `mode` (`async` \| `live`), `timing` (object), `attemptLimit` (int, optional, default 1).
 
-**`timing` (slice 5):** `{ "overallDurationMinutes": number }`. Required for `async` (1–480). Optional/`null` for `live` in slice 5. **No per-section fields** (deferred). Do not send a flat `overallDurationMinutes` at the root — keep timing in this object so slice 6 can add fields without renaming.
+**`timing`:** `{ "overallDurationMinutes": number }`. Required for `async` and `live` (1–480). **No per-section fields** (deferred). Do not send a flat `overallDurationMinutes` at the root.
 
 **400 messages (reuse `DomainException`):**
 
@@ -719,7 +720,7 @@ No PUT/DELETE/cancel in slice 5. No `sessions.live.run` on these paths.
 
 `inviteUrl` shape: `{PublicBaseUrl}/attempt?token={opaque}` (no trailing slash on `PublicBaseUrl`). Development: recruiter copies from create body or invite POST, and the same URL is emailed through `IInviteMailer` (sink by default, SMTP when configured). See ADR 0009.
 
-Creating `mode: live` is allowed (snapshot + row). Create response **omits** `inviteUrl`. Candidate attempt APIs reject live until slice 6 (`Assignment is live; start is not available.` → 400).
+Creating `mode: live` is allowed (snapshot + row) and requires a duration. Create response **omits** `inviteUrl`. `assignments.write` issues the join link with `POST /api/assignments/{id}/invite` (no email). The candidate `POST /attempts` stays 400 (`Waiting for the host to start.`). The host starts with `POST /api/assignments/{id}/live/start`.
 
 Activities: `assignments.list`, `assignments.get`, `assignments.create`, `assignments.invite`. Logs: assignment/opening/quiz/snapshot ids, not email, stems, or tokens.
 
@@ -732,7 +733,7 @@ Activities: `assignments.list`, `assignments.get`, `assignments.create`, `assign
 
 **`ConsumeMagicLinkRequest`:** `token` (opaque string from the query). **POST only** — do not consume on GET `/attempt`.
 
-**`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume while the attempt is not started or in progress, and again after submit so the candidate can reopen the link and see the submitted summary. Consume never creates an attempt and never sets `dueAtUtc`. Live mode and a rotated/unknown token still reject consume. A new invite cannot be issued once the assignment is submitted.
+**`CandidateTokenResponse`:** `accessToken`, `accessTokenExpiresAt`, `tokenType` (`Bearer`), `assignmentId`. **No refresh token.** Re-consume while the attempt is not started or in progress, and again after submit so the candidate can reopen the link and see the submitted summary. Consume never creates an attempt and never sets `dueAtUtc`. Live and async both consume. A rotated or unknown token still rejects consume. A new invite cannot be issued once the assignment is submitted. If a live candidate JWT expires, the client re-consumes the same link.
 
 **Invite (Access table `access.magic_link_invites`):** assignment id, token **hash**, optional `expiresAt`, created at, revoked at, and a data-protected token for resend. Protocol is Access; Delivery answers `IAssignmentInviteInfo` (async? submitted? email match) and stores email status. Other modules do not read Access or Delivery tables across the boundary. An active invite stays reusable until submit (ADR 0008). Expired and revoked invites cannot be consumed (ADR 0009). Data Protection keys live in `access.data_protection_keys` (application name `InterviewQuiz`), so resend still unprotects the token after a restart or redeploy that uses the same database.
 
@@ -884,7 +885,7 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 
 ### 16.10 Explicitly not in slice 5
 
-- Live `start` / `pause` / `progress` REST (slice 6; **mode is stored now**)
+- SignalR for live sessions (v1 polls REST; see [ADR 0010](adr/0010-live-quiz-sessions.md))
 - Human review UI / `attempts.review` POST; AI-assist drafts (slice 7)
 - AI authoring drafts (slice 8)
 - Entra
@@ -898,7 +899,7 @@ Correlation: existing `traceparent` / `X-Correlation-ID` (generate + echo). Acti
 
 ### 16.11 Angular (implemented)
 
-Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id`, `/assignments/:assignmentId/attempts/:attemptId` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (required when async), attempt limit. After 201, show `inviteUrl` for async (copy control) plus the note that the link works until submit or a new link, and that an expired candidate session can reopen it. Invite button calls `POST .../invite`. Results panel if `attempts.read`; each row opens `GET /api/attempts/{id}` (stem, answer, points or “Awaiting human review”; no keys). Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live mode is stored on create; invite/attempt for live is **not** executed (slice 6). Boundary one-pager: [slice-5-mvp.md](slice-5-mvp.md).
+Employee shell: `/assignments`, `/assignments/new`, `/assignments/:id`, `/assignments/:id/live`, `/assignments/:assignmentId/attempts/:attemptId` as §6. List filters: opening + keyword + paging (no SavedFilters). Create form: opening, quiz (must belong to opening), candidate email, mode, duration (1–480 for async and live), attempt limit. After 201, show `inviteUrl` for async (copy control) plus the note that the link works until submit or a new link, and that an expired candidate session can reopen it. Invite or join link calls `POST .../invite`. Live create omits `inviteUrl`. Results panel if `attempts.read`; each row opens `GET /api/attempts/{id}` (stem, answer, points or “Awaiting human review”; no keys). Hide create without `assignments.write`. Author without `assignments.*` sees no nav. Live host controls are [ADR 0010](adr/0010-live-quiz-sessions.md). Boundary one-pager: [slice-5-mvp.md](slice-5-mvp.md).
 
 Candidate: `/attempt` **outside** employee `authGuard`. Read `token` query → consume POST → `GET .../attempts/preview`. `notStarted` shows a welcome page (quiz title, opening, duration, question count, rules) and calls start only from **Start quiz**. `inProgress` and `submitted` skip welcome and load `GET .../attempts/current` (remaining time comes from `dueAtUtc`). Isolated in-memory `CandidateSession` (not `TokenStore`). Online-only. The attempt page shows question number, stem, an answering hint, and controls — not the type label or points. Ordering is drag-and-drop with move up / move down as the keyboard path. Drag-and-drop questions accept a drag onto each slot and keep a select for keyboard users. Submitted answers stay `{ itemIds }` and `{ slots: [...] }`.
 

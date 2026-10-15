@@ -128,8 +128,10 @@ public sealed class AttemptsApiTests
             OpeningId = DevelopmentOpeningSeeder.SampleOpeningBackend,
             QuizId = quizId,
             CandidateEmail = $"live.{Guid.NewGuid():N}@example.com",
-            Mode = "live"
+            Mode = "live",
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 }
         });
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
         var assignment = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
         Assert.Null(assignment!.InviteUrl);
 
@@ -147,7 +149,7 @@ public sealed class AttemptsApiTests
         var start = await client.PostAsync($"/api/assignments/{assignment.Id}/attempts", null);
         Assert.Equal(HttpStatusCode.BadRequest, start.StatusCode);
         Assert.Contains(
-            "Assignment is live; start is not available.",
+            "Waiting for the host to start.",
             await start.Content.ReadAsStringAsync(),
             StringComparison.Ordinal);
     }

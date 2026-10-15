@@ -63,6 +63,9 @@ public sealed class AssignmentRepository : IAssignmentRepository, IQuizAssignmen
         return new PagedResult<Assignment>(items, page.Page, page.PageSize, total);
     }
 
+    public void AddLiveEvent(LiveSessionEvent liveEvent)
+        => _db.LiveSessionEvents.Add(liveEvent);
+
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         try

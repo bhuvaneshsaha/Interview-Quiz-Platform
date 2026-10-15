@@ -683,12 +683,15 @@ export interface CandidatePreviewScoreResponse {
   items: CandidatePreviewScoreItem[];
 }
 
+export type LiveCandidateState = 'waiting' | 'running' | 'paused' | 'ended' | 'submitted' | string;
+
 export interface CandidateAttemptPreview {
   attemptStatus: 'notStarted' | 'inProgress' | 'submitted' | string;
   quizTitle: string;
   openingName: string;
   durationMinutes: number;
   questionCount: number;
+  liveState?: LiveCandidateState | null;
 }
 
 export interface CandidateAttemptResponse {
@@ -702,6 +705,41 @@ export interface CandidateAttemptResponse {
   questions: CandidateQuestion[];
   answers: AnswerDto[];
   itemResults?: CandidateItemResult[] | null;
+  flaggedQuestionIds?: string[];
+  liveState?: LiveCandidateState | null;
+  paused?: boolean;
+  liveEndReason?: string | null;
+}
+
+export interface LiveProgressResponse {
+  assignmentId: string;
+  attemptId?: string | null;
+  state: string;
+  candidateConnected: boolean;
+  lastActivityAtUtc?: string | null;
+  currentQuestionIndex?: number | null;
+  questionCount: number;
+  answeredCount: number;
+  flaggedCount: number;
+  remainingSeconds?: number | null;
+  startedAtUtc?: string | null;
+  pausedAtUtc?: string | null;
+  totalPausedSeconds: number;
+  endedAtUtc?: string | null;
+  endReason?: string | null;
+}
+
+export interface ReviewFlagDto {
+  questionId: string;
+  flagged: boolean;
+}
+
+export interface SetReviewFlagsRequest {
+  flags: ReviewFlagDto[];
+}
+
+export interface ReportPositionRequest {
+  questionIndex: number;
 }
 
 export interface CandidateSubmitResponse {

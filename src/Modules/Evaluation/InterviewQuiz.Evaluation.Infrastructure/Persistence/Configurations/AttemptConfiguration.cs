@@ -18,6 +18,7 @@ public sealed class AttemptConfiguration : IEntityTypeConfiguration<Attempt>
         builder.Property(e => e.CandidateEmail).HasMaxLength(256).IsRequired();
         builder.Property(e => e.StartedAtUtc).IsRequired();
         builder.Property(e => e.DueAtUtc).IsRequired();
+        builder.Property(e => e.PausedAtUtc);
         builder.Property(e => e.SubmittedAtUtc);
         builder.Property(e => e.AutoPointsAwarded).HasPrecision(18, 4);
         builder.Property(e => e.AutoPointsAvailable).HasPrecision(18, 4);

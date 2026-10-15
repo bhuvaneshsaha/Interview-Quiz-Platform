@@ -15,6 +15,7 @@ using InterviewQuiz.Evaluation.Infrastructure.Persistence;
 using InterviewQuiz.Host.Composition;
 using InterviewQuiz.Host.Hosting;
 using InterviewQuiz.Host.Mail;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Openings.Infrastructure;
 using InterviewQuiz.Openings.Infrastructure.Persistence;
@@ -49,6 +50,8 @@ try
         preserveStaticLogger: true);
 
     builder.Services.AddSingleton<IClock, UtcClock>();
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton<ICorrelationAccessor, HttpCorrelationAccessor>();
     builder.Services.AddInterviewQuizObservability(builder.Configuration);
 
     builder.Services.AddAccessModule(builder.Configuration);
@@ -59,6 +62,7 @@ try
     builder.Services.AddSearchModule(builder.Configuration);
     builder.Services.AddScoped<OpeningSummaryComposer>();
     builder.Services.AddScoped<AssignmentInviteCoordinator>();
+    builder.Services.AddScoped<LiveSessionCoordinator>();
     builder.Services.AddInviteMail(builder.Configuration, builder.Environment);
 
     builder.Services.AddControllers().AddJsonOptions(options =>

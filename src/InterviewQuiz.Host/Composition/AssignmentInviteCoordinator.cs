@@ -3,6 +3,7 @@ using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Delivery.Application;
 using InterviewQuiz.Delivery.Application.Contracts;
 using InterviewQuiz.Delivery.Application.Services;
+using InterviewQuiz.Kernel.Assignments;
 using InterviewQuiz.Evaluation.Application;
 using InterviewQuiz.Kernel.Exceptions;
 using InterviewQuiz.Kernel.Mail;
@@ -15,6 +16,7 @@ public sealed class AssignmentInviteCoordinator
     private readonly IMagicLinkService _magicLinks;
     private readonly IInviteMailer _mailer;
     private readonly IRevokedInviteAttemptCloser _attemptCloser;
+    private readonly ILiveSessionCommands _live;
     private readonly ILogger<AssignmentInviteCoordinator> _logger;
 
     public AssignmentInviteCoordinator(
@@ -22,12 +24,14 @@ public sealed class AssignmentInviteCoordinator
         IMagicLinkService magicLinks,
         IInviteMailer mailer,
         IRevokedInviteAttemptCloser attemptCloser,
+        ILiveSessionCommands live,
         ILogger<AssignmentInviteCoordinator> logger)
     {
         _assignments = assignments;
         _magicLinks = magicLinks;
         _mailer = mailer;
         _attemptCloser = attemptCloser;
+        _live = live;
         _logger = logger;
     }
 
@@ -51,10 +55,26 @@ public sealed class AssignmentInviteCoordinator
     public async Task<InviteResponse> ReissueAsync(
         Guid assignmentId,
         DateTimeOffset? expiresAt,
+        string actorUserId,
         CancellationToken cancellationToken)
     {
         await _assignments.EnsureInvitableAsync(assignmentId, cancellationToken);
         var assignment = await _assignments.GetAsync(assignmentId, cancellationToken);
+        if (string.Equals(assignment.Mode, "live", StringComparison.OrdinalIgnoreCase))
+        {
+            var raw = await _magicLinks.IssueAsync(assignment.Id, cancellationToken, expiresAt);
+            assignment.InviteUrl = _magicLinks.BuildInviteUrl(raw);
+            await AttachStatusAsync(assignment, cancellationToken);
+            await _live.RecordLinkIssuedAsync(assignment.Id, actorUserId, cancellationToken);
+            _logger.LogInformation(
+                "Live session {Action} assignment {AssignmentId} attempt {AttemptId} actor {ActorUserId}",
+                "linkIssued",
+                assignment.Id,
+                null,
+                actorUserId);
+            return ToInvite(assignment);
+        }
+
         await IssueAndEmailAsync(assignment, expiresAt, cancellationToken);
         return ToInvite(assignment);
     }

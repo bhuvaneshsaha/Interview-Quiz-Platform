@@ -12,6 +12,7 @@ public sealed class AttemptAnswerConfiguration : IEntityTypeConfiguration<Attemp
         builder.HasKey(e => new { e.AttemptId, e.QuestionId });
         builder.Property(e => e.AttemptId).IsRequired();
         builder.Property(e => e.QuestionId).IsRequired();
+        builder.Property(e => e.Flagged).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.Value)
             .HasColumnType("jsonb")
             .HasConversion(JsonDocumentConverter.Converter)

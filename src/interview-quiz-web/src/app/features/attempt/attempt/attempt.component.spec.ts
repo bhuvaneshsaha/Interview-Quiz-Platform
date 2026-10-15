@@ -125,6 +125,14 @@ describe('Attempt', () => {
               return of(startedAttempt);
             },
             saveAnswers: () => of(attempt),
+            setFlags: () => {
+              startedAttempt = {
+                ...startedAttempt,
+                flaggedQuestionIds: [attempt.questions[0].id],
+              };
+              return of(startedAttempt);
+            },
+            reportPosition: () => of(undefined),
             submit: (id: string) => {
               submitCalls.push(id);
               return of({
@@ -321,8 +329,7 @@ describe('Attempt', () => {
     expect(live.textContent).toContain('Less than 5 minutes remaining.');
   });
 
-  it('marks the current question for review and keeps that mark in the session', async () => {
-    sessionStorage.clear();
+  it('marks the current question for review and restores it from the server', async () => {
     previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
     await render();
 
@@ -330,12 +337,11 @@ describe('Attempt', () => {
       button.textContent?.includes('Mark for review'),
     ) as HTMLButtonElement;
     mark.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(mark.getAttribute('aria-pressed')).toBe('true');
     expect(fixture.nativeElement.textContent).toContain('Marked for review');
-    const stored = sessionStorage.getItem(`iq.reviewMarks.${assignmentId}`);
-    expect(stored).toContain(attempt.questions[0].id);
 
     fixture.destroy();
     fixture = TestBed.createComponent(Attempt);
