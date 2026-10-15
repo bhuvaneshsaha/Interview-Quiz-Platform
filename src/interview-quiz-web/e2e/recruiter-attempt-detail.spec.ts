@@ -22,6 +22,11 @@ test('recruiter attempt detail shows option text instead of ids', async ({ page 
   await expectNoRawIds(text);
   expect(text).toContain('1 / 1 points');
   expect(text).toContain('Multiple choice (single)');
+  await expect(page.getByTestId('attempt-outcome').filter({ hasText: 'Correct' }).first()).toBeVisible();
+  await expect(page.locator('[data-outcome="wrong"]')).toContainText('Wrong');
+  await expect(page.locator('[data-outcome="partial"]')).toContainText('Partly correct');
+  await expect(page.locator('[data-outcome="pending"]')).toContainText('Pending review');
+  await expect(page.getByText('Awaiting human review')).toBeVisible();
   expect(body.length).toBeGreaterThan(0);
 
   await page.screenshot({ path: screenshotPath('after-recruiter-answers.png'), fullPage: true });

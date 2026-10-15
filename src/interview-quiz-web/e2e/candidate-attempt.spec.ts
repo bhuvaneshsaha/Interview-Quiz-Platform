@@ -41,6 +41,9 @@ test('welcome page waits for Start quiz before the timer and questions', async (
   await expect(page.getByTestId('question-type-badge')).toHaveText('Multiple choice (single)');
   await expect(page.getByTestId('answered-count')).toBeVisible();
   expect(main).not.toContain('Ordering');
+  expect(main).not.toContain('Correct');
+  expect(main).not.toContain('Wrong');
+  expect(main).not.toContain('Pending review');
   expect(main).not.toMatch(/\bpts\b/);
   await expectNoRawIds(main);
   expect(calls.start).toBe(1);

@@ -61,6 +61,28 @@ const detail: AttemptResultResponse = {
         ],
       },
     },
+    {
+      questionId: 'q-wrong',
+      sortOrder: 3,
+      type: 'shortText',
+      scoringMode: 'auto',
+      points: 1,
+      status: 'scored',
+      pointsAwarded: 0,
+      stem: 'Name the default web server.',
+      candidateAnswer: { text: 'IIS' },
+    },
+    {
+      questionId: 'q-partial',
+      sortOrder: 4,
+      type: 'shortText',
+      scoringMode: 'auto',
+      points: 2,
+      status: 'scored',
+      pointsAwarded: 1,
+      stem: 'Name one hosting model.',
+      candidateAnswer: { text: 'Kestrel' },
+    },
   ],
 };
 
@@ -113,6 +135,15 @@ describe('AttemptDetail', () => {
     expect(text).not.toContain('opt-kestrel');
     expect(text).not.toContain('opt-health');
     expect(text).toContain('Awaiting human review');
+    expect(text).toContain('Correct');
+    expect(text).toContain('Wrong');
+    expect(text).toContain('Partly correct');
+    expect(text).toContain('0 / 1 points');
+    expect(text).toContain('Pending review');
+    expect(fixture.nativeElement.querySelector('[data-outcome="correct"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-outcome="pending"] .outcome-label')?.textContent).toContain(
+      'Pending review',
+    );
     expect(text).not.toContain('isCorrect');
     expect(text).not.toContain('failed');
     expect(text).not.toContain('0 / 5');

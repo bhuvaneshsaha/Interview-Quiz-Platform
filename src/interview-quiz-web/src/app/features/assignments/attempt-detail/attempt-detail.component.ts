@@ -7,6 +7,7 @@ import { PermissionService } from '../../../core/permissions/permission.service'
 import { QUESTION_TYPE_LABELS } from '../../quizzes/quiz-form.mapper';
 import { formatCandidateAnswer } from '../format-candidate-answer';
 import { itemResultLabel, resultStatusLabel, statusLabel } from '../../../shared/labels/status-labels';
+import { attemptOutcome, attemptOutcomeIcon, attemptOutcomeLabel } from './attempt-outcome';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 
 @Component({
@@ -25,6 +26,9 @@ export class AttemptDetail implements OnInit {
   readonly statusLabel = statusLabel;
   readonly resultStatusLabel = resultStatusLabel;
   readonly itemResultLabel = itemResultLabel;
+  readonly outcomeOf = attemptOutcome;
+  readonly outcomeLabel = attemptOutcomeLabel;
+  readonly outcomeIcon = attemptOutcomeIcon;
   readonly formatCandidateAnswer = formatCandidateAnswer;
 
   readonly loading = signal(true);
