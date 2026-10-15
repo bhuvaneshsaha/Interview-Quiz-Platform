@@ -11,6 +11,8 @@ ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this br
 
 Docker is used only to run PostgreSQL locally. The app itself runs with `dotnet run`.
 
+Windows (PowerShell): [Windows (PowerShell) quick start](#windows-powershell-quick-start). The bash commands in the sections below stay as they are.
+
 ## Local PostgreSQL
 
 From the repo root:
@@ -32,7 +34,72 @@ Point the API at it with the **name** `ConnectionStrings__InterviewQuiz` (never 
 export ConnectionStrings__InterviewQuiz="Host=localhost;Port=5432;Database=interviewquiz;Username=interviewquiz;Password=interviewquiz_dev_only"
 ```
 
-`src/InterviewQuiz.Host/appsettings.Development.json` already uses the Compose credentials so `dotnet run` in Development works without exporting the variable. Other environments must set the environment variable (or an OS-protected file / Vault). Do not put production passwords in source.
+PowerShell (same value, same session as the process that needs it):
+
+```powershell
+$env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=interviewquiz;Username=interviewquiz;Password=interviewquiz_dev_only"
+```
+
+`src/InterviewQuiz.Host/appsettings.Development.json` already uses the Compose credentials so `dotnet run` in Development works without setting the variable. Other environments must set the environment variable (or an OS-protected file / Vault). Do not put production passwords in source. Integration tests run as `Testing`, which does not load that file — set `ConnectionStrings__InterviewQuiz` before `dotnet test` (see the Windows quick start).
+
+## Windows (PowerShell) quick start
+
+From the repo root in PowerShell, with Docker Desktop running. This is the same local stack as the bash sections: Compose file `deploy/local/compose.yaml`, host `src/InterviewQuiz.Host`, Angular workspace `src/interview-quiz-web`.
+
+### 1. PostgreSQL
+
+```powershell
+docker compose -f deploy/local/compose.yaml up -d
+```
+
+There is no Compose file at the repo root, so `-f deploy/local/compose.yaml` is required. `-d` leaves Postgres in the background. Database `interviewquiz`, user `interviewquiz`, password `interviewquiz_dev_only`, port `5432` — the same values as [Local PostgreSQL](#local-postgresql).
+
+### 2. API
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --project src/InterviewQuiz.Host
+```
+
+Set `ASPNETCORE_ENVIRONMENT` in that same PowerShell session before `dotnet run`. The `http` launch profile also sets it and listens on `http://localhost:5147` (`src/InterviewQuiz.Host/Properties/launchSettings.json`).
+
+In Development the host applies EF migrations on startup for `AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `DeliveryDbContext`, `EvaluationDbContext`, and `SearchDbContext` (`Program.cs`), then seeds Development-only data. The manual `dotnet ef database update` steps under [Migrate and run](#migrate-and-run) are optional for this path.
+
+On first run, ERR log lines about `__EFMigrationsHistory` are harmless, including lines that name the `delivery` or `evaluation` schemas. The host queries that table before it exists, then creates it and applies migrations for `access`, `openings`, `catalog`, `delivery`, `evaluation`, and `search`. Startup continues.
+
+`appsettings.Development.json` already contains the Compose connection string, so this `dotnet run` does not need `ConnectionStrings__InterviewQuiz`.
+
+### 3. Angular
+
+In a second PowerShell window, from the repo root, with the API still running:
+
+```powershell
+cd src/interview-quiz-web
+npm install
+npx ng serve
+```
+
+`npx ng serve` uses the Angular CLI from this workspace (`@angular/cli` in `devDependencies`). Open `http://localhost:4200`. `proxy.conf.json` forwards `/api` and `/health` to `http://localhost:5147`.
+
+### Tests in the same session
+
+Integration tests skip unless `ConnectionStrings__InterviewQuiz` is set. The `Testing` environment does not read `appsettings.Development.json`, so the Development file is not enough. Set the variable in the same PowerShell session that runs `dotnet test`, using the Compose value:
+
+```powershell
+$env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=interviewquiz;Username=interviewquiz;Password=interviewquiz_dev_only"
+dotnet test InterviewQuiz.slnx
+```
+
+A new window does not keep `$env:` values. Set the variable again before `dotnet test`.
+
+Playwright end-to-end tests do not need PostgreSQL or the API. From `src\interview-quiz-web`:
+
+```powershell
+npx playwright install chromium
+npm run e2e
+```
+
+Do not pass `--with-deps` on Windows. That flag installs Linux system packages. Full steps are in `src/interview-quiz-web/README.md`.
 
 ## Environment variable names
 
@@ -56,6 +123,8 @@ Production must set `Jwt__SigningKey` (environment, OS-protected file, or Vault)
 ## Migrate and run
 
 Development auto-applies EF migrations (`AccessDbContext`, `OpeningsDbContext`, `CatalogDbContext`, `DeliveryDbContext`, `EvaluationDbContext`, `SearchDbContext`), seeds the permission catalog, Development Identity users/roles, sample openings plus default field keys (`Client`, `Project`, `Role`), one sample quiz (every v1 question type) under the backend opening, publishes that quiz as template `5c9e3f32-8d4f-4e1c-9a33-2b0e4d8c3001`, three live **bank questions**, and one sample **async assignment** `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001` (`candidate.dev@example.com`, 30 minutes, attempt limit 1). Invite raw tokens are **not** seeded; issue at runtime. **Never seeded in Production.**
+
+Because that startup path applies the migrations, the manual `dotnet ef database update` commands below are optional when the host runs in Development. On first run, ERR log lines about `__EFMigrationsHistory` are harmless, including lines for the `delivery` and `evaluation` schemas. The host queries that table before it exists, then creates it in `access`, `openings`, `catalog`, `delivery`, `evaluation`, and `search` and continues. PowerShell for the same flow: [Windows (PowerShell) quick start](#windows-powershell-quick-start).
 
 ```bash
 export DOTNET_ROOT=$HOME/.dotnet
@@ -281,7 +350,7 @@ npm install
 ng serve
 ```
 
-`ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`.
+`ng serve` uses `proxy.conf.json` so the browser talks same-origin to `/api` and `/health`, forwarded to `http://localhost:5147`. Run the API first (`dotnet run --project src/InterviewQuiz.Host`), then the SPA at `http://localhost:4200`. On Windows, `npx ng serve` after `npm install` is in [Windows (PowerShell) quick start](#windows-powershell-quick-start).
 
 Employee routes used in slices 2–5 (permission on the route, same codes as the API):
 
@@ -340,7 +409,14 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 dotnet test InterviewQuiz.slnx
 ```
 
-Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules, Delivery assignment rules, Evaluation auto-score). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **181 passed** (unit plus host integration). `npm test` reports **108 passed**.
+Unit tests always run (JWT validation, `HasPermission`, login success/failure with fakes, Catalog question/quiz/template rules, Search filter rules, Delivery assignment rules, Evaluation auto-score). WebApplicationFactory tests **skip** unless `ConnectionStrings__InterviewQuiz` is set (no Testcontainers; Docker may be unavailable in CI agents). The variable has to be present in the same shell session as `dotnet test`. Integration tests use the `Testing` environment, so `appsettings.Development.json` is not a substitute. Example matching `deploy/local/compose.yaml`:
+
+```powershell
+$env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=interviewquiz;Username=interviewquiz;Password=interviewquiz_dev_only"
+dotnet test InterviewQuiz.slnx
+```
+
+When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). With PostgreSQL set, `dotnet test` reports **181 passed** (unit plus host integration). `npm test` reports **108 passed**.
 
 Angular (Vitest):
 
