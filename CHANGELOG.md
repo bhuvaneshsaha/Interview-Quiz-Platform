@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-15
+
 ### Added
 
 - Reviewers with `attempts.review` score `humanOnly` and `aiAssist` items on `GET/POST /api/attempts/{id}/review`. The last unsettled item moves the assignment from `pendingReview` to `completed` and stores a final score. Answer keys stay on the review payload. Reporting pass/fail uses that final score when it exists, and the auto-score ratio until then. AI suggestion drafts are not included (#21).
@@ -47,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/releases/tag/v0.1.0
