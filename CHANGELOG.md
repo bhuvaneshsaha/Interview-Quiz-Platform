@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-16
+
 ### Added
 
 - Authors with `ai.draft.use` can generate a quiz draft from an opening, an optional pasted resume, optional rules text, and an optional template version (`POST /api/ai-drafts`). Saving it (`POST /api/ai-drafts/{id}/accept`) also requires `quizzes.write` and a change to the questions. The result is a quiz on that opening. Nothing is assigned. The same `Ai:Provider` switch as review suggestions is used, including the deterministic fake. Company rule-set CRUD is not included (#26).
@@ -59,7 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.1.1...v0.2.0
