@@ -28,6 +28,7 @@ export class Home {
       PermissionCodes.TemplatesRead,
       PermissionCodes.QuestionsRead,
       PermissionCodes.AssignmentsRead,
+      PermissionCodes.ReportsRead,
     ]),
   );
 }

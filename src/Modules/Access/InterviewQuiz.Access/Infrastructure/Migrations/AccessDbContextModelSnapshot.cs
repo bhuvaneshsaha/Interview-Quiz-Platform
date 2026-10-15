@@ -383,6 +383,13 @@ namespace InterviewQuiz.Access.Infrastructure.Migrations
                         },
                         new
                         {
+                            Code = "reports.read",
+                            DisplayName = "View reports",
+                            IncludeInEmployeeRoleEditor = true,
+                            Module = "evaluation"
+                        },
+                        new
+                        {
                             Code = "filters.write",
                             DisplayName = "Manage own saved filters",
                             IncludeInEmployeeRoleEditor = true,

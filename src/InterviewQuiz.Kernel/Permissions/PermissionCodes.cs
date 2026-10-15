@@ -45,6 +45,7 @@ public static class PermissionCodes
     {
         public const string AttemptsRead = "attempts.read";
         public const string AttemptsReview = "attempts.review";
+        public const string ReportsRead = "reports.read";
     }
 
     public static class Search
@@ -81,6 +82,7 @@ public static class PermissionCodes
         new(Delivery.SessionsLiveRun, "Run live sessions", "delivery"),
         new(Evaluation.AttemptsRead, "View attempts and results", "evaluation"),
         new(Evaluation.AttemptsReview, "Review attempts", "evaluation"),
+        new(Evaluation.ReportsRead, "View reports", "evaluation"),
         new(Search.FiltersWrite, "Manage own saved filters", "search"),
         new(Search.FiltersShare, "Share saved filters", "search"),
         new(Candidate.AttemptParticipate, "Take and submit own attempt", "candidate", IncludeInEmployeeRoleEditor: false)

@@ -356,9 +356,39 @@ export interface TemplateListCriteria {
   tags?: Record<string, string>;
 }
 
-export type ListCriteria = OpeningListCriteria | QuizListCriteria | TemplateListCriteria;
+export type ReportFilterValue =
+  | string
+  | number
+  | string[]
+  | number[]
+  | { from: string | number; to: string | number };
 
-export type FilterTarget = 'openings' | 'quizzes' | 'templates';
+export interface ReportFilterChip {
+  field: string;
+  operator: string;
+  value: ReportFilterValue;
+}
+
+export interface ReportFilterCriteria {
+  filters?: ReportFilterChip[];
+}
+
+export type ListCriteria =
+  | OpeningListCriteria
+  | QuizListCriteria
+  | TemplateListCriteria
+  | ReportFilterCriteria;
+
+export type FilterTarget =
+  | 'openings'
+  | 'quizzes'
+  | 'templates'
+  | 'reportsFunnel'
+  | 'reportsScores'
+  | 'reportsTime'
+  | 'reportsQuestions'
+  | 'reportsCandidates'
+  | 'reportsPendingReview';
 
 export type FilterShareMode = 'private' | 'publicInsideCompany' | 'specificUsers';
 
@@ -788,3 +818,158 @@ export interface AttemptResultItem {
 export interface AttemptResultResponse extends AttemptSummaryResponse {
   items: AttemptResultItem[];
 }
+
+export interface ReportBucket {
+  label: string;
+  count: number;
+}
+
+export interface ReportWindow {
+  defaultWindowApplied: boolean;
+  appliedCreatedFromUtc?: string | null;
+  appliedCreatedToUtc?: string | null;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
+export interface FunnelReportRow {
+  openingId?: string | null;
+  openingTitle: string;
+  quizId?: string | null;
+  quizTitle: string;
+  assigned: number;
+  appeared: number;
+  submitted: number;
+  completed: number;
+  pendingReview: number;
+  appearedRate: number;
+  submittedRate: number;
+  completedRate: number;
+}
+
+export interface FunnelReportResponse extends ReportWindow {
+  totals: FunnelReportRow;
+  items: FunnelReportRow[];
+}
+
+export interface ScoreReportRow {
+  attemptId: string;
+  assignmentId: string;
+  openingId: string;
+  openingTitle: string;
+  quizId: string;
+  quizTitle: string;
+  candidateEmail: string;
+  mode: string;
+  status: string;
+  resultStatus?: string | null;
+  autoPointsAwarded: number;
+  autoPointsAvailable: number;
+  totalPointsAvailable: number;
+  unsettledCount: number;
+  passed?: boolean | null;
+  snapshotId: string;
+  quizRowVersion: number;
+}
+
+export interface ScoresReportResponse extends ReportWindow {
+  passThreshold: number;
+  submittedCount: number;
+  passDenominator: number;
+  passCount: number;
+  passRate: number;
+  histogram: ReportBucket[];
+  items: ScoreReportRow[];
+}
+
+export interface TimeReportRow {
+  attemptId: string;
+  assignmentId: string;
+  openingId: string;
+  openingTitle: string;
+  quizId: string;
+  quizTitle: string;
+  candidateEmail: string;
+  mode: string;
+  durationSeconds: number;
+  pauseTracked: boolean;
+  snapshotId: string;
+  quizRowVersion: number;
+}
+
+export interface TimeReportResponse extends ReportWindow {
+  p50Seconds?: number | null;
+  p90Seconds?: number | null;
+  histogram: ReportBucket[];
+  items: TimeReportRow[];
+}
+
+export interface QuestionReportRow {
+  questionId: string;
+  sortOrder: number;
+  stem: string;
+  openingId: string;
+  openingTitle: string;
+  quizId: string;
+  quizTitle: string;
+  settledCount: number;
+  difficulty: number;
+  discrimination?: number | null;
+  discriminationHidden: boolean;
+  snapshotCount: number;
+}
+
+export interface QuestionsReportResponse extends ReportWindow {
+  items: QuestionReportRow[];
+}
+
+export interface CandidateReportRow {
+  rank: number;
+  candidateEmail: string;
+  status: string;
+  autoPointsAwarded?: number | null;
+  autoPointsAvailable?: number | null;
+  durationSeconds?: number | null;
+  mode: string;
+  snapshotId: string;
+  quizRowVersion: number;
+  assignmentId: string;
+  attemptId?: string | null;
+  openingId: string;
+  openingTitle: string;
+  quizId: string;
+  quizTitle: string;
+}
+
+export interface CandidatesReportResponse extends ReportWindow {
+  items: CandidateReportRow[];
+}
+
+export interface PendingReviewReportRow {
+  assignmentId: string;
+  attemptId?: string | null;
+  openingId: string;
+  openingTitle: string;
+  quizId: string;
+  quizTitle: string;
+  candidateEmail: string;
+  mode: string;
+  submittedAtUtc?: string | null;
+  ageHours: number;
+  unsettledCount: number;
+  snapshotId: string;
+  quizRowVersion: number;
+}
+
+export interface PendingReviewReportResponse extends ReportWindow {
+  items: PendingReviewReportRow[];
+}
+
+export type ReportResponse =
+  | FunnelReportResponse
+  | ScoresReportResponse
+  | TimeReportResponse
+  | QuestionsReportResponse
+  | CandidatesReportResponse
+  | PendingReviewReportResponse;

@@ -1,0 +1,12 @@
+<h1>Reporting</h1>
+<p class="hint">Reporting v1 is company-wide for anyone with reports.read. It will be revised from feedback.</p>
+<ul class="report-grid">
+  @for (report of reports; track report.key) {
+    <li>
+      <a [routerLink]="['/reports', report.route]" data-testid="report-card">
+        <span class="card-title">{{ report.title }}</span>
+        <span>{{ report.description }}</span>
+      </a>
+    </li>
+  }
+</ul>

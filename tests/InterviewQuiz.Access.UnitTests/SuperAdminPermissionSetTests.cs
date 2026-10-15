@@ -27,6 +27,7 @@ public sealed class SuperAdminPermissionSetTests
         Assert.Equal(
             PermissionCodes.All.Count(permission => permission.Code != PermissionCodes.Candidate.AttemptParticipate),
             codes.Count);
+        Assert.Contains(PermissionCodes.Evaluation.ReportsRead, codes);
         Assert.DoesNotContain(PermissionCodes.Candidate.AttemptParticipate, codes);
     }
 }

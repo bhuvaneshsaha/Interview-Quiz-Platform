@@ -1,6 +1,6 @@
 # Permission catalog
 
-Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`), slice 6 live sessions (`sessions.live.run` on start/pause/resume/end; progress also allows `attempts.read`; Angular `/assignments/:id/live`). Later: review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
+Status: Living catalog. Access seeds these codes; API and Angular check them. **Live:** slice 1 Access/Openings, slice 2 quiz authoring, slice 3 templates and saved filters, slice 4 question bank, slice 5 Delivery assignments (`assignments.read` / `assignments.write` on `/api/assignments`; Angular `/assignments`, `/assignments/new`, `/assignments/:id`) and Evaluation attempts (`attempts.read` on `/api/assignments/{id}/attempts` and `/api/attempts/{id}`; `candidate.attempt.participate` on candidate attempt routes + `POST /api/auth/magic-link/consume`; Angular `/attempt?token=`), slice 6 live sessions (`sessions.live.run` on start/pause/resume/end; progress also allows `attempts.read`; Angular `/assignments/:id/live`), Reporting v1 (`reports.read` on `/api/reports`; Angular `/reports` and `/reports/:reportKey`). Later: review, AI. **Operators compose roles** from these codes; employees do not invent codes. API and UI check **permissions only** — never role names (`Recruiter`, `Admin`, etc.).
 
 Deny by default: unauthenticated → 401; authenticated without the code → 403.
 
@@ -85,7 +85,8 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 | Code | Display name | Capability |
 |------|----------------|------------|
 | `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
-| `attempts.review` | Review attempts | **Seeded but inactive until slice 7.** Score written items (human or confirm AI-assist) and finalise a result. No slice 5 API or screen uses this code. Dev Reviewer seed includes it. |
+| `reports.read` | View reports | Reporting v1. Company-wide `GET /api/reports/*` and CSV export. Angular `/reports` and `/reports/:reportKey`. Dev Recruiter seed includes it. Super Admin receives it from `PermissionCodes.All`. Dev Reviewer does **not**. |
+| `attempts.review` | Review attempts | **Seeded but inactive until slice 7.** Score written items (human or confirm AI-assist) and finalise a result. No slice 5 API or screen uses this code. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. |
 
 AI-assist **suggestion** in slice 7 still requires `attempts.review` to confirm. Generating authoring drafts is `ai.draft.use`, not this code. Slice 5 auto-score does not use `attempts.review`.
 
@@ -109,7 +110,7 @@ Granting `attempts.review` does not unlock a review workflow. See [slice 5 MVP b
 | `filters.write` | Manage own saved filters | Create/edit/delete personal saved filters |
 | `filters.share` | Share saved filters | Share public-inside-company or with specific people |
 
-Applying unsaved criteria on `GET /api/openings`, `GET /api/quizzes`, or `GET /api/templates` needs only the matching `*.read` permission (quiz get-by-id still allows `quizzes.write`). Saved-filter CRUD is **live** on `/api/filters` (architecture §15.5). Angular list screens host `app-saved-filters` (playbook: `docs/components/angular/SavedFilters.md`). **Slice 5 does not add** `target: assignments` (architecture §16.10).
+Applying unsaved criteria on `GET /api/openings`, `GET /api/quizzes`, or `GET /api/templates` needs only the matching `*.read` permission (quiz get-by-id still allows `quizzes.write`). Saved-filter CRUD is **live** on `/api/filters` (architecture §15.5). Angular list screens host `app-saved-filters` (playbook: `docs/components/angular/SavedFilters.md`). **Slice 5 does not add** `target: assignments` (architecture §16.10). Reporting v1 adds one target per report key: `reportsFunnel`, `reportsScores`, `reportsTime`, `reportsQuestions`, `reportsCandidates`, `reportsPendingReview`. Saving a field that report does not allow returns 400. There is still no `assignments` target.
 
 ---
 
@@ -151,9 +152,9 @@ Names below are **sample Identity role rows** for local seed only. Production op
 
 | Seed name | Permission codes (union) |
 |-----------|---------------------------|
-| Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `filters.write`, `filters.share` |
+| Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `reports.read`, `filters.write`, `filters.share` |
 | Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write`, `ai.draft.use`, `filters.write` |
-| Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review` |
+| Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review` (no `reports.read`) |
 | Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, plus read of openings/catalog as needed to administer |
 
 Never seed production with extra privilege by accident.
@@ -174,6 +175,7 @@ Never seed production with extra privilege by accident.
 | Assign quizzes | `assignments.write` |
 | Run live sessions | `sessions.live.run` |
 | Review attempts | `attempts.review` |
+| View reports | `reports.read` |
 | Manage saved filters | `filters.write` + `filters.share` |
 | Restore from archive (Master default) | `archive.restore.resumes` / `.attempts` / `.catalog` |
 

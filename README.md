@@ -1,6 +1,6 @@
 # Interview Quiz Platform
 
-ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Human review, AI drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
+ASP.NET Core Modular Monolith + Angular SPA/PWA. Slices **1–5** are in this branch: **host**, **Access** (JWT + Identity + permissions + assignment-scoped candidate magic-link JWTs), **Openings**, **Catalog**, **templates**, **question bank**, **Search** saved filters, **Delivery** assignments/snapshots, **Evaluation** async attempts/auto-score, **Reporting v1**, and the **web client** (employee assignments + candidate `/attempt`). Live start and pause shipped in [v0.1.0](CHANGELOG.md). Reporting v1 will be released as v0.2.0. Human review, AI drafts, and Entra ID are not in this pass. Invite email is: Development writes a local sink (or Mailpit), and SMTP settings come from configuration. What slice 5 does and does not run: [docs/slice-5-mvp.md](docs/slice-5-mvp.md).
 
 ## Releases
 
@@ -226,9 +226,9 @@ These accounts exist only when the host runs in Development (or tests seed them)
 
 | Email | Password | Sample bundle | Slice 4–5 notes |
 |-------|----------|----------------|---------------|
-| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **`assignments.write`** + `assignments.read` + `attempts.read`; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
+| `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **`assignments.write`** + `assignments.read` + `attempts.read` + **`reports.read`**; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
 | `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write`; **typically no** `assignments.*` (no Assignments nav) |
-| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read`; no template/filter/bank write |
+| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read`; no `reports.read`; no template/filter/bank write |
 | `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | Role editor can assign `questions.*` / `assignments.*`; they are not on this seed bundle |
 
 There is **no** dummy candidate password. `candidate.dev@example.com` is magic-link only (seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001`). Dummy passwords stay in this table only.
@@ -443,10 +443,12 @@ Employee routes used in slices 2–5 (permission on the route, same codes as the
 | `/assignments/new` | `assignments.write` | Create assignment (opening, quiz for that opening, email, async/live, duration, attempt limit) |
 | `/assignments/:id` | `assignments.read` | Assignment detail, join or invite link (`assignments.write`), **Open live session** when the mode is live, basic results if `attempts.read` |
 | `/assignments/:id/live` | `assignments.read` **or** `attempts.read` **or** `sessions.live.run` | Live progress. Start, pause, resume, and end require `sessions.live.run` |
+| `/reports` | `reports.read` | Reporting v1 hub |
+| `/reports/:reportKey` | `reports.read` | Funnel, scores, time, questions, candidates, or pending review |
 
 Candidate (outside the employee shell): `/attempt?token=` — `POST /api/auth/magic-link/consume`, then `GET .../attempts/preview`. A welcome page (quiz, opening, duration, question count, rules) calls start only from **Start quiz**, which sets `dueAtUtc`. An in-progress or submitted attempt skips welcome. Isolated in-memory `CandidateSession` (not employee `TokenStore`). No candidate password. The attempt hides question type and points. Ordering uses pointer drag plus Move up and Move down. Shared-bank and per-slot questions use a dropdown for each slot.
 
-Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, to **Question bank** when `questions.read`, and to **Assignments** when `assignments.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live assignments require a duration (1–480). Create does not return an invite URL. `assignments.write` issues a join link from the assignment. The host runs the session at `/assignments/:id/live` (`sessions.live.run`). The candidate waits in a lobby until the host starts. Decisions: [ADR 0010](docs/adr/0010-live-quiz-sessions.md). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
+Shell nav and home link to Quizzes when the user has `quizzes.read`, to Templates when `templates.read`, to **Question bank** when `questions.read`, to **Assignments** when `assignments.read`, and to **Reporting** when `reports.read`. Create assignment is hidden without `assignments.write`. Recruiter (`templates.read`, **`assignments.write`**, no `quizzes.write`, **no** `questions.*`) can assign and copy invites, browse templates but not clone, and does not see bank nav or include. Author (`quizzes.write` + `templates.read` + `templates.write` + `questions.read` + `questions.write`) can clone, publish, author bank items, and include from the bank; the author seed typically has **no** `assignments.*`. Live assignments require a duration (1–480). Create does not return an invite URL. `assignments.write` issues a join link from the assignment. The host runs the session at `/assignments/:id/live` (`sessions.live.run`). The candidate waits in a lobby until the host starts. Decisions: [ADR 0010](docs/adr/0010-live-quiz-sessions.md). Full employee route table: `docs/architecture.md` §6. Client details: `src/interview-quiz-web/README.md`. Shared UI primitives: [`docs/components/README.md`](docs/components/README.md).
 
 ### Exercise slices 2–5 locally (Development-only)
 
@@ -479,6 +481,10 @@ Opens **http://localhost:6006**. Static build: `npm run build-storybook`.
 
 PWA: installable manifest + service worker that caches the **hashed app shell only**. No `/api` data groups, no IndexedDB outbox. Offline UI is a banner. Token storage, dummy users, and correlation id are documented in `src/interview-quiz-web/README.md`.
 
+## Reporting v1
+
+`reports.read` opens company-wide reports. The host composes them from Delivery and Evaluation public readers. There is no reporting schema. Pass rate is 70% of available auto points. Unsettled human or AI points stay out of that denominator until slice 7 final scores exist. The default window is assignments created in the last 90 days. CSV export is UTF-8 with no answer keys and refuses more than 10,000 rows. Discrimination (top quartile minus bottom quartile) is hidden when fewer than 30 settled auto responses exist. Live time subtracts `TotalPausedSeconds` once. Async time does not. Each report has its own saved-filter target. There is no template-origin filter and no `assignments` saved-filter target. Dev Recruiter and Super Admin can open Reporting. Dev Reviewer cannot. Notes for the v0.2.0 release are under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+
 ## Tests
 
 ```bash
@@ -492,7 +498,7 @@ $env:ConnectionStrings__InterviewQuiz = "Host=localhost;Port=5432;Database=inter
 dotnet test InterviewQuiz.slnx
 ```
 
-When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), and attempt API coverage (`AttemptsApiTests`). That coverage includes metadata versions that reuse question rows, author display names, revoke ending an in-progress attempt, expiry leaving that attempt runnable, and invite resend after a new host reads the Postgres data-protection keys. With PostgreSQL set, `dotnet test` reports **235 passed** (unit plus host integration). `npm test` reports **114 passed**.
+When the database is present, those tests authenticate with JWT (not `Authorization: Test`) and include Catalog quiz/template API coverage (`CatalogApiTests`, `TemplateEditApiTests`), question-bank API coverage (`QuestionBankApiTests`), saved-filter API coverage (`SearchApiTests`), assignment API coverage (`AssignmentsApiTests`), opening summary coverage (`OpeningSummaryApiTests`), Super Admin coverage (`SuperAdminApiTests`), magic-link consume (`MagicLinkApiTests`), attempt API coverage (`AttemptsApiTests`), and Reporting v1 coverage (`ReportingApiTests`). That coverage includes metadata versions that reuse question rows, author display names, revoke ending an in-progress attempt, expiry leaving that attempt runnable, and invite resend after a new host reads the Postgres data-protection keys. With PostgreSQL set, `dotnet test` reports **260 passed** (unit plus host integration). `npm test` reports **127 passed**. Playwright `npm run e2e` reports **24 passed**.
 
 Angular (Vitest):
 

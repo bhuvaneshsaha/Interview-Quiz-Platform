@@ -1,0 +1,35 @@
+.hint {
+  color: var(--color-muted);
+}
+
+.report-grid {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.report-grid a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 7rem;
+  padding: 0.9rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.report-grid a:hover,
+.report-grid a:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.card-title {
+  font-weight: 650;
+  color: var(--color-accent);
+}

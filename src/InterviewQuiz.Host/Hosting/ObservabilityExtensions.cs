@@ -1,4 +1,5 @@
 using InterviewQuiz.Access.Authentication;
+using InterviewQuiz.Host.Composition;
 using InterviewQuiz.Catalog.Application.Services;
 using InterviewQuiz.Delivery.Application.Services;
 using InterviewQuiz.Evaluation.Application.Services;
@@ -34,7 +35,8 @@ public static class ObservabilityExtensions
                     .AddSource(FilterService.ActivitySource.Name)
                     .AddSource(MagicLinkService.ActivitySource.Name)
                     .AddSource(AssignmentService.ActivitySource.Name)
-                    .AddSource(AttemptService.ActivitySource.Name);
+                    .AddSource(AttemptService.ActivitySource.Name)
+                    .AddSource(ReportingComposer.ActivitySource.Name);
 
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))
                 {

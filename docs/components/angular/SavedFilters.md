@@ -9,10 +9,11 @@ export: app-saved-filters
 # SavedFilters
 
 ## Purpose
-Reusable control for list screens that apply, save, share, and delete Search saved filters for a single target (`openings`, `quizzes`, or `templates`).
+Reusable control for list screens that apply, save, share, and delete Search saved filters for a single target (`openings`, `quizzes`, `templates`, or one Reporting v1 report key).
 
 ## When to use
 - Opening, quiz, and template list screens that already collect list criteria
+- Reporting v1 pages, one `FilterTarget` per report key
 - Any future list whose API criteria match a Search `FilterTarget`
 
 ## When not to use
@@ -24,7 +25,7 @@ Reusable control for list screens that apply, save, share, and delete Search sav
 ### Inputs / props
 | Name | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `target` | `'openings' \| 'quizzes' \| 'templates'` | — | yes | Search filter target; used on `GET /api/filters` and save |
+| `target` | `'openings' \| 'quizzes' \| 'templates' \| 'reportsFunnel' \| 'reportsScores' \| 'reportsTime' \| 'reportsQuestions' \| 'reportsCandidates' \| 'reportsPendingReview'` | — | yes | Search filter target; used on `GET /api/filters` and save |
 | `criteria` | `ListCriteria` | `{}` | no | Current list criteria persisted when the user saves |
 
 ### Outputs / events
