@@ -107,6 +107,8 @@ describe('AiDraftForm', () => {
     const stem = fixture.nativeElement.querySelector(
       '[data-testid="ai-draft-stem-0"]',
     ) as HTMLTextAreaElement;
+    expect(fixture.nativeElement.textContent).toContain('This is a sample draft.');
+    expect(fixture.nativeElement.textContent).not.toContain('Model fake');
     expect(stem.value).toContain('Draft check');
     stem.value = 'Draft check edited.';
     stem.dispatchEvent(new Event('input'));

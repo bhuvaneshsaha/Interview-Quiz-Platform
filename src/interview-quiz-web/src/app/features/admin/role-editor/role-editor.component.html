@@ -21,7 +21,16 @@
   <form id="role-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <div class="field">
       <label for="role-name">Name</label>
-      <input id="role-name" type="text" formControlName="name" />
+      <input
+        id="role-name"
+        type="text"
+        formControlName="name"
+        [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+        [attr.aria-describedby]="form.controls.name.touched && form.controls.name.invalid ? 'role-name-error' : null"
+      />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <p id="role-name-error" class="field-error">Name is required.</p>
+      }
     </div>
     <div class="field">
       <label for="role-description">Description</label>

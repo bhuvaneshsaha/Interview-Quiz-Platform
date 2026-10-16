@@ -13,6 +13,9 @@
         <option [value]="opening.id">{{ opening.title }}</option>
       }
     </select>
+    @if (source.controls.openingId.touched && source.controls.openingId.invalid) {
+      <p class="field-error" data-testid="ai-draft-opening-error">Select an opening.</p>
+    }
   </label>
   <label class="field">
     Resume (optional)
@@ -32,7 +35,13 @@
     <p class="draft-note" data-testid="ai-draft-not-assigned">
       Saving creates a quiz on this opening. It is not assigned to anyone.
     </p>
-    <p class="draft-note">Model {{ current.model }}. Edit at least one question before saving.</p>
+    <p class="draft-note" data-testid="ai-draft-model">
+      @if (current.model.toLowerCase() === 'fake') {
+        This is a sample draft. Edit at least one question before saving.
+      } @else {
+        Model {{ current.model }}. Edit at least one question before saving.
+      }
+    </p>
     <label class="field">
       Title
       <input formControlName="title" data-testid="ai-draft-title" />
