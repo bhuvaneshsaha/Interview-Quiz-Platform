@@ -61,6 +61,8 @@ export interface UserResponse {
   email: string;
   isDisabled: boolean;
   roleIds: string[];
+  isCandidate: boolean;
+  roleNames: string[];
 }
 
 export interface CreateUserRequest {

@@ -71,18 +71,33 @@ public sealed class IdentityUserDirectory : IIdentityUserDirectory
         }
     }
 
-    public Task<int> CountAsync(CancellationToken cancellationToken)
-        => _users.Users.CountAsync(cancellationToken);
+    public Task<int> CountAsync(bool includeCandidates, CancellationToken cancellationToken)
+        => Visible(includeCandidates).CountAsync(cancellationToken);
 
     public async Task<IReadOnlyList<ApplicationUser>> ListAsync(
         int skip,
         int take,
+        bool includeCandidates,
         CancellationToken cancellationToken)
     {
-        return await _users.Users
+        return await Visible(includeCandidates)
             .OrderBy(user => user.Email)
             .Skip(skip)
             .Take(take)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Invite-only people are created with no password. Staff accounts always have one.
+    /// </summary>
+    private IQueryable<ApplicationUser> Visible(bool includeCandidates)
+    {
+        var users = _users.Users;
+        if (includeCandidates)
+        {
+            return users;
+        }
+
+        return users.Where(user => user.PasswordHash != null && user.PasswordHash != "");
     }
 }

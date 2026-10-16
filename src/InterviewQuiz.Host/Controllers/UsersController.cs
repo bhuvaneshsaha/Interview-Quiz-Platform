@@ -35,8 +35,9 @@ public sealed class UsersController : ControllerBase
     public async Task<ActionResult<PagedUsersResponse>> List(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeCandidates = false,
         CancellationToken cancellationToken = default)
-        => Ok(await _users.ListAsync(page, pageSize, cancellationToken));
+        => Ok(await _users.ListAsync(page, pageSize, includeCandidates, cancellationToken));
 
     [HttpGet("{id}")]
     [HasPermission(PermissionCodes.Access.UsersManage)]

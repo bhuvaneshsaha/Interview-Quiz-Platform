@@ -22,9 +22,13 @@ public interface IIdentityUserDirectory
 
     Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken);
 
-    Task<int> CountAsync(CancellationToken cancellationToken);
+    Task<int> CountAsync(bool includeCandidates, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<ApplicationUser>> ListAsync(int skip, int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ApplicationUser>> ListAsync(
+        int skip,
+        int take,
+        bool includeCandidates,
+        CancellationToken cancellationToken);
 }
 
 public sealed record IdentityCreateResult(bool Succeeded, IReadOnlyList<string> Errors)

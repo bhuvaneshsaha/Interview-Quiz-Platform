@@ -88,7 +88,9 @@ public sealed record UserResponse(
     string Id,
     string Email,
     bool IsDisabled,
-    IReadOnlyList<string> RoleIds);
+    IReadOnlyList<string> RoleIds,
+    bool IsCandidate,
+    IReadOnlyList<string> RoleNames);
 
 public sealed class CreateUserRequest
 {

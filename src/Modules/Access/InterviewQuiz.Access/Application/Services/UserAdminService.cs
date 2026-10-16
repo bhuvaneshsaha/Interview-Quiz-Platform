@@ -29,13 +29,17 @@ public sealed class UserAdminService : IUserAdminService
         _clock = clock;
     }
 
-    public async Task<PagedUsersResponse> ListAsync(int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedUsersResponse> ListAsync(
+        int page,
+        int pageSize,
+        bool includeCandidates,
+        CancellationToken cancellationToken)
     {
         var request = new PageRequest(page, pageSize);
-        var total = await _users.CountAsync(cancellationToken);
-        var users = await _users.ListAsync(request.Skip, request.PageSize, cancellationToken);
+        var total = await _users.CountAsync(includeCandidates, cancellationToken);
+        var users = await _users.ListAsync(request.Skip, request.PageSize, includeCandidates, cancellationToken);
         var ids = users.Select(user => user.Id).ToArray();
-        var roleMap = await LoadRoleIdsAsync(ids, cancellationToken);
+        var roleMap = await LoadRolesAsync(ids, cancellationToken);
 
         var items = users
             .Select(user => Map(user, roleMap.GetValueOrDefault(user.Id, [])))
@@ -47,7 +51,7 @@ public sealed class UserAdminService : IUserAdminService
     public async Task<UserResponse> GetAsync(string userId, CancellationToken cancellationToken)
     {
         var user = await RequireUserAsync(userId, cancellationToken);
-        var roles = await LoadRoleIdsAsync([user.Id], cancellationToken);
+        var roles = await LoadRolesAsync([user.Id], cancellationToken);
         return Map(user, roles.GetValueOrDefault(user.Id, []));
     }
 
@@ -80,7 +84,7 @@ public sealed class UserAdminService : IUserAdminService
             throw new DomainException(string.Join(" ", created.Errors));
         }
 
-        return new UserResponse(user.Id, user.Email!, user.IsDisabled, []);
+        return new UserResponse(user.Id, user.Email!, user.IsDisabled, [], false, []);
     }
 
     public async Task<UserResponse> UpdateAsync(
@@ -102,7 +106,7 @@ public sealed class UserAdminService : IUserAdminService
             await _refreshTokens.RevokeAllForUserAsync(user.Id, cancellationToken);
         }
 
-        var roles = await LoadRoleIdsAsync([user.Id], cancellationToken);
+        var roles = await LoadRolesAsync([user.Id], cancellationToken);
         return Map(user, roles.GetValueOrDefault(user.Id, []));
     }
 
@@ -134,30 +138,43 @@ public sealed class UserAdminService : IUserAdminService
             ?? throw new EntityNotFoundException("User", userId);
     }
 
-    private async Task<Dictionary<string, IReadOnlyList<string>>> LoadRoleIdsAsync(
+    private async Task<Dictionary<string, IReadOnlyList<UserRoleLabel>>> LoadRolesAsync(
         IReadOnlyCollection<string> userIds,
         CancellationToken cancellationToken)
     {
         if (userIds.Count == 0)
         {
-            return new Dictionary<string, IReadOnlyList<string>>();
+            return new Dictionary<string, IReadOnlyList<UserRoleLabel>>();
         }
 
-        var rows = await _db.UserRoles
-            .AsNoTracking()
-            .Where(assignment => userIds.Contains(assignment.UserId))
-            .Select(assignment => new { assignment.UserId, RoleId = assignment.RoleId.ToString() })
+        var rows = await (
+            from assignment in _db.UserRoles.AsNoTracking()
+            join role in _db.Roles.AsNoTracking() on assignment.RoleId equals role.Id
+            where userIds.Contains(assignment.UserId)
+            select new { assignment.UserId, RoleId = assignment.RoleId.ToString(), role.Name })
             .ToListAsync(cancellationToken);
 
         return rows
             .GroupBy(row => row.UserId)
             .ToDictionary(
                 group => group.Key,
-                group => (IReadOnlyList<string>)group.Select(row => row.RoleId).OrderBy(id => id).ToArray());
+                group => (IReadOnlyList<UserRoleLabel>)group
+                    .Select(row => new UserRoleLabel(row.RoleId, row.Name))
+                    .OrderBy(role => role.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(role => role.Id, StringComparer.Ordinal)
+                    .ToArray());
     }
 
-    private static UserResponse Map(ApplicationUser user, IReadOnlyList<string> roleIds)
-        => new(user.Id, user.Email ?? user.UserName ?? "", user.IsDisabled, roleIds);
+    private static UserResponse Map(ApplicationUser user, IReadOnlyList<UserRoleLabel> roles)
+        => new(
+            user.Id,
+            user.Email ?? user.UserName ?? "",
+            user.IsDisabled,
+            roles.Select(role => role.Id).ToArray(),
+            string.IsNullOrEmpty(user.PasswordHash),
+            roles.Select(role => role.Name).ToArray());
+
+    private sealed record UserRoleLabel(string Id, string Name);
 
     private static string NormalizeEmail(string? email)
     {

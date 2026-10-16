@@ -52,8 +52,11 @@ export class AccessApi {
     return this.http.delete<void>(`/api/roles/${roleId}/users/${userId}`);
   }
 
-  listUsers(page = 1, pageSize = 20): Observable<PagedResult<UserResponse>> {
-    const params = new HttpParams().set('page', page).set('pageSize', pageSize);
+  listUsers(page = 1, pageSize = 20, includeCandidates = false): Observable<PagedResult<UserResponse>> {
+    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    if (includeCandidates) {
+      params = params.set('includeCandidates', 'true');
+    }
     return this.http.get<PagedResult<UserResponse>>('/api/users', { params });
   }
 
