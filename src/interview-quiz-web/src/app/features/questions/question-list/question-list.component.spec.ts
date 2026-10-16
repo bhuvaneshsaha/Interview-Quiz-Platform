@@ -72,4 +72,21 @@ describe('QuestionList', () => {
     expect(fixture.nativeElement.querySelector('#question-archived')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('app-saved-filters')).toBeNull();
   });
+
+  it('drops tags when both tag fields are cleared', async () => {
+    permissions.set([PermissionCodes.QuestionsRead]);
+    fixture = TestBed.createComponent(QuestionList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const list = vi.spyOn(TestBed.inject(QuestionsApi), 'list');
+    fixture.componentInstance.tagKey.setValue('Topic');
+    fixture.componentInstance.tagValue.setValue('HTTP');
+    fixture.componentInstance.submitFilter();
+    expect(list.mock.calls.at(-1)?.[2]).toMatchObject({ tags: { Topic: 'HTTP' } });
+
+    fixture.componentInstance.tagKey.setValue('');
+    fixture.componentInstance.tagValue.setValue('');
+    fixture.componentInstance.onFilterFieldInput('');
+    expect(list.mock.calls.at(-1)?.[2]).toEqual({});
+  });
 });

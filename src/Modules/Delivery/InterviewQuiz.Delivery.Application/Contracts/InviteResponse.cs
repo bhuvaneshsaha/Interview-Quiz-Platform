@@ -53,4 +53,7 @@ public sealed class CreateAssignmentFromTemplateRequest
     public string? QuizTitle { get; set; }
 
     public DateTimeOffset? InviteExpiresAt { get; set; }
+
+    /// <summary>Off unless the recruiter opts in. Candidates then see no score or per-item correctness.</summary>
+    public bool ShowScoreToCandidate { get; set; }
 }

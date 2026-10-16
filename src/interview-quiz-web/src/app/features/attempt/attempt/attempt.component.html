@@ -1,8 +1,13 @@
 <a class="skip-link" href="#attempt-main">Skip to content</a>
 <app-offline-banner context="attempt" />
 <header class="attempt-header">
-  <p class="attempt-title">Interview Quiz</p>
-  <p class="attempt-tagline">{{ previewMode() ? 'Candidate preview' : 'Candidate attempt' }}</p>
+  <div>
+    <p class="attempt-title">Interview Quiz</p>
+    <p class="attempt-tagline">{{ previewMode() ? 'Candidate preview' : 'Candidate attempt' }}</p>
+  </div>
+  @if (previewMode()) {
+    <button type="button" class="button" data-testid="exit-preview" (click)="exitPreview()">Exit preview</button>
+  }
 </header>
 @if (previewMode()) {
   <p class="preview-banner" role="status">Preview, not recorded</p>
@@ -154,11 +159,15 @@
           @if (autoSubmitted()) {
             <p>Time ran out. Your quiz was submitted automatically, and you can't change your answers.</p>
           }
-          <p>
-            Auto-scored {{ summary.autoPointsAwarded }} of {{ summary.autoPointsAvailable }} automatic
-            points ({{ summary.totalPointsAvailable }} total available). Result:
-            {{ resultStatusLabel(summary.resultStatus) }}.
-          </p>
+          @if (summary.autoPointsAwarded != null && summary.autoPointsAvailable != null) {
+            <p>
+              Auto-scored {{ summary.autoPointsAwarded }} of {{ summary.autoPointsAvailable }} automatic
+              points ({{ summary.totalPointsAvailable }} total available). Result:
+              {{ resultStatusLabel(summary.resultStatus) }}.
+            </p>
+          } @else {
+            <p>Your quiz was submitted. The score is not shown for this assignment.</p>
+          }
         </section>
       }
 
@@ -280,19 +289,52 @@
                   ></textarea>
                 }
                 @case ('dragDropSharedBank') {
+                  <div
+                    class="drag-bank"
+                    cdkDropList
+                    [id]="bankListId(question)"
+                    [cdkDropListConnectedTo]="sharedConnections(question)"
+                    [cdkDropListData]="unassignedBank(question)"
+                    (cdkDropListDropped)="dropShared(question, $event, null)"
+                  >
+                    <p class="drag-caption">Items</p>
+                    @for (item of unassignedBank(question); track item.id) {
+                      <div
+                        class="drag-chip"
+                        cdkDrag
+                        [cdkDragData]="item.id"
+                        [cdkDragDisabled]="submitted() || sessionPaused()"
+                      >
+                        {{ item.text }}
+                      </div>
+                    } @empty {
+                      <p class="hint">All items are placed.</p>
+                    }
+                  </div>
                   @for (slot of sharedSlots(question); track slot.id) {
                     <div class="field">
-                      <label [attr.for]="'shared-' + question.id + '-' + slot.id">{{ slot.label }}</label>
-                      <select
-                        [id]="'shared-' + question.id + '-' + slot.id"
-                        [ngModel]="slotItemId(answer(question.id), slot.id)"
-                        (ngModelChange)="setSharedSlot(question, slot.id, $event)"
+                      <p class="slot-label" [id]="'shared-label-' + question.id + '-' + slot.id">{{ slot.label }}</p>
+                      <div
+                        class="slot-drop"
+                        cdkDropList
+                        [id]="slotListId(question, slot.id)"
+                        [cdkDropListConnectedTo]="sharedConnections(question)"
+                        [attr.aria-labelledby]="'shared-label-' + question.id + '-' + slot.id"
+                        (cdkDropListDropped)="dropShared(question, $event, slot.id)"
                       >
-                        <option value="">Select an item</option>
-                        @for (item of bankItems(question); track item.id) {
-                          <option [value]="item.id">{{ item.text }}</option>
+                        @if (assignedBankItem(question, slot.id); as placed) {
+                          <div
+                            class="drag-chip"
+                            cdkDrag
+                            [cdkDragData]="placed.id"
+                            [cdkDragDisabled]="submitted() || sessionPaused()"
+                          >
+                            {{ placed.text }}
+                          </div>
+                        } @else {
+                          <p class="hint">Place an item here</p>
                         }
-                      </select>
+                      </div>
                     </div>
                   }
                 }

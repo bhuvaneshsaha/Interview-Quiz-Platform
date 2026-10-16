@@ -36,6 +36,10 @@
         <dd>{{ item.mode === 'live' ? 'Live' : 'Async' }}</dd>
       </div>
       <div>
+        <dt>Show score to candidate</dt>
+        <dd>{{ item.showScoreToCandidate ? 'Yes' : 'No' }}</dd>
+      </div>
+      <div>
         <dt>Duration</dt>
         <dd>{{ item.overallDurationMinutes ? item.overallDurationMinutes + ' minutes' : '—' }}</dd>
       </div>

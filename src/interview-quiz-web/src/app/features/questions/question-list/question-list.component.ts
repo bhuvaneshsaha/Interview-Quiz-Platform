@@ -14,6 +14,7 @@ import { PermissionService } from '../../../core/permissions/permission.service'
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 import {
   optionalIntFromInput,
+  sameCriteria,
   tagsForListForm,
 } from '../../../shared/saved-filters/saved-filter.criteria';
 import { QUESTION_TYPE_LABELS, QUESTION_TYPES } from '../../quizzes/quiz-form.mapper';
@@ -68,6 +69,33 @@ export class QuestionList implements OnInit {
 
   submitFilter(): void {
     this.appliedCriteria.set(this.criteriaFromForm());
+    this.load(1);
+  }
+
+  onFilterFieldInput(value: string): void {
+    if (value.trim() !== '') {
+      return;
+    }
+    this.reloadIfCriteriaChanged();
+  }
+
+  clearControl(control: FormControl<string>): void {
+    control.setValue('');
+    this.reloadIfCriteriaChanged();
+  }
+
+  onArchivedChange(): void {
+    if (!this.showArchived.value) {
+      this.reloadIfCriteriaChanged();
+    }
+  }
+
+  private reloadIfCriteriaChanged(): void {
+    const next = this.criteriaFromForm();
+    if (sameCriteria(next, this.appliedCriteria())) {
+      return;
+    }
+    this.appliedCriteria.set(next);
     this.load(1);
   }
 

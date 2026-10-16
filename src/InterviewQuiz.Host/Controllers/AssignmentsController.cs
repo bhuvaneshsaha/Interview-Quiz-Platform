@@ -98,7 +98,8 @@ public sealed class AssignmentsController : ControllerBase
                 Mode = request.Mode,
                 Timing = request.Timing,
                 AttemptLimit = request.AttemptLimit,
-                InviteExpiresAt = request.InviteExpiresAt
+                InviteExpiresAt = request.InviteExpiresAt,
+                ShowScoreToCandidate = request.ShowScoreToCandidate
             },
             userId,
             cancellationToken);

@@ -95,7 +95,8 @@ public sealed class AssignmentService :
             createdByUserId,
             snapshot,
             _clock,
-            assignmentId);
+            assignmentId,
+            request.ShowScoreToCandidate);
 
         await _assignments.AddAsync(assignment, cancellationToken);
         await _assignments.SaveChangesAsync(cancellationToken);
@@ -205,7 +206,8 @@ public sealed class AssignmentService :
             assignment.AttemptLimit,
             Camel(assignment.Status),
             SnapshotJson.ToDto(assignment.Snapshot.Payload),
-            opening?.Title ?? "");
+            opening?.Title ?? "",
+            assignment.ShowScoreToCandidate);
     }
 
     public async Task NotifyAttemptStarted(Guid assignmentId, Guid attemptId, CancellationToken cancellationToken)
@@ -283,6 +285,7 @@ public sealed class AssignmentService :
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,
             AttemptLimit = assignment.AttemptLimit,
+            ShowScoreToCandidate = assignment.ShowScoreToCandidate,
             Status = Camel(assignment.Status),
             CreatedAtUtc = assignment.CreatedAtUtc,
             UpdatedAtUtc = assignment.UpdatedAtUtc,
@@ -307,6 +310,7 @@ public sealed class AssignmentService :
             Mode = Camel(assignment.Mode),
             OverallDurationMinutes = assignment.OverallDurationMinutes,
             AttemptLimit = assignment.AttemptLimit,
+            ShowScoreToCandidate = assignment.ShowScoreToCandidate,
             Status = Camel(assignment.Status),
             CreatedAtUtc = assignment.CreatedAtUtc,
             UpdatedAtUtc = assignment.UpdatedAtUtc

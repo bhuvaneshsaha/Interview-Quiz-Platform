@@ -29,7 +29,7 @@ export interface OrderingItemView {
 /** Visible fallback when authored text is missing. Never an id. */
 export const UNTITLED_OPTION = '(untitled option)';
 
-/** Candidate-facing type label. Slot questions stay dropdowns and never say drag. */
+/** Candidate-facing type label. Shared-bank is a drag area and per-slot is a dropdown; neither label says drag. */
 const CANDIDATE_TYPE_BADGES: Record<QuestionType, string> = {
   multipleChoiceSingle: 'Multiple choice (single)',
   multipleChoiceMulti: 'Multiple choice (multi)',

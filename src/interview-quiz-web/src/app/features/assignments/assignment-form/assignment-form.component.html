@@ -164,6 +164,19 @@
     </div>
 
     <div class="field">
+      <label for="showScoreToCandidate">
+        <input
+          id="showScoreToCandidate"
+          type="checkbox"
+          formControlName="showScoreToCandidate"
+          data-testid="show-score"
+        />
+        Show score to candidate
+      </label>
+      <p class="hint">Off by default. When off, the candidate does not see the score or which answers were correct.</p>
+    </div>
+
+    <div class="field">
       <label for="attemptLimit">Attempt limit</label>
       <input
         id="attemptLimit"

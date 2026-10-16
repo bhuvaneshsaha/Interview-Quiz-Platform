@@ -115,14 +115,14 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
   await expect(page.getByText('Match each slot to an item from the list.')).toBeVisible();
   await expect(page.getByLabel('GET')).toBeVisible();
   await expect(page.getByLabel('POST')).toBeVisible();
-  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
-  await expect(page.getByText('Drop an item here')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Drag / })).toHaveCount(0);
+  await expect(page.locator('select')).toHaveCount(0);
+  await expect(page.locator('.drag-chip')).toHaveCount(2);
+  await expect(page.getByText('Place an item here')).toHaveCount(2);
 
-  await page.getByLabel('GET').selectOption({ label: 'Read a resource' });
-  await page.getByLabel('POST').selectOption({ label: 'Create a resource' });
-  await expect(page.getByLabel('GET')).toHaveValue('item-read');
-  await expect(page.getByLabel('POST')).toHaveValue('item-create');
+  await dragChipToSlot(page, 'Read a resource', 'GET');
+  await dragChipToSlot(page, 'Create a resource', 'POST');
+  await expect(page.getByLabel('GET')).toContainText('Read a resource');
+  await expect(page.getByLabel('POST')).toContainText('Create a resource');
 
   const shared = await page.locator('#attempt-main').innerText();
   await expectNoRawIds(shared);
@@ -132,8 +132,8 @@ test('slot questions use dropdowns and have no drag handles or drop zones', asyn
   await expect(page.getByRole('heading', { name: slotAttempt.questions[1].stem })).toBeVisible();
   await expect(page.getByTestId('question-type-badge')).toHaveText('Match each slot');
   await expect(page.getByText('Match each slot to one of its options.')).toBeVisible();
-  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
-  await expect(page.getByText('Drop an option here')).toHaveCount(0);
+  await expect(page.locator('#attempt-main .drag-chip, #attempt-main .slot-drop')).toHaveCount(0);
+  await expect(page.locator('select')).toHaveCount(1);
   await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
   await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
 });
@@ -273,6 +273,72 @@ test('candidate routes stay outside the employee shell', async ({ page }) => {
   expect(page.url()).toContain('token=');
   expect(page.url()).not.toContain(`/assignments/${assignmentId}`);
 });
+
+test('candidate submit hides the score unless the assignment shows it', async ({ page }) => {
+  await installCandidateApi(page, inProgressPreview);
+  let showScore = false;
+  await page.route('**/attempts/current/submit', async (route) => {
+    const hidden = {
+      id: candidateAttempt.id,
+      assignmentId,
+      status: 'submitted',
+      resultStatus: 'complete',
+      startedAtUtc: candidateAttempt.startedAtUtc,
+      dueAtUtc: candidateAttempt.dueAtUtc,
+      submittedAtUtc: '2026-10-16T00:00:00.000Z',
+    };
+    const shown = {
+      ...hidden,
+      autoPointsAwarded: 1,
+      autoPointsAvailable: 1,
+      totalPointsAvailable: 1,
+      itemResults: [
+        {
+          questionId: candidateAttempt.questions[0].id,
+          status: 'scored',
+          pointsAwarded: 1,
+        },
+      ],
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(showScore ? shown : hidden),
+    });
+  });
+
+  await page.goto(`/attempt?token=opaque-token`);
+  await page.getByRole('button', { name: 'Submit quiz' }).click();
+  await page.getByTestId('confirm-submit').click();
+  await expect(page.getByText('The score is not shown for this assignment.')).toBeVisible();
+  await expect(page.getByText(/Auto-scored/)).toHaveCount(0);
+  await expect(page.getByText(/Scored:/)).toHaveCount(0);
+
+  showScore = true;
+  await page.goto(`/attempt?token=opaque-token`);
+  await page.getByRole('button', { name: 'Submit quiz' }).click();
+  await page.getByTestId('confirm-submit').click();
+  await expect(page.getByText('Auto-scored 1 of 1')).toBeVisible();
+  await expect(page.getByText('Scored: 1')).toBeVisible();
+});
+
+async function dragChipToSlot(page: import('@playwright/test').Page, text: string, slotLabel: string): Promise<void> {
+  const chip = page.locator('.drag-bank .drag-chip', { hasText: text });
+  const slot = page.getByLabel(slotLabel);
+  await chip.scrollIntoViewIfNeeded();
+  const source = await chip.boundingBox();
+  const target = await slot.boundingBox();
+  if (!source || !target) {
+    throw new Error(`Could not drag ${text} onto ${slotLabel}.`);
+  }
+  const startX = source.x + source.width / 2;
+  const startY = source.y + source.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 8, startY + 8, { steps: 4 });
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 24 });
+  await page.mouse.up();
+}
 
 async function dragOrderingItem(
   page: import('@playwright/test').Page,

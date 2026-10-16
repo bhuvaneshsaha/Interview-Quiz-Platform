@@ -66,6 +66,12 @@ public sealed class Assignment
     public int? CurrentQuestionIndex { get; private set; }
     public DateTimeOffset? LastActivityAtUtc { get; private set; }
 
+    /// <summary>
+    /// When false, candidate submit and completion payloads omit the score and per-item correctness.
+    /// Existing rows and new assignments stay off until a recruiter turns this on.
+    /// </summary>
+    public bool ShowScoreToCandidate { get; private set; }
+
     public const string InvalidResultStatusMessage = "Result status is invalid.";
 
     public bool IsTerminal => Status is AssignmentStatus.PendingReview or AssignmentStatus.Completed;
@@ -116,7 +122,8 @@ public sealed class Assignment
         string createdByUserId,
         AssignmentSnapshot snapshot,
         IClock clock,
-        Guid? id = null)
+        Guid? id = null,
+        bool showScoreToCandidate = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(clock);
@@ -159,7 +166,8 @@ public sealed class Assignment
             CreatedByUserId = createdByUserId.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
-            RowVersion = 1
+            RowVersion = 1,
+            ShowScoreToCandidate = showScoreToCandidate
         };
 
         return assignment;

@@ -16,4 +16,5 @@ public sealed record AssignmentWithSnapshotDto(
     int AttemptLimit,
     string Status,
     QuizSnapshotDto Snapshot,
-    string OpeningTitle = "");
+    string OpeningTitle = "",
+    bool ShowScoreToCandidate = false);

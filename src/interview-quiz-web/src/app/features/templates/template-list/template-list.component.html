@@ -5,23 +5,85 @@
 <form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
   <div class="field">
     <label for="template-keyword">Keyword</label>
-    <input id="template-keyword" type="text" [formControl]="keyword" autocomplete="off" />
+    <input
+      id="template-keyword"
+      type="text"
+      [formControl]="keyword"
+      autocomplete="off"
+      (input)="onFilterFieldInput(keyword.value)"
+    />
+    <button type="button" class="button button-quiet filter-clear" aria-label="Clear keyword" (click)="clearControl(keyword)">
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="template-exp-min">Experience min (years)</label>
-    <input id="template-exp-min" type="number" min="0" max="80" [formControl]="experienceMin" />
+    <input
+      id="template-exp-min"
+      type="number"
+      min="0"
+      max="80"
+      [formControl]="experienceMin"
+      (input)="onFilterFieldInput(experienceMin.value)"
+    />
+    <button
+      type="button"
+      class="button button-quiet filter-clear"
+      aria-label="Clear experience min"
+      (click)="clearControl(experienceMin)"
+    >
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="template-exp-max">Experience max (years)</label>
-    <input id="template-exp-max" type="number" min="0" max="80" [formControl]="experienceMax" />
+    <input
+      id="template-exp-max"
+      type="number"
+      min="0"
+      max="80"
+      [formControl]="experienceMax"
+      (input)="onFilterFieldInput(experienceMax.value)"
+    />
+    <button
+      type="button"
+      class="button button-quiet filter-clear"
+      aria-label="Clear experience max"
+      (click)="clearControl(experienceMax)"
+    >
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="template-tag-key">Tag key</label>
-    <input id="template-tag-key" type="text" [formControl]="tagKey" autocomplete="off" />
+    <input
+      id="template-tag-key"
+      type="text"
+      [formControl]="tagKey"
+      autocomplete="off"
+      (input)="onFilterFieldInput(tagKey.value)"
+    />
+    <button type="button" class="button button-quiet filter-clear" aria-label="Clear tag key" (click)="clearControl(tagKey)">
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="template-tag-value">Tag value</label>
-    <input id="template-tag-value" type="text" [formControl]="tagValue" autocomplete="off" />
+    <input
+      id="template-tag-value"
+      type="text"
+      [formControl]="tagValue"
+      autocomplete="off"
+      (input)="onFilterFieldInput(tagValue.value)"
+    />
+    <button
+      type="button"
+      class="button button-quiet filter-clear"
+      aria-label="Clear tag value"
+      (click)="clearControl(tagValue)"
+    >
+      Clear
+    </button>
   </div>
   <button type="submit" class="button">Filter</button>
 </form>

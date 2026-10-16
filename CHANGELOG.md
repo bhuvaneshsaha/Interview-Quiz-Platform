@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Blank-filling questions render one input mode (#65). A shared-bank question shows a drag-and-drop area. A per-slot question shows a dropdown. Candidate attempts, quiz preview, and live sessions use that same attempt view.
+- Quiz preview has an Exit preview button, and Escape leaves the same way, back to the screen that opened the preview (#64).
+- Clearing a filter field, including with its clear button, drops that criterion and reloads the list (#66).
+- Create Quiz shows Include from question bank for someone with `quizzes.write` and `questions.read` (#68).
+
+### Added
+
+- Assignments have Show score to candidate, off by default, including existing rows (#70). When it is off, the candidate submit and completion screens and the candidate API omit the score and per-item correctness.
+
 ## [0.6.2] - 2026-10-16
 
 ### Fixed

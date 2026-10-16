@@ -70,4 +70,27 @@ describe('QuizList', () => {
     const create = fixture.nativeElement.querySelector('a[href="/quizzes/new"]');
     expect(create?.textContent).toContain('Create quiz');
   });
+
+  it('drops a keyword when the field is cleared and when Clear is clicked', async () => {
+    permissions.set([PermissionCodes.QuizzesRead]);
+    fixture = TestBed.createComponent(QuizList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const list = vi.spyOn(TestBed.inject(QuizzesApi), 'list');
+
+    fixture.componentInstance.keyword.setValue('backend');
+    fixture.componentInstance.submitFilter();
+    expect(list.mock.calls.at(-1)?.[2]).toMatchObject({ keyword: 'backend' });
+
+    fixture.componentInstance.keyword.setValue('');
+    fixture.componentInstance.onFilterFieldInput('');
+    expect(list.mock.calls.at(-1)?.[2]).toEqual({});
+
+    fixture.componentInstance.keyword.setValue('backend');
+    fixture.componentInstance.submitFilter();
+    (fixture.nativeElement.querySelector('[aria-label="Clear keyword"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.keyword.value).toBe('');
+    expect(fixture.componentInstance.appliedCriteria()).toEqual({});
+  });
 });

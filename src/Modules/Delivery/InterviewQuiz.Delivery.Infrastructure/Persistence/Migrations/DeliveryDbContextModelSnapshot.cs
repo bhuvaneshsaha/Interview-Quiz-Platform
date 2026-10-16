@@ -104,6 +104,11 @@ namespace InterviewQuiz.Delivery.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<bool>("ShowScoreToCandidate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid>("SnapshotId")
                         .HasColumnType("uuid");
 

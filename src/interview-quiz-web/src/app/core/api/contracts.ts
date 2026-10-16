@@ -586,6 +586,7 @@ export interface CreateAssignmentRequest {
   timing?: AssignmentTimingRequest | null;
   attemptLimit?: number | null;
   inviteExpiresAt?: string | null;
+  showScoreToCandidate?: boolean;
 }
 
 export interface CreateAssignmentFromTemplateRequest {
@@ -598,6 +599,7 @@ export interface CreateAssignmentFromTemplateRequest {
   attemptLimit?: number | null;
   quizTitle?: string | null;
   inviteExpiresAt?: string | null;
+  showScoreToCandidate?: boolean;
 }
 
 export interface AssignmentSummaryResponse {
@@ -612,6 +614,7 @@ export interface AssignmentSummaryResponse {
   mode: AssignmentMode | string;
   overallDurationMinutes: number | null;
   attemptLimit: number;
+  showScoreToCandidate?: boolean;
   status: AssignmentStatus | string;
   createdAtUtc: string;
   updatedAtUtc: string;
@@ -821,10 +824,10 @@ export interface CandidateSubmitResponse {
   startedAtUtc: string;
   dueAtUtc: string;
   submittedAtUtc: string | null;
-  autoPointsAwarded: number;
-  autoPointsAvailable: number;
-  totalPointsAvailable: number;
-  itemResults: CandidateItemResult[];
+  autoPointsAwarded?: number | null;
+  autoPointsAvailable?: number | null;
+  totalPointsAvailable?: number | null;
+  itemResults?: CandidateItemResult[] | null;
 }
 
 export interface AttemptSummaryResponse {

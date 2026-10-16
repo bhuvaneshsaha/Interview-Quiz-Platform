@@ -135,18 +135,39 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+const bankQuestion = {
+  id: '6d0f4a43-9e5a-4f2d-ab44-3c1f5e9d4001',
+  title: 'Bank true or false',
+  tags: {},
+  expectedExperienceYears: 1,
+  type: 'trueFalse',
+  stem: 'A copied bank question appears on the new quiz.',
+  scoringMode: 'auto',
+  creditMode: null,
+  points: 1,
+  body: { correct: true },
+  archivedAtUtc: null,
+  rowVersion: 1,
+  createdAtUtc: '2026-10-01T00:00:00Z',
+  updatedAtUtc: '2026-10-01T00:00:00Z',
+};
+
 async function installStaffApi(page: Page): Promise<{
   attemptWrites: number;
   quizWrites: number;
   previewReads: number;
+  quizCriteria: string[];
+  lastAssignment?: { showScoreToCandidate?: boolean };
   lastQuiz?: { title?: string; shuffleQuestions?: boolean; shuffleOptions?: boolean };
 }> {
   const calls: {
     attemptWrites: number;
     quizWrites: number;
     previewReads: number;
+    quizCriteria: string[];
+    lastAssignment?: { showScoreToCandidate?: boolean };
     lastQuiz?: { title?: string; shuffleQuestions?: boolean; shuffleOptions?: boolean };
-  } = { attemptWrites: 0, quizWrites: 0, previewReads: 0 };
+  } = { attemptWrites: 0, quizWrites: 0, previewReads: 0, quizCriteria: [] };
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -176,6 +197,8 @@ async function installStaffApi(page: Page): Promise<{
           'openings.read',
           'openings.write',
           'assignments.read',
+          'assignments.write',
+          'questions.read',
           'templates.read',
         ],
       });
@@ -207,7 +230,36 @@ async function installStaffApi(page: Page): Promise<{
       return;
     }
     if (method === 'GET' && pathname === '/api/quizzes') {
+      calls.quizCriteria.push(url.searchParams.get('criteria') ?? '');
       await json(route, { items: [{ ...quiz, questions: quiz.questions }], page: 1, pageSize: 20, totalCount: 1 });
+      return;
+    }
+    if (method === 'GET' && pathname === '/api/questions') {
+      await json(route, { items: [bankQuestion], page: 1, pageSize: 20, totalCount: 1 });
+      return;
+    }
+    if (method === 'POST' && pathname === '/api/assignments') {
+      const body = request.postDataJSON() as { showScoreToCandidate?: boolean };
+      calls.lastAssignment = body;
+      await json(route, {
+        id: '7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001',
+        openingId,
+        quizId,
+        snapshotId: '8f2b6c65-1a7c-4b4f-ad66-5e3b7f1f6001',
+        snapshotTitle: quiz.title,
+        snapshotQuestionCount: 1,
+        snapshotQuizRowVersion: 1,
+        candidateEmail: 'candidate.dev@example.com',
+        mode: 'async',
+        overallDurationMinutes: 30,
+        attemptLimit: 1,
+        showScoreToCandidate: Boolean(body.showScoreToCandidate),
+        status: 'notStarted',
+        createdAtUtc: '2026-01-01T00:00:00Z',
+        updatedAtUtc: '2026-01-01T00:00:00Z',
+        createdByUserId: recruiterId,
+        inviteUrl: 'http://localhost:4200/attempt?token=opaque',
+      });
       return;
     }
     if (method === 'GET' && pathname === `/api/quizzes/${quizId}`) {
@@ -254,6 +306,24 @@ async function installStaffApi(page: Page): Promise<{
     await json(route, { message: `Unmocked ${method} ${pathname}` }, 404);
   });
   return calls;
+}
+
+async function dragChipToSlot(page: Page, text: string, slotLabel: string): Promise<void> {
+  const chip = page.locator('.drag-bank .drag-chip', { hasText: text });
+  const slot = page.getByLabel(slotLabel);
+  await chip.scrollIntoViewIfNeeded();
+  const source = await chip.boundingBox();
+  const target = await slot.boundingBox();
+  if (!source || !target) {
+    throw new Error(`Could not drag ${text} onto ${slotLabel}.`);
+  }
+  const startX = source.x + source.width / 2;
+  const startY = source.y + source.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 8, startY + 8, { steps: 4 });
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 24 });
+  await page.mouse.up();
 }
 
 async function signIn(page: Page, returnUrl: string): Promise<void> {
@@ -322,17 +392,31 @@ test('candidate preview answers slot questions from dropdowns', async ({ page })
   await expect(page.getByText('Candidate preview')).toBeVisible();
   await expect(page.getByText('Match each slot to an item from the list.')).toBeVisible();
   await expect(page.getByLabel('GET')).toBeVisible();
-  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
-  await expect(page.getByText('Drop an item here')).toHaveCount(0);
-  await page.getByLabel('GET').selectOption({ label: 'Read a resource' });
-  await expect(page.getByLabel('GET')).toHaveValue('item-read');
+  await expect(page.locator('select')).toHaveCount(0);
+  await expect(page.locator('.drag-chip')).toHaveCount(2);
+  await dragChipToSlot(page, 'Read a resource', 'GET');
+  await expect(page.getByLabel('GET')).toContainText('Read a resource');
 
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('Match each slot to one of its options.')).toBeVisible();
-  await expect(page.locator('.cdk-drop-list, .drag-chip, .drag-handle, .slot-drop')).toHaveCount(0);
+  await expect(page.locator('#attempt-main .drag-chip, #attempt-main .slot-drop')).toHaveCount(0);
   await page.getByLabel('401').selectOption({ label: 'Unauthenticated' });
   await expect(page.getByLabel('401')).toHaveValue('opt-unauth');
-  await page.screenshot({ path: screenshotPath('after-preview-slot-dropdowns.png'), fullPage: true });
+  await page.screenshot({ path: screenshotPath('after-preview-slot-modes.png'), fullPage: true });
+});
+
+test('exit preview returns to the quiz editor', async ({ page }) => {
+  await installStaffApi(page);
+  await signIn(page, `/quizzes/${quizId}`);
+  await page.getByRole('button', { name: 'Preview as candidate' }).click();
+  await expect(page).toHaveURL(new RegExp(`/quizzes/${quizId}/preview`));
+  await page.getByTestId('exit-preview').click();
+  await expect(page).toHaveURL(new RegExp(`/quizzes/${quizId}$`));
+
+  await page.getByRole('button', { name: 'Preview as candidate' }).click();
+  await expect(page.getByTestId('exit-preview')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(new RegExp(`/quizzes/${quizId}$`));
 });
 
 test('unsaved quiz edits preview from the current form', async ({ page }) => {
@@ -397,3 +481,53 @@ test('opening owner and handlers are user pickers', async ({ page }) => {
   );
   expect(overflows).toBe(false);
 });
+
+test('clearing a quiz keyword removes that criterion', async ({ page }) => {
+  const calls = await installStaffApi(page);
+  await signIn(page, '/quizzes');
+  const keyword = page.locator('#quiz-keyword');
+  await keyword.fill('backend');
+  await page.getByRole('button', { name: 'Filter', exact: true }).click();
+  await expect.poll(() => calls.quizCriteria.at(-1) ?? '').toContain('backend');
+
+  await keyword.fill('');
+  await expect.poll(() => calls.quizCriteria.at(-1) ?? '').not.toContain('backend');
+
+  await keyword.fill('backend');
+  await page.getByRole('button', { name: 'Filter', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear keyword' }).click();
+  await expect.poll(() => calls.quizCriteria.at(-1) ?? '').not.toContain('backend');
+});
+
+test('create quiz can include a question from the bank', async ({ page }) => {
+  await installStaffApi(page);
+  await signIn(page, '/quizzes/new');
+  await expect(page.getByTestId('include-from-bank')).toBeVisible();
+  await page.getByRole('checkbox', { name: /Bank true or false/ }).check();
+  await page.getByTestId('include-from-bank-submit').click();
+  await expect(page.getByText('From question bank')).toBeVisible();
+  await expect(page.getByLabel('Stem')).toHaveValue('A copied bank question appears on the new quiz.');
+});
+
+test('show score to candidate stays off unless the recruiter turns it on', async ({ page }) => {
+  const calls = await installStaffApi(page);
+  await signIn(page, '/assignments/new');
+  await expect(page.getByTestId('show-score')).not.toBeChecked();
+  await fillAssignment(page);
+  await page.getByRole('button', { name: 'Create assignment' }).click();
+  await expect.poll(() => calls.lastAssignment?.showScoreToCandidate).toBe(false);
+
+  await page.goto('/assignments/new');
+  await page.getByTestId('show-score').check();
+  await fillAssignment(page);
+  await page.getByRole('button', { name: 'Create assignment' }).click();
+  await expect.poll(() => calls.lastAssignment?.showScoreToCandidate).toBe(true);
+});
+
+async function fillAssignment(page: Page): Promise<void> {
+  await page.getByLabel('Opening', { exact: true }).selectOption({ label: opening.title });
+  const quizSelect = page.getByLabel('Quiz', { exact: true });
+  await expect(quizSelect.locator('option')).toHaveCount(2);
+  await quizSelect.selectOption({ label: quiz.title });
+  await page.getByLabel('Candidate email').fill(candidateEmail);
+}

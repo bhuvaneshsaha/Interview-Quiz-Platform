@@ -22,4 +22,7 @@ public sealed class CreateAssignmentRequest
 
     /// <summary>Optional invite expiry. Omitted uses Invite:DefaultLifetimeHours.</summary>
     public DateTimeOffset? InviteExpiresAt { get; set; }
+
+    /// <summary>Off unless the recruiter opts in. Candidates then see no score or per-item correctness.</summary>
+    public bool ShowScoreToCandidate { get; set; }
 }

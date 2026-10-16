@@ -73,6 +73,26 @@ describe('AssignmentList', () => {
     expect(create?.textContent).toContain('Create assignment');
   });
 
+  it('drops the keyword when Clear is clicked', async () => {
+    permissions.set([PermissionCodes.AssignmentsRead]);
+    fixture = TestBed.createComponent(AssignmentList);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const list = vi.spyOn(TestBed.inject(AssignmentsApi), 'list');
+    fixture.componentInstance.keyword.setValue('candidate.dev');
+    fixture.componentInstance.submitFilter();
+    expect(list.mock.calls.at(-1)?.[2]).toMatchObject({ keyword: 'candidate.dev' });
+
+    (fixture.nativeElement.querySelector('[aria-label="Clear keyword"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.keyword.value).toBe('');
+    expect(list.mock.calls.at(-1)?.[2]).toEqual({
+      openingId: undefined,
+      quizId: undefined,
+      keyword: undefined,
+    });
+  });
+
   it('uses a first-run empty state with a create link when write is granted', async () => {
     listItems = [];
     permissions.set([PermissionCodes.AssignmentsRead, PermissionCodes.AssignmentsWrite]);
