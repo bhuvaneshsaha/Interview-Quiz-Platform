@@ -6,6 +6,19 @@ import { AccessApi } from '../../../core/api/access-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 
+const moduleLabels: Readonly<Record<string, string>> = {
+  access: 'Access',
+  openings: 'Openings',
+  catalog: 'Catalog',
+  delivery: 'Delivery',
+  evaluation: 'Evaluation',
+  search: 'Search',
+};
+
+export function permissionModuleLabel(module: string): string {
+  return moduleLabels[module] ?? module.charAt(0).toUpperCase() + module.slice(1);
+}
+
 @Component({
   selector: 'app-role-editor',
   imports: [ReactiveFormsModule, RouterLink, PageStatus],
@@ -26,6 +39,8 @@ export class RoleEditor implements OnInit {
   readonly catalog = signal<PermissionResponse[]>([]);
   readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly isSystem = signal(false);
+  readonly isBuiltIn = signal(false);
+  readonly explanation = signal<string | null>(null);
 
   readonly modules = computed(() => {
     const groups = new Map<string, PermissionResponse[]>();
@@ -34,7 +49,11 @@ export class RoleEditor implements OnInit {
       list.push(permission);
       groups.set(permission.module, list);
     }
-    return [...groups.entries()].map(([module, permissions]) => ({ module, permissions }));
+    return [...groups.entries()].map(([module, permissions]) => ({
+      module,
+      label: permissionModuleLabel(module),
+      permissions,
+    }));
   });
 
   readonly form = this.fb.nonNullable.group({
@@ -123,7 +142,7 @@ export class RoleEditor implements OnInit {
   }
 
   deleteRole(): void {
-    if (!this.roleId || this.isSystem()) {
+    if (!this.roleId || this.isSystem() || this.isBuiltIn()) {
       return;
     }
     this.saving.set(true);
@@ -138,6 +157,9 @@ export class RoleEditor implements OnInit {
 
   private patch(role: RoleResponse): void {
     this.isSystem.set(role.isSystem);
+    this.isBuiltIn.set(role.isBuiltIn && !role.isSystem);
+    this.explanation.set(role.description);
+    this.form.enable();
     this.form.patchValue({
       name: role.name,
       description: role.description ?? '',
@@ -145,6 +167,11 @@ export class RoleEditor implements OnInit {
     this.selected.set(new Set(role.permissionCodes));
     if (role.isSystem) {
       this.form.disable();
+      return;
+    }
+    if (role.isBuiltIn) {
+      this.form.controls.name.disable();
+      this.form.controls.description.disable();
     }
   }
 
