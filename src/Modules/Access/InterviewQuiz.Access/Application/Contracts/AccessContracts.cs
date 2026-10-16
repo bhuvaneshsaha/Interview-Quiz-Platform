@@ -44,7 +44,8 @@ public sealed record RoleResponse(
     string? Description,
     IReadOnlyList<string> PermissionCodes,
     IReadOnlyList<string> UserIds,
-    bool IsSystem);
+    bool IsSystem,
+    bool IsBuiltIn);
 
 public sealed class SetBootstrapPasswordRequest
 {

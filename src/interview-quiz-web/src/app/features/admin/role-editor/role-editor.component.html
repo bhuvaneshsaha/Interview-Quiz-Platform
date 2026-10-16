@@ -4,10 +4,12 @@
 </div>
 
 @if (isSystem()) {
-  <p class="system-badge" role="status">
-    System role. Super Admin includes every employee permission except candidate attempt access. It
-    cannot be renamed, deleted, or reduced.
-  </p>
+  <p class="system-badge" role="status">System</p>
+} @else if (isBuiltIn()) {
+  <p class="builtin-badge" role="status">Built-in</p>
+}
+@if ((isSystem() || isBuiltIn()) && explanation()) {
+  <p class="role-explanation">{{ explanation() }}</p>
 }
 
 <app-page-status
@@ -19,7 +21,16 @@
   <form id="role-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <div class="field">
       <label for="role-name">Name</label>
-      <input id="role-name" type="text" formControlName="name" />
+      <input
+        id="role-name"
+        type="text"
+        formControlName="name"
+        [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+        [attr.aria-describedby]="form.controls.name.touched && form.controls.name.invalid ? 'role-name-error' : null"
+      />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <p id="role-name-error" class="field-error">Name is required.</p>
+      }
     </div>
     <div class="field">
       <label for="role-description">Description</label>
@@ -31,7 +42,7 @@
       <p class="hint">Candidate attempt access is not shown here and cannot be granted as an employee role.</p>
       @for (group of modules(); track group.module) {
         <section class="permission-module">
-          <h2>{{ group.module }}</h2>
+          <h2>{{ group.label }}</h2>
           @for (permission of group.permissions; track permission.code) {
             <label class="check-row">
               <input
@@ -55,7 +66,7 @@
         <button type="submit" class="button" [disabled]="saving()">
           {{ saving() ? 'Saving…' : 'Save role' }}
         </button>
-        @if (!isNew()) {
+        @if (!isNew() && !isBuiltIn()) {
           <button type="button" class="button button-quiet" [disabled]="saving()" (click)="requestDelete()">
             Delete role
           </button>

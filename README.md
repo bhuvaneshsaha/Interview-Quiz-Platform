@@ -232,9 +232,9 @@ These accounts exist only when the host runs in Development (or tests seed them)
 | Email | Password | Sample bundle | Slice 4–5 notes |
 |-------|----------|----------------|---------------|
 | `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **`assignments.write`** + `assignments.read` + `attempts.read` + **`reports.read`**; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
-| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write`; **typically no** `assignments.*` (no Assignments nav) |
-| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read`; no `reports.read`; no template/filter/bank write |
-| `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | Role editor can assign `questions.*` / `assignments.*`; they are not on this seed bundle |
+| `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write`; **`reports.read`**; **typically no** `assignments.*` (no Assignments nav) |
+| `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read` + `attempts.review` + **`reports.read`**; no template/filter/bank write |
+| `admin.dev@example.com` | `Dev.Admin!1` | Admin (built-in) | Every employee permission by default, including `users.manage`, `roles.manage`, and **`reports.read`**. No `candidate.attempt.participate`. Permissions can be edited. This account cannot assign or revoke Super Admin |
 
 There is **no** dummy candidate password. `candidate.dev@example.com` is magic-link only (seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001`). Dummy passwords stay in this table only.
 
@@ -497,7 +497,7 @@ PWA: installable manifest + service worker that caches the **hashed app shell on
 
 ## Reporting v1
 
-`reports.read` opens company-wide reports. The host composes them from Delivery and Evaluation public readers. There is no reporting schema. Pass rate is 70%. When an attempt has a final score, pass is `finalPointsAwarded / totalPointsAvailable`. Until that score exists, pass stays `autoPointsAwarded / autoPointsAvailable`, and unsettled human or AI points are not treated as zero. The score histogram and candidate rank stay on auto points. The default window is assignments created in the last 90 days. CSV export is UTF-8 with no answer keys and refuses more than 10,000 rows. Discrimination (top quartile minus bottom quartile) is hidden when fewer than 30 settled auto responses exist. Live time subtracts `TotalPausedSeconds` once. Async time does not. Each report has its own saved-filter target. There is no template-origin filter and no `assignments` saved-filter target. Dev Recruiter and Super Admin can open Reporting. Dev Reviewer cannot. Notes for the v0.2.0 release are under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+`reports.read` opens company-wide reports. The host composes them from Delivery and Evaluation public readers. There is no reporting schema. Pass rate is 70%. When an attempt has a final score, pass is `finalPointsAwarded / totalPointsAvailable`. Until that score exists, pass stays `autoPointsAwarded / autoPointsAvailable`, and unsettled human or AI points are not treated as zero. The score histogram and candidate rank stay on auto points. The default window is assignments created in the last 90 days. CSV export is UTF-8 with no answer keys and refuses more than 10,000 rows. Discrimination (top quartile minus bottom quartile) is hidden when fewer than 30 settled auto responses exist. Live time subtracts `TotalPausedSeconds` once. Async time does not. Each report has its own saved-filter target. There is no template-origin filter and no `assignments` saved-filter target. Every Development employee account and Super Admin can open Reporting. A candidate session cannot. Notes for the v0.2.0 release are under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
 
 ## Tests
 

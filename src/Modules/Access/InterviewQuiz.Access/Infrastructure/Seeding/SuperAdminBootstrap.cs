@@ -3,6 +3,7 @@ using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Domain;
 using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Kernel.Clock;
+using InterviewQuiz.Kernel.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,8 +13,8 @@ using Npgsql;
 namespace InterviewQuiz.Access.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds the Super Admin system role in every environment and, when configured, the first holder.
-/// New permission codes are re-synced onto the role at startup. Token issue also computes the set.
+/// Seeds the Super Admin system role and the Admin built-in role in every environment and, when configured, the first Super Admin holder.
+/// New permission codes are re-synced onto Super Admin at startup. Admin keeps the permission edits an operator saved.
 /// </summary>
 public sealed class SuperAdminBootstrap
 {
@@ -46,6 +47,7 @@ public sealed class SuperAdminBootstrap
     public async Task EnsureAsync(CancellationToken cancellationToken = default)
     {
         await EnsureRoleAsync(cancellationToken);
+        await EnsureAdminRoleAsync(cancellationToken);
         await EnsureUserAsync(cancellationToken);
     }
 
@@ -70,7 +72,8 @@ public sealed class SuperAdminBootstrap
                 Id = SuperAdminRole.Id,
                 Name = SuperAdminRole.Name,
                 Description = SuperAdminRole.Description,
-                IsSystem = true
+                IsSystem = true,
+                IsBuiltIn = false
             };
             _db.Roles.Add(role);
         }
@@ -79,6 +82,7 @@ public sealed class SuperAdminBootstrap
             role.Name = SuperAdminRole.Name;
             role.Description = SuperAdminRole.Description;
             role.IsSystem = true;
+            role.IsBuiltIn = false;
             role.Permissions.Clear();
         }
 
@@ -92,6 +96,123 @@ public sealed class SuperAdminBootstrap
             "Super Admin role {RoleId} synced with {PermissionCount} permissions",
             SuperAdminRole.Id,
             desired.Length);
+    }
+
+    private async Task EnsureAdminRoleAsync(CancellationToken cancellationToken)
+    {
+        await ReleaseAdminNameAsync(cancellationToken);
+
+        var catalog = await _db.Permissions
+            .AsNoTracking()
+            .Select(permission => permission.Code)
+            .ToListAsync(cancellationToken);
+        var employeeCodes = SuperAdminPermissionSet.Codes()
+            .Where(code => catalog.Contains(code, StringComparer.Ordinal))
+            .ToArray();
+
+        var role = await _db.Roles
+            .Include(item => item.Permissions)
+            .Include(item => item.UserRoles)
+            .SingleOrDefaultAsync(item => item.Id == AdminRole.Id, cancellationToken);
+
+        if (role is null)
+        {
+            role = new AccessRole
+            {
+                Id = AdminRole.Id,
+                Name = AdminRole.Name,
+                Description = AdminRole.Description,
+                IsSystem = false,
+                IsBuiltIn = true,
+                Permissions = employeeCodes
+                    .Select(code => new RolePermission { RoleId = AdminRole.Id, PermissionCode = code })
+                    .ToList()
+            };
+            _db.Roles.Add(role);
+        }
+        else
+        {
+            role.Name = AdminRole.Name;
+            role.Description = AdminRole.Description;
+            role.IsSystem = false;
+            role.IsBuiltIn = true;
+            var candidateRows = role.Permissions
+                .Where(permission => string.Equals(
+                    permission.PermissionCode,
+                    PermissionCodes.Candidate.AttemptParticipate,
+                    StringComparison.Ordinal))
+                .ToList();
+            foreach (var candidate in candidateRows)
+            {
+                role.Permissions.Remove(candidate);
+            }
+        }
+
+        await FoldLegacyDevAdminAsync(role, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Admin role {RoleId} is built in with {PermissionCount} permissions",
+            AdminRole.Id,
+            role.Permissions.Count);
+    }
+
+    private async Task ReleaseAdminNameAsync(CancellationToken cancellationToken)
+    {
+        var clashes = await _db.Roles
+            .Where(role => role.Id != AdminRole.Id && role.Name.ToLower() == AdminRole.Name.ToLower())
+            .ToListAsync(cancellationToken);
+        if (clashes.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var clash in clashes)
+        {
+            var renamed = $"{AdminRole.Name} (custom)";
+            var taken = await _db.Roles.AnyAsync(
+                role => role.Id != clash.Id && role.Name == renamed,
+                cancellationToken);
+            clash.Name = taken ? $"{renamed} {clash.Id.ToString()[..8]}" : renamed;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task FoldLegacyDevAdminAsync(AccessRole admin, CancellationToken cancellationToken)
+    {
+        var legacyRoles = await _db.Roles
+            .Include(role => role.UserRoles)
+            .Where(role => role.Id != AdminRole.Id && role.Name == AdminRole.LegacyName)
+            .ToListAsync(cancellationToken);
+        if (legacyRoles.Count == 0)
+        {
+            return;
+        }
+
+        var holders = admin.UserRoles.Select(assignment => assignment.UserId).ToHashSet(StringComparer.Ordinal);
+        foreach (var legacy in legacyRoles)
+        {
+            foreach (var assignment in legacy.UserRoles)
+            {
+                if (!holders.Add(assignment.UserId))
+                {
+                    continue;
+                }
+
+                admin.UserRoles.Add(new UserRoleAssignment
+                {
+                    UserId = assignment.UserId,
+                    RoleId = admin.Id
+                });
+            }
+
+            _db.Roles.Remove(legacy);
+        }
+
+        _logger.LogInformation(
+            "Folded {LegacyRoleCount} Dev Admin roles into {RoleId}",
+            legacyRoles.Count,
+            AdminRole.Id);
     }
 
     private async Task EnsureUserAsync(CancellationToken cancellationToken)
