@@ -168,7 +168,8 @@ test('reports stay hidden without reports.read', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
   await page.goto('/reports');
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/\?denied=1$/);
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByText("You don't have access to that page.")).toBeVisible();
 });

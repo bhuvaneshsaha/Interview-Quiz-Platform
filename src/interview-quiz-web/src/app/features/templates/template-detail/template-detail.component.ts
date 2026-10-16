@@ -31,6 +31,7 @@ export class TemplateDetail implements OnInit {
 
   readonly typeLabels = QUESTION_TYPE_LABELS;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
+  readonly canReadQuizzes = this.permissions.hasPermission(PermissionCodes.QuizzesRead);
   readonly canClone =
     this.permissions.hasPermission(PermissionCodes.QuizzesWrite) &&
     this.permissions.hasPermission(PermissionCodes.TemplatesRead);

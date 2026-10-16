@@ -13,6 +13,9 @@
     @if (emptyActionLabel() && emptyActionLink(); as actionLink) {
       <a class="button" [routerLink]="actionLink">{{ emptyActionLabel() }}</a>
     }
+    @if (emptySecondaryLabel(); as secondaryLabel) {
+      <button type="button" class="button button-quiet" (click)="emptySecondary.emit()">{{ secondaryLabel }}</button>
+    }
   </div>
 } @else {
   <ng-content />

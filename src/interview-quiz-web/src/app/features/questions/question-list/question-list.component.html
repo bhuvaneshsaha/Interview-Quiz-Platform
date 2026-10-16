@@ -49,7 +49,9 @@
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && questions().length === 0"
-  emptyMessage="No questions match this filter."
+  [emptyMessage]="filtered() ? 'No questions match these filters.' : 'No questions yet.'"
+  [emptySecondaryLabel]="filtered() ? 'Clear filters' : null"
+  (emptySecondary)="clearFilters()"
   loadingMessage="Loading question bank."
 >
   <table class="data-table data-table-cards">

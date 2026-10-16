@@ -4,6 +4,7 @@ import { of } from 'rxjs';
 import { AssignmentSummaryResponse } from '../../../core/api/contracts';
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
+import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
 import { AssignmentList } from './assignment-list.component';
@@ -44,6 +45,12 @@ describe('AssignmentList', () => {
         },
         {
           provide: OpeningsApi,
+          useValue: {
+            list: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
+          },
+        },
+        {
+          provide: QuizzesApi,
           useValue: {
             list: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
           },

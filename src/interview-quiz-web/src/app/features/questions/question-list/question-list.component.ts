@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -49,6 +49,7 @@ export class QuestionList implements OnInit {
   readonly totalCount = signal(0);
   readonly pageSize = 20;
   readonly appliedCriteria = signal<BankQuestionListCriteria>({});
+  readonly filtered = computed(() => Object.keys(this.appliedCriteria()).length > 0);
 
   ngOnInit(): void {
     this.load();
@@ -68,6 +69,18 @@ export class QuestionList implements OnInit {
 
   submitFilter(): void {
     this.appliedCriteria.set(this.criteriaFromForm());
+    this.load(1);
+  }
+
+  clearFilters(): void {
+    this.keyword.setValue('');
+    this.typeFilter.setValue('');
+    this.experienceMin.setValue('');
+    this.experienceMax.setValue('');
+    this.tagKey.setValue('');
+    this.tagValue.setValue('');
+    this.showArchived.setValue(false);
+    this.appliedCriteria.set({});
     this.load(1);
   }
 

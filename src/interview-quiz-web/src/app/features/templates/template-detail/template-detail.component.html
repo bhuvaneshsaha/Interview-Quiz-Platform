@@ -28,8 +28,14 @@
         <dd>{{ item.latestVersionNumber }}</dd>
       </div>
       <div>
-        <dt>Origin quiz</dt>
-        <dd>{{ item.originQuizId }}</dd>
+        <dt>Original quiz</dt>
+        <dd>
+          @if (canReadQuizzes) {
+            <a [routerLink]="['/quizzes', item.originQuizId]">View original quiz</a>
+          } @else {
+            Created from a quiz.
+          }
+        </dd>
       </div>
       <div>
         <dt>Updated</dt>
@@ -138,19 +144,21 @@
             <td data-label="Questions">{{ version.questionCount }}</td>
             <td data-label="Published">{{ formatWhen(version.publishedAtUtc) }}</td>
             <td data-label="Questions view">
-              <button
-                type="button"
-                class="button button-quiet"
-                (click)="loadVersionQuestions(version.id)"
-              >
-                {{ selectedVersion()?.id === version.id ? 'Showing' : 'View questions' }}
-              </button>
-              <a
-                class="button button-quiet"
-                [routerLink]="['/templates', item.id, 'versions', version.id, 'preview']"
-              >
-                Preview as candidate
-              </a>
+              <div class="version-actions">
+                <button
+                  type="button"
+                  class="button button-quiet"
+                  (click)="loadVersionQuestions(version.id)"
+                >
+                  {{ selectedVersion()?.id === version.id ? 'Showing questions' : 'View questions' }}
+                </button>
+                <a
+                  class="button button-quiet"
+                  [routerLink]="['/templates', item.id, 'versions', version.id, 'preview']"
+                >
+                  Preview as candidate
+                </a>
+              </div>
             </td>
           </tr>
         }

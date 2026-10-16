@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { isDevMode } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiError } from '../../core/http/api-error';
@@ -18,6 +18,8 @@ export class PageStatus {
   readonly emptyMessage = input('Nothing to show yet.');
   readonly emptyActionLabel = input<string | null>(null);
   readonly emptyActionLink = input<string | null>(null);
+  readonly emptySecondaryLabel = input<string | null>(null);
+  readonly emptySecondary = output<void>();
 
   readonly showDevCorrelation = isDevMode();
 

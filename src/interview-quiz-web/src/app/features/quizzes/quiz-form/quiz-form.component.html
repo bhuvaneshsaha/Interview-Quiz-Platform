@@ -174,16 +174,15 @@
         <legend>Template</legend>
         @if (originTemplateId(); as templateId) {
           <p>
-            Origin template:
             @if (canReadTemplates) {
-              <a [routerLink]="['/templates', templateId]">{{ templateId }}</a>
+              <a [routerLink]="['/templates', templateId]">View template</a>
             } @else {
-              <span>{{ templateId }}</span>
+              Created from a template.
             }
           </p>
         }
-        @if (sourceTemplateVersionId(); as versionId) {
-          <p class="hint">Source template version: {{ versionId }}</p>
+        @if (sourceTemplateVersionId()) {
+          <p class="hint">This quiz came from a specific template version.</p>
         }
         <div *hasPermission="codes.TemplatesWrite">
           <p class="hint">

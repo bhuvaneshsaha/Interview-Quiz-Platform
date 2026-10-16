@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ListCriteria, TemplateListCriteria, TemplateSummaryResponse } from '../../../core/api/contracts';
@@ -35,6 +35,7 @@ export class TemplateList implements OnInit {
   readonly totalCount = signal(0);
   readonly pageSize = 20;
   readonly appliedCriteria = signal<TemplateListCriteria>({});
+  readonly filtered = computed(() => Object.keys(this.appliedCriteria()).length > 0);
 
   ngOnInit(): void {
     this.load();
@@ -63,6 +64,16 @@ export class TemplateList implements OnInit {
 
   submitFilter(): void {
     this.appliedCriteria.set(this.criteriaFromForm());
+    this.load(1);
+  }
+
+  clearFilters(): void {
+    this.keyword.setValue('');
+    this.experienceMin.setValue('');
+    this.experienceMax.setValue('');
+    this.tagKey.setValue('');
+    this.tagValue.setValue('');
+    this.appliedCriteria.set({});
     this.load(1);
   }
 

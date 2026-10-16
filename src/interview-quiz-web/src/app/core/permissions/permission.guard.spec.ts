@@ -45,7 +45,7 @@ describe('permissionGuard', () => {
     permissions.set([PermissionCodes.OpeningsRead]);
     const result = await firstValueFrom(run(PermissionCodes.RolesManage));
     expect(result instanceof UrlTree).toBe(true);
-    expect(router.serializeUrl(result as UrlTree)).toBe('/');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/?denied=1');
   });
 
   it('waits for session restore before treating an empty set as missing reports.read', async () => {

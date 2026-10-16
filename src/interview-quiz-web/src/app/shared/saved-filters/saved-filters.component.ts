@@ -3,13 +3,14 @@ import { Component, computed, inject, input, OnInit, output, signal } from '@ang
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { AccessApi } from '../../core/api/access-api.service';
 import {
+  AssignableUser,
   FilterResponse,
   FilterShareMode,
   FilterTarget,
   ListCriteria,
-  UserResponse,
 } from '../../core/api/contracts';
 import { FiltersApi } from '../../core/api/filters-api.service';
+import { UsersApi } from '../../core/api/users-api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { HasPermission } from '../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../core/permissions/permission-codes';
@@ -20,8 +21,8 @@ import { compactCriteria, criteriaFromUnknown } from './saved-filter.criteria';
 const FILTER_NAME_MAX = 200;
 const SHARE_MODE_LABELS: Record<FilterShareMode, string> = {
   private: 'Private',
-  publicInsideCompany: 'Public inside company',
-  specificUsers: 'Specific users',
+  publicInsideCompany: 'Everyone at the company',
+  specificUsers: 'Specific people',
 };
 
 @Component({
@@ -33,6 +34,7 @@ const SHARE_MODE_LABELS: Record<FilterShareMode, string> = {
 export class SavedFilters implements OnInit {
   private readonly filtersApi = inject(FiltersApi);
   private readonly accessApi = inject(AccessApi);
+  private readonly usersApi = inject(UsersApi);
   private readonly auth = inject(AuthService);
   private readonly permissions = inject(PermissionService);
 
@@ -44,6 +46,8 @@ export class SavedFilters implements OnInit {
   readonly nameMax = FILTER_NAME_MAX;
   readonly shareLabels = SHARE_MODE_LABELS;
   readonly canManageUsers = this.permissions.hasPermission(PermissionCodes.UsersManage);
+  readonly canPickPeople =
+    this.permissions.hasPermission(PermissionCodes.OpeningsRead) || this.canManageUsers;
 
   readonly selectedId = new FormControl('', { nonNullable: true });
   readonly newName = new FormControl('', { nonNullable: true });
@@ -54,7 +58,8 @@ export class SavedFilters implements OnInit {
   readonly shareUserIds = new FormControl('', { nonNullable: true });
 
   readonly filters = signal<FilterResponse[]>([]);
-  readonly users = signal<UserResponse[]>([]);
+  readonly people = signal<AssignableUser[]>([]);
+  readonly selectedPeople = signal<AssignableUser[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly correlationId = signal<string | null>(null);
@@ -76,10 +81,21 @@ export class SavedFilters implements OnInit {
 
   ngOnInit(): void {
     this.reload();
-    if (this.canManageUsers) {
+    if (this.permissions.hasPermission(PermissionCodes.OpeningsRead)) {
+      this.usersApi.searchAssignable('', 100).subscribe({
+        next: (people) => {
+          this.people.set(people);
+          this.syncSelectedPeople();
+        },
+        error: () => this.people.set([]),
+      });
+    } else if (this.canManageUsers) {
       this.accessApi.listUsers(1, 100).subscribe({
-        next: (result) => this.users.set(result.items),
-        error: () => this.users.set([]),
+        next: (result) => {
+          this.people.set(result.items.map((user) => ({ id: user.id, name: user.email, email: user.email })));
+          this.syncSelectedPeople();
+        },
+        error: () => this.people.set([]),
       });
     }
   }
@@ -102,7 +118,7 @@ export class SavedFilters implements OnInit {
     }
     const name = this.newName.value.trim();
     if (!name) {
-      this.error.set('Name is required to save the current criteria.');
+      this.error.set('Name is required to save these filters.');
       return;
     }
     if (name.length > FILTER_NAME_MAX) {
@@ -134,10 +150,12 @@ export class SavedFilters implements OnInit {
       return;
     }
     const mode = this.shareMode.value;
-    const userIds =
-      mode === 'specificUsers' ? this.parseUserIds(this.shareUserIds.value) : undefined;
+    if (mode === 'specificUsers' && !this.canPickPeople) {
+      this.syncSelectedPeople();
+    }
+    const userIds = mode === 'specificUsers' ? this.selectedPeople().map((person) => person.id) : undefined;
     if (mode === 'specificUsers' && (!userIds || userIds.length === 0)) {
-      this.error.set('Enter at least one user id to share with specific users.');
+      this.error.set('Choose at least one person.');
       return;
     }
     this.saving.set(true);
@@ -146,7 +164,7 @@ export class SavedFilters implements OnInit {
         this.status.set(
           updated.shareMode === 'publicInsideCompany'
             ? `“${updated.name}” is public inside the company.`
-            : `“${updated.name}” is shared with specific users.`,
+            : `“${updated.name}” is shared with specific people.`,
         );
         this.saving.set(false);
         this.reload(updated.id);
@@ -217,11 +235,29 @@ export class SavedFilters implements OnInit {
       this.shareMode.setValue('specificUsers');
       this.shareModeValue.set('specificUsers');
       this.shareUserIds.setValue(filter.sharedWithUserIds.join(', '));
+      this.syncSelectedPeople();
     } else {
       this.shareMode.setValue('publicInsideCompany');
       this.shareModeValue.set('publicInsideCompany');
       this.shareUserIds.setValue('');
+      this.selectedPeople.set([]);
     }
+  }
+
+  addPerson(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement) || !target.value) {
+      return;
+    }
+    const person = this.people().find((item) => item.id === target.value);
+    if (person && !this.selectedPeople().some((item) => item.id === person.id)) {
+      this.selectedPeople.update((items) => [...items, person]);
+    }
+    target.value = '';
+  }
+
+  removePerson(id: string): void {
+    this.selectedPeople.update((items) => items.filter((item) => item.id !== id));
   }
 
   onShareModeChange(): void {
@@ -232,16 +268,12 @@ export class SavedFilters implements OnInit {
     return SHARE_MODE_LABELS[mode] ?? mode;
   }
 
-  addUserFromPicker(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement) || !target.value) {
-      return;
-    }
-    const current = this.parseUserIds(this.shareUserIds.value);
-    if (!current.includes(target.value)) {
-      this.shareUserIds.setValue([...current, target.value].join(', '));
-    }
-    target.value = '';
+  private syncSelectedPeople(): void {
+    const ids = this.parseUserIds(this.shareUserIds.value);
+    const known = this.people();
+    this.selectedPeople.set(
+      ids.map((id) => known.find((person) => person.id === id) ?? { id, name: id, email: id }),
+    );
   }
 
   private reload(selectId?: string): void {

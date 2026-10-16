@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- A page you cannot open explains that on Home. Opening counts link to assignments once, quiz and template pages link to the related item instead of showing an id, and the assignment list picks a quiz by name. Saved filters say “these filters” and let a recruiter pick a person. An empty question bank or template list offers Clear filters, and View and Review stay separate (#78, #79, #81, #84, #85, #91, #92, #93).
+
 ## [0.6.2] - 2026-10-16
 
 ### Fixed
