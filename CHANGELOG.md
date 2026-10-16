@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-16
+
 ### Fixed
 
 - A full page load of a guarded route waits for one shared session restore before the auth or permission guard decides. The access token stays in memory, so a reload used to check permissions while that set was still empty, and routes that run both guards together (quiz and template preview) sent the user Home. `/reports` now stays put for someone who has `reports.read`, including a Super Admin, and a user without that code still lands on Home. A bootstrapped Super Admin access token and `GET /api/me` include `reports.read` even when that person already had an account; startup sync writes the code back onto the Super Admin role when an existing database is missing the row.
@@ -79,7 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.4.0...v0.5.0
