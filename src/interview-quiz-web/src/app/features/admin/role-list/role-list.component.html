@@ -28,6 +28,8 @@
             <a [routerLink]="['/roles', role.id]">{{ role.name }}</a>
             @if (role.isSystem) {
               <span class="system-badge">System</span>
+            } @else if (role.isBuiltIn) {
+              <span class="builtin-badge">Built-in</span>
             }
           </th>
           <td data-label="Description">{{ role.description ?? '—' }}</td>

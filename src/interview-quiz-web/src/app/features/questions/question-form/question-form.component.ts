@@ -80,6 +80,7 @@ export class QuestionForm implements OnInit {
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly archiving = signal(false);
+  readonly confirmingArchive = signal(false);
   readonly error = signal<string | null>(null);
   readonly correlationId = signal<string | null>(null);
   readonly isNew = signal(true);
@@ -410,6 +411,18 @@ export class QuestionForm implements OnInit {
     if (!this.canWrite || this.isNew() || !this.questionId || this.archivedAtUtc()) {
       return;
     }
+    this.confirmingArchive.set(true);
+  }
+
+  cancelArchive(): void {
+    this.confirmingArchive.set(false);
+  }
+
+  confirmArchive(): void {
+    if (!this.canWrite || this.isNew() || !this.questionId || this.archivedAtUtc()) {
+      return;
+    }
+    this.confirmingArchive.set(false);
     this.error.set(null);
     this.archiving.set(true);
     this.api.archive(this.questionId).subscribe({

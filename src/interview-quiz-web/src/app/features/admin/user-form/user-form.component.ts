@@ -25,6 +25,7 @@ export class UserForm implements OnInit {
   readonly codes = PermissionCodes;
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly confirmingDisable = signal(false);
   readonly error = signal<string | null>(null);
   readonly correlationId = signal<string | null>(null);
   readonly isNew = signal(true);
@@ -120,7 +121,16 @@ export class UserForm implements OnInit {
       });
   }
 
+  requestDisable(): void {
+    this.confirmingDisable.set(true);
+  }
+
+  cancelDisable(): void {
+    this.confirmingDisable.set(false);
+  }
+
   setDisabled(isDisabled: boolean): void {
+    this.confirmingDisable.set(false);
     const current = this.user();
     if (!current) {
       return;

@@ -139,6 +139,21 @@ describe('AssignmentDetail', () => {
     expect(fixture.nativeElement.textContent).toContain('The previous link no longer works');
   });
 
+  it('asks before replacing an invite that is already active', async () => {
+    assignment.inviteState = 'active';
+    assignment.inviteEmailStatus = 'sent';
+    await render();
+    expect(issueButton().textContent).toContain('Re-issue invite link');
+    issueButton().click();
+    fixture.detectChanges();
+    expect(inviteCalls).toBe(0);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')?.textContent).toContain(
+      'will stop working',
+    );
+    assignment.inviteState = undefined;
+    assignment.inviteEmailStatus = undefined;
+  });
+
   function issueButton(): HTMLButtonElement {
     return [...fixture.nativeElement.querySelectorAll('button')].find((button: HTMLButtonElement) =>
       /invite link/i.test(button.textContent ?? ''),

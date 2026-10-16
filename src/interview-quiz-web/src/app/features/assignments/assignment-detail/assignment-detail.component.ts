@@ -89,11 +89,23 @@ export class AssignmentDetail implements OnInit {
     if (!this.canInvite || this.inviting()) {
       return;
     }
-    if (this.inviteUrl()) {
+    const state = this.assignment()?.inviteState;
+    if (this.inviteUrl() || state === 'active' || state === 'expired') {
       this.confirmRotate.set(true);
       return;
     }
     this.issueInvite(false);
+  }
+
+  inviteActionLabel(mode: string, inviteState: string | null | undefined): string {
+    if (this.inviting()) {
+      return 'Issuing invite…';
+    }
+    const replacing = !!this.inviteUrl() || inviteState === 'active' || inviteState === 'expired';
+    if (mode === 'live') {
+      return replacing ? 'Re-issue join link' : 'Get join link';
+    }
+    return replacing ? 'Re-issue invite link' : 'Issue invite link';
   }
 
   emailStatusLabel(status: string | null | undefined): string {
