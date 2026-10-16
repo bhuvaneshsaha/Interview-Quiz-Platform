@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-16
+
 ### Fixed
 
 - Opening Owner and Handlers pickers list only active employees. `GET /api/users/assignable` excludes candidate identities created when a magic link is consumed, users with no employee role, users who cannot sign in with a password, and disabled users. Creating or updating an opening with one of those ids returns 400 and names Owner or Handlers.
@@ -73,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.3.0...v0.4.0
