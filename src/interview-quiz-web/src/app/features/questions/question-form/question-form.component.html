@@ -141,7 +141,7 @@
         </div>
         @if (needsCreditMode()) {
           <div class="field">
-            <label for="credit">Credit mode</label>
+            <label for="credit">Credit</label>
             <select
               id="credit"
               formControlName="creditMode"
@@ -161,7 +161,7 @@
       </div>
 
       <div class="field">
-        <label for="stem">Stem</label>
+        <label for="stem">Question text</label>
         <textarea
           id="stem"
           rows="3"
@@ -269,14 +269,14 @@
           }
           @case ('dragDropSharedBank') {
             <fieldset class="inner-fieldset">
-              <legend>Bank</legend>
+              <legend>Choices</legend>
               @if (errorFor('body.bank'); as message) {
                 <p class="field-error" data-field="body.bank" tabindex="-1">{{ message }}</p>
               }
               @for (item of bankArray().controls; track $index; let j = $index) {
                 <div class="item-row" [formGroup]="bankGroup(j)">
                   <div class="field grow">
-                    <label [attr.for]="'bank-' + j">Bank item {{ j + 1 }}</label>
+                    <label [attr.for]="'bank-' + j">Choice {{ j + 1 }}</label>
                     <input
                       [id]="'bank-' + j"
                       type="text"
@@ -290,7 +290,7 @@
                   <div class="field">
                     <label [attr.for]="'dist-' + j">
                       <input [id]="'dist-' + j" type="checkbox" formControlName="isDistractor" />
-                      Distractor
+                      Wrong answer
                     </label>
                   </div>
                   <button
@@ -299,7 +299,7 @@
                     class="button button-quiet"
                     (click)="removeBankItem(j)"
                   >
-                    Remove bank item
+                    Remove choice
                   </button>
                 </div>
               }
@@ -309,7 +309,7 @@
                 class="button button-quiet"
                 (click)="addBankItem()"
               >
-                Add bank item
+                Add choice
               </button>
             </fieldset>
             <fieldset class="inner-fieldset">
@@ -332,14 +332,14 @@
                     }
                   </div>
                   <div class="field grow">
-                    <label [attr.for]="'slot-correct-' + j">Correct bank item</label>
+                    <label [attr.for]="'slot-correct-' + j">Correct choice</label>
                     <select
                       [id]="'slot-correct-' + j"
                       formControlName="correctItemId"
                       [attr.data-field]="'body.slots.' + j + '.correctItemId'"
                     >
-                      @for (item of bankItems(); track item.id) {
-                        <option [value]="item.id">{{ item.text || item.id }}</option>
+                      @for (item of bankItems(); track item.id; let choiceIndex = $index) {
+                        <option [value]="item.id">{{ item.text.trim() || 'Choice ' + (choiceIndex + 1) }}</option>
                       }
                     </select>
                     @if (errorFor('body.slots.' + j + '.correctItemId'); as message) {
@@ -469,7 +469,7 @@
                     />
                   </div>
                   <div class="field">
-                    <label [attr.for]="'ord-idx-' + j">Correct index (0 is first)</label>
+                    <label [attr.for]="'ord-idx-' + j">Correct place (0 is the first)</label>
                     <input
                       [id]="'ord-idx-' + j"
                       type="number"

@@ -1,14 +1,14 @@
-<h1>Opening field defaults</h1>
+<h1>Opening fields</h1>
 <p>Default tag keys shown when creating openings. Extra keys can still be added on an opening.</p>
 
 <app-page-status
   [loading]="loading()"
   [error]="error()"
   [correlationId]="correlationId()"
-  loadingMessage="Loading field defaults."
+  loadingMessage="Loading opening fields."
 >
   @if (saved()) {
-    <p class="status" role="status">Field defaults saved.</p>
+    <p class="status" role="status">Opening fields saved.</p>
   }
   <form [formGroup]="form" (ngSubmit)="submit()">
     <table class="data-table data-table-cards">

@@ -22,13 +22,13 @@
         <dd>{{ statusLabel(item.status) }}</dd>
       </div>
       <div>
-        <dt>Snapshot</dt>
+        <dt>Quiz</dt>
         <dd>{{ item.snapshotTitle }} ({{ item.snapshotQuestionCount }} questions)</dd>
       </div>
       <div>
-        <dt>Quiz revision</dt>
+        <dt>Version</dt>
         <dd>
-          Quiz revision {{ item.snapshotQuizRowVersion }}. Results are not comparable across revisions.
+          Version {{ item.snapshotQuizRowVersion }}. This candidate keeps this version if the quiz is edited later.
         </dd>
       </div>
       <div>
@@ -122,7 +122,11 @@
         <button type="button" class="button button-quiet" [disabled]="emailBusy()" (click)="extendInvite()">
           Extend invite
         </button>
-        <p class="hint">Extend keeps the same link. Re-issue replaces it and emails the new one.</p>
+        @if (item.mode === 'live') {
+          <p class="hint">Extend keeps the same link. Re-issue replaces it. The new link is not emailed.</p>
+        } @else {
+          <p class="hint">Extend keeps the same link. Re-issue replaces it and emails the new one.</p>
+        }
       </div>
     }
 
