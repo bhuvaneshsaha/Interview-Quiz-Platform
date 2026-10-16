@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -7,10 +8,13 @@ using InterviewQuiz.Access.Authentication;
 using InterviewQuiz.Access.Domain;
 using InterviewQuiz.Access.Infrastructure;
 using InterviewQuiz.Access.Infrastructure.Seeding;
+using InterviewQuiz.Kernel.Clock;
 using InterviewQuiz.Kernel.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace InterviewQuiz.Host.IntegrationTests;
 
@@ -155,6 +159,74 @@ public sealed class SuperAdminApiTests
         Assert.Equal(SuperAdminRole.Name, super.Name);
         Assert.DoesNotContain(PermissionCodes.Candidate.AttemptParticipate, super.PermissionCodes);
         Assert.Contains(PermissionCodes.Access.UsersManage, super.PermissionCodes);
+    }
+
+    [RequiresDatabaseFact]
+    public async Task Bootstrapped_existing_user_token_and_me_include_reports_read()
+    {
+        var email = $"existing-{Guid.NewGuid():N}@example.com";
+        var user = await CreateUserAsync(email, "Existing.Pass!1");
+        await AssignRoleAsync(user.Id, DevelopmentAccessSeeder.ReviewerRoleId);
+        await RemoveRolePermissionAsync(PermissionCodes.Evaluation.ReportsRead);
+
+        await BootstrapAsync(email);
+
+        var login = await LoginAsync(email, "Existing.Pass!1");
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var tokens = await login.Content.ReadFromJsonAsync<TokenResponse>(JsonOptions);
+        Assert.NotNull(tokens);
+
+        var issued = new JwtSecurityTokenHandler().ReadJwtToken(tokens!.AccessToken).Claims
+            .Where(claim => claim.Type == PermissionClaims.Permission)
+            .Select(claim => claim.Value)
+            .ToArray();
+        Assert.Contains(PermissionCodes.Evaluation.ReportsRead, issued);
+        Assert.DoesNotContain(PermissionCodes.Candidate.AttemptParticipate, issued);
+
+        var me = await Client(tokens.AccessToken).GetFromJsonAsync<MeResponse>("/api/me", JsonOptions);
+        Assert.NotNull(me);
+        Assert.Contains(PermissionCodes.Evaluation.ReportsRead, me!.Permissions);
+        Assert.DoesNotContain(PermissionCodes.Candidate.AttemptParticipate, me.Permissions);
+
+        await RemoveRolePermissionAsync(PermissionCodes.Evaluation.ReportsRead);
+        await BootstrapAsync(email);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
+        var synced = await db.RolePermissions.AsNoTracking().AnyAsync(permission =>
+            permission.RoleId == SuperAdminRole.Id
+            && permission.PermissionCode == PermissionCodes.Evaluation.ReportsRead);
+        Assert.True(synced);
+        var assigned = await db.UserRoles.AsNoTracking().AnyAsync(assignment =>
+            assignment.UserId == user.Id && assignment.RoleId == SuperAdminRole.Id);
+        Assert.True(assigned);
+    }
+
+    private async Task BootstrapAsync(string email)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var services = scope.ServiceProvider;
+        var bootstrap = new SuperAdminBootstrap(
+            services.GetRequiredService<AccessDbContext>(),
+            services.GetRequiredService<UserManager<ApplicationUser>>(),
+            services.GetRequiredService<IBootstrapPasswordService>(),
+            Options.Create(new BootstrapOptions { SuperAdminEmail = email }),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<ILogger<SuperAdminBootstrap>>());
+        await bootstrap.EnsureAsync();
+    }
+
+    private async Task AssignRoleAsync(string userId, Guid roleId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
+        var exists = await db.UserRoles.AnyAsync(assignment =>
+            assignment.UserId == userId && assignment.RoleId == roleId);
+        if (!exists)
+        {
+            db.UserRoles.Add(new UserRoleAssignment { UserId = userId, RoleId = roleId });
+            await db.SaveChangesAsync();
+        }
     }
 
     private async Task<HttpResponseMessage> LoginAsync(string email, string password)

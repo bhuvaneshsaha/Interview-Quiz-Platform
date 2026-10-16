@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A full page load of a guarded route waits for one shared session restore before the auth or permission guard decides. The access token stays in memory, so a reload used to check permissions while that set was still empty, and routes that run both guards together (quiz and template preview) sent the user Home. `/reports` now stays put for someone who has `reports.read`, including a Super Admin, and a user without that code still lands on Home. A bootstrapped Super Admin access token and `GET /api/me` include `reports.read` even when that person already had an account; startup sync writes the code back onto the Super Admin role when an existing database is missing the row.
+
 ## [0.6.0] - 2026-10-16
 
 ### Added
