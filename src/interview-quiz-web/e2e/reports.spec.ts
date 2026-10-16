@@ -200,9 +200,10 @@ test('a candidate does not see Reporting and cannot open /reports', async ({ pag
   await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Reporting' })).toHaveCount(0);
   await expect(page.locator('#main').getByRole('link', { name: 'Reporting' })).toHaveCount(0);
   await page.goto('/reports');
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/\?denied=1$/);
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByText("You don't have access to that page.")).toBeVisible();
 });
 
 test('the role editor lists View reports under Evaluation', async ({ page }) => {
