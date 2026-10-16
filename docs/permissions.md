@@ -132,7 +132,7 @@ Do not implement as `[Authorize(Roles = "Candidate")]`.
 
 The API still authorizes with permission codes. The extra rule for assigning or revoking this role checks the stable role id, never the display name. That call also requires `roles.manage`, and the actor must already hold the role. Each assign and revoke writes `access.audit_events` (actor, action, target, time, correlation id).
 
-The role cannot be renamed, deleted, or reduced. The API returns 409 if the last active holder (not disabled) is unassigned or deactivated. The role editor shows it read-only with a warning badge.
+The role cannot be renamed, deleted, or reduced. The API returns 409 if the last active holder (not disabled) is unassigned or deactivated. The role editor shows a System badge, the role description, and a read-only form.
 
 ### Break-glass
 
@@ -146,6 +146,25 @@ Keep the number of holders minimal. The first holder is not a password in git.
 
 ---
 
+## Admin and Super Admin
+
+Super Admin owns the system. Admin runs it. Both are permission bundles. API and UI still authorize with permission codes, never these names.
+
+| | Super Admin | Admin |
+|--|-------------|--------|
+| Kind | System role. Locked. | Built-in role. Seeded in every environment, not only Development. |
+| Stable id | `f8c1a0b2-6d4e-4a11-9c3e-1b7a5d0e0001` | `aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2004` (the former Development Dev Admin id, so existing holders stay on this row) |
+| Permissions | Every employee catalog code. Startup rewrites the set when the catalog grows. | Every employee catalog code at first seed. An operator can add or remove codes afterward, and startup leaves those edits in place. A new catalog code is not copied onto Admin automatically. |
+| `candidate.attempt.participate` | Never. | Never. Startup removes it if a row is present. The role API rejects it on every employee role. |
+| Rename or delete | Neither. The API returns 409. | Name and description stay fixed. Delete returns 409. Permissions can be edited. |
+| Assign or revoke Super Admin | Only someone who already holds Super Admin, and who also has `roles.manage`. | No. The API returns 403. Admin can still assign and revoke other roles. |
+| Last holder | The last active holder cannot be unassigned or deactivated. | Not protected that way. |
+| Role editor | Badge **System**, plus the role description. The form is read-only. | Badge **Built-in**, plus the role description. Name and description are fixed. Permission checkboxes and Save stay available. Delete is hidden. |
+
+The migration inserts Admin, grants the employee catalog, and moves users off any leftover role named Dev Admin before deleting that extra role. Startup repeats the name, description, and fold so a database that already ran older seeds still has one Admin role. `admin.dev@example.com` (`Dev.Admin!1`) is a Development holder of this built-in role. It is not a separate Dev Admin role.
+
+---
+
 ## Suggested Development seed bundles (not product roles)
 
 Names below are **sample Identity role rows** for local seed only. Production operators create their own bundles. Code and UI must not branch on these names.
@@ -155,7 +174,8 @@ Names below are **sample Identity role rows** for local seed only. Production op
 | Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `reports.read`, `filters.write`, `filters.share` |
 | Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write`, `ai.draft.use`, `filters.write`, `reports.read` |
 | Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review`, `reports.read` |
-| Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, `reports.read`, plus read of openings/catalog as needed to administer |
+
+Admin is the built-in role above, not a Development sample bundle. The local account `admin.dev@example.com` holds that role.
 
 Never seed production with extra privilege by accident.
 

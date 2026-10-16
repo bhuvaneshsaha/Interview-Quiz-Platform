@@ -245,6 +245,67 @@ test('the role editor lists View reports under Evaluation', async ({ page }) => 
   await expect(group.getByRole('checkbox', { name: /View reports/ })).toBeVisible();
 });
 
+test('the role editor shows System and Built-in descriptions', async ({ page }) => {
+  const superAdminId = 'f8c1a0b2-6d4e-4a11-9c3e-1b7a5d0e0001';
+  const adminRoleId = 'aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2004';
+  const superAdminDescription =
+    'System role. Holds every employee permission except candidate attempt access. Cannot be renamed, deleted, or reduced.';
+  const adminDescription =
+    'Built-in role. Runs day-to-day administration and starts with every employee permission. Permissions can be edited. It cannot assign or revoke Super Admin, and it cannot be deleted.';
+  await install(page, ['roles.manage'], []);
+  await page.route('**/api/permissions', async (route) => {
+    await json(route, [
+      {
+        code: 'reports.read',
+        displayName: 'View reports',
+        module: 'evaluation',
+        includeInEmployeeRoleEditor: true,
+      },
+      {
+        code: 'roles.manage',
+        displayName: 'Manage permission groups',
+        module: 'access',
+        includeInEmployeeRoleEditor: true,
+      },
+    ]);
+  });
+  await page.route('**/api/roles/**', async (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').pop();
+    const system = id === superAdminId;
+    await json(route, {
+      id: system ? superAdminId : adminRoleId,
+      name: system ? 'Super Admin' : 'Admin',
+      description: system ? superAdminDescription : adminDescription,
+      permissionCodes: ['reports.read', 'roles.manage'],
+      userIds: [],
+      isSystem: system,
+      isBuiltIn: !system,
+    });
+  });
+
+  await signIn(page, `/roles/${superAdminId}`, 'admin.dev@example.com', 'Dev.Admin!1');
+  await expect(page.getByRole('heading', { name: 'Edit role' })).toBeVisible();
+  await expect(page.locator('.system-badge')).toHaveText('System');
+  await expect(page.locator('.role-explanation')).toHaveText(superAdminDescription);
+  await expect(page.getByLabel('Name')).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: /View reports/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Save role' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete role' })).toHaveCount(0);
+
+  await page.goto(`/roles/${adminRoleId}`);
+  await expect(page.getByRole('heading', { name: 'Edit role' })).toBeVisible();
+  await expect(page.locator('.builtin-badge')).toHaveText('Built-in');
+  await expect(page.locator('.role-explanation')).toHaveText(adminDescription);
+  await expect(page.getByLabel('Name')).toBeDisabled();
+  await expect(page.getByLabel('Description')).toBeDisabled();
+  const reports = page.getByRole('checkbox', { name: /View reports/ });
+  await expect(reports).toBeEnabled();
+  await reports.check();
+  await expect(reports).toBeChecked();
+  await expect(page.getByRole('button', { name: 'Save role' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete role' })).toHaveCount(0);
+});
+
 test('reports stay hidden without reports.read', async ({ page }) => {
   await install(page, ['assignments.read', 'attempts.read'], []);
   await signIn(page, '/');

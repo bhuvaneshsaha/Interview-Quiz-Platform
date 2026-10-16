@@ -33,12 +33,29 @@
   margin-top: 1rem;
 }
 
-.system-badge {
-  margin: 0 0 1rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid #8a5a00;
+.system-badge,
+.builtin-badge {
+  display: inline-block;
+  margin: 0 0 0.75rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.system-badge {
+  border: 1px solid #8a5a00;
   background: #fff4d6;
   color: #6b3f00;
-  font-weight: 650;
+}
+
+.builtin-badge {
+  border: 1px solid #1d4e89;
+  background: #e7f0fa;
+  color: #1d4e89;
+}
+
+.role-explanation {
+  margin: 0 0 1rem;
+  max-width: 42rem;
 }

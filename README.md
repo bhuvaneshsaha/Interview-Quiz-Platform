@@ -234,7 +234,7 @@ These accounts exist only when the host runs in Development (or tests seed them)
 | `recruiter.dev@example.com` | `Dev.Recruiter!1` | Dev Recruiter | `templates.read` + `filters.write` + `filters.share`; **`assignments.write`** + `assignments.read` + `attempts.read` + **`reports.read`**; **no** `quizzes.write` (cannot clone); **no** `questions.*` |
 | `author.dev@example.com` | `Dev.Author!1` | Dev Template author | `templates.write` + `quizzes.write` + `questions.read` + `questions.write`; `filters.write`; **`reports.read`**; **typically no** `assignments.*` (no Assignments nav) |
 | `reviewer.dev@example.com` | `Dev.Reviewer!1` | Dev Reviewer | `assignments.read` + `attempts.read` + `attempts.review` + **`reports.read`**; no template/filter/bank write |
-| `admin.dev@example.com` | `Dev.Admin!1` | Dev Admin | **`reports.read`**. Role editor can assign `questions.*` / `assignments.*`; they are not on this seed bundle |
+| `admin.dev@example.com` | `Dev.Admin!1` | Admin (built-in) | Every employee permission by default, including `users.manage`, `roles.manage`, and **`reports.read`**. No `candidate.attempt.participate`. Permissions can be edited. This account cannot assign or revoke Super Admin |
 
 There is **no** dummy candidate password. `candidate.dev@example.com` is magic-link only (seed assignment `7e1a5b54-0f6b-4a3e-bc55-4d2a6f0e5001`). Dummy passwords stay in this table only.
 
