@@ -7,7 +7,7 @@
     </button>
   </div>
   <p>{{ current.description }}</p>
-  <p class="hint">Do not mix cohorts across quiz versions or snapshots.</p>
+  <p class="hint">Don't combine results from different quiz versions.</p>
   @if (response()?.defaultWindowApplied) {
     <p>Showing assignments created in the last 90 days.</p>
   }
@@ -221,13 +221,13 @@
   @if (questions(); as data) {
     @if (data.items.length > 0) {
       <table class="data-table" data-testid="report-table">
-        <caption>Difficulty and discrimination for settled auto-scored questions.</caption>
+        <caption>How hard each automatically scored question was.</caption>
         <thead>
           <tr>
             <th>Question</th>
-            <th>Settled</th>
-            <th>Difficulty</th>
-            <th>Discrimination</th>
+            <th>Answers counted</th>
+            <th>How hard</th>
+            <th>Comparison</th>
           </tr>
         </thead>
         <tbody>
@@ -236,7 +236,7 @@
               <td>{{ row.stem }}</td>
               <td>{{ row.settledCount }}</td>
               <td>{{ row.difficulty }}</td>
-              <td>{{ row.discriminationHidden ? 'Hidden (n < 30)' : row.discrimination }}</td>
+              <td>{{ row.discriminationHidden ? 'Hidden until 30 answers' : row.discrimination }}</td>
             </tr>
           }
         </tbody>

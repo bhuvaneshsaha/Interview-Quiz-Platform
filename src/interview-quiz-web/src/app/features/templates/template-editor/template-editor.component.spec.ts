@@ -119,8 +119,8 @@ describe('TemplateEditor', () => {
     expect(shared.value).toBe('GET');
     expect(perSlot.value).toBe('401');
     expect(fixture.nativeElement.textContent).toContain('Add slot');
-    expect(fixture.nativeElement.textContent).toContain('Add bank item');
-    expect(fixture.nativeElement.textContent).toContain('Correct bank item');
+    expect(fixture.nativeElement.textContent).toContain('Add choice');
+    expect(fixture.nativeElement.textContent).toContain('Correct choice');
 
     shared.value = 'GET method';
     shared.dispatchEvent(new Event('input'));

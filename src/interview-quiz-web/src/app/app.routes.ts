@@ -263,7 +263,7 @@ export const routes: Routes = [
           import('./features/openings/field-definitions/field-definitions.component').then(
             (m) => m.FieldDefinitions,
           ),
-        title: 'Opening field defaults',
+        title: 'Opening fields',
       },
       {
         path: 'roles',

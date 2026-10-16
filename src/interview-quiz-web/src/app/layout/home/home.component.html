@@ -4,8 +4,7 @@
 }
 @if (!hasSliceOneScreen()) {
   <p>
-    You are signed in, but none of the slice 1–5 screens (openings, quizzes, templates, question
-    bank, assignments, reporting, field defaults, roles, users) are available for your permissions.
+    Your account does not include any of these areas yet. Ask an administrator if you need access.
   </p>
 }
 <ul class="home-links">
@@ -31,10 +30,10 @@
     <a routerLink="/reports">Reporting</a>
   </li>
   <li *hasPermission="codes.OpeningsFieldsManage">
-    <a routerLink="/opening-fields">Opening field defaults</a>
+    <a routerLink="/opening-fields">Opening fields</a>
   </li>
   <li *hasPermission="codes.RolesManage">
-    <a routerLink="/roles">Roles (permission groups)</a>
+    <a routerLink="/roles">Roles</a>
   </li>
   <li *hasPermission="codes.UsersManage">
     <a routerLink="/users">Users</a>

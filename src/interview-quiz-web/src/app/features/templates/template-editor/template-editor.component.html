@@ -12,8 +12,8 @@
   <form [formGroup]="form" (ngSubmit)="save()">
     <p class="hint">
       Save creates version {{ (template()?.latestVersionNumber ?? 0) + 1 }} and copies the questions
-      (new ids, same source). Drag-and-drop slots are part of that copy. Earlier versions, quizzes
-      cloned from them, and assignment snapshots do not change. A name-only change belongs on the
+      (new ids, same source). Matching blanks are part of that copy. Earlier versions, quizzes
+      cloned from them, and quizzes already sent to candidates do not change. A name-only change belongs on the
       template page and reuses these questions instead of copying them.
     </p>
     <div class="field">
@@ -43,7 +43,7 @@
           <legend>Question {{ qi + 1 }}</legend>
           <p class="hint">{{ typeLabels[draftsType(qi)] }}</p>
           <div class="field">
-            <label [attr.for]="'stem-' + qi">Stem</label>
+            <label [attr.for]="'stem-' + qi">Question text</label>
             <textarea [id]="'stem-' + qi" rows="3" formControlName="stem"></textarea>
           </div>
           <div class="field-row">
@@ -61,7 +61,7 @@
             </div>
             @if (requiresCreditMode(draftsType(qi))) {
               <div class="field">
-                <label [attr.for]="'credit-' + qi">Credit mode</label>
+                <label [attr.for]="'credit-' + qi">Credit</label>
                 <select [id]="'credit-' + qi" formControlName="creditMode">
                   @for (mode of creditModes; track mode) {
                     <option [value]="mode">{{ creditLabels[mode] }}</option>
@@ -69,9 +69,7 @@
                 </select>
                 @if (draftsType(qi) === 'ordering') {
                   <p class="hint">
-                    Partial credit counts a hit only when positions i and i+1 match the keyed pair.
-                    The answer must be the same items. A neighboring pair in the wrong place does not
-                    score. That is stricter than a loose “order matters.”
+                    Partial credit scores a pair only when two neighboring items are in the right order.
                   </p>
                 }
               </div>
@@ -81,26 +79,26 @@
           @if (draftsType(qi) === 'dragDropSharedBank') {
             <div formGroupName="body">
               <fieldset class="inner-fieldset">
-                <legend>Bank</legend>
+                <legend>Choices</legend>
                 @for (item of bankArray(qi).controls; track $index; let j = $index) {
                   <div class="item-row" [formGroup]="bankGroup(qi, j)">
                     <div class="field grow">
-                      <label [attr.for]="'q-' + qi + '-bank-' + j">Bank item {{ j + 1 }}</label>
+                      <label [attr.for]="'q-' + qi + '-bank-' + j">Choice {{ j + 1 }}</label>
                       <input [id]="'q-' + qi + '-bank-' + j" type="text" formControlName="text" />
                     </div>
                     <div class="field">
                       <label [attr.for]="'q-' + qi + '-dist-' + j">
                         <input [id]="'q-' + qi + '-dist-' + j" type="checkbox" formControlName="isDistractor" />
-                        Distractor
+                        Wrong answer
                       </label>
                     </div>
                     <button type="button" class="button button-quiet" (click)="removeBankItem(qi, j)">
-                      Remove bank item
+                      Remove choice
                     </button>
                   </div>
                 }
                 <button type="button" class="button button-quiet" (click)="addBankItem(qi)">
-                  Add bank item
+                  Add choice
                 </button>
               </fieldset>
               <fieldset class="inner-fieldset">
@@ -117,10 +115,10 @@
                       />
                     </div>
                     <div class="field grow">
-                      <label [attr.for]="'q-' + qi + '-slot-correct-' + j">Correct bank item</label>
+                      <label [attr.for]="'q-' + qi + '-slot-correct-' + j">Correct choice</label>
                       <select [id]="'q-' + qi + '-slot-correct-' + j" formControlName="correctItemId">
-                        @for (item of bankItems(qi); track item.id) {
-                          <option [value]="item.id">{{ item.text || item.id }}</option>
+                        @for (item of bankItems(qi); track item.id; let choiceIndex = $index) {
+                          <option [value]="item.id">{{ item.text.trim() || 'Choice ' + (choiceIndex + 1) }}</option>
                         }
                       </select>
                     </div>

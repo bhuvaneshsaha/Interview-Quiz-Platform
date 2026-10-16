@@ -81,7 +81,10 @@ export class LiveSession implements OnInit {
     if (!progress) {
       return 'No';
     }
-    const seen = progress.lastActivityAtUtc ? this.formatWhen(progress.lastActivityAtUtc) : 'not seen yet';
+    if (!progress.lastActivityAtUtc) {
+      return progress.candidateConnected ? 'Yes' : 'Not connected yet';
+    }
+    const seen = this.formatWhen(progress.lastActivityAtUtc);
     return progress.candidateConnected ? `Yes, last seen ${seen}` : `No, last seen ${seen}`;
   }
 

@@ -55,7 +55,7 @@
           <input type="radio" formControlName="source" value="template" data-testid="source-template" />
           Template
         </label>
-        <p class="hint">A template creates a quiz in this opening, then snapshots that quiz for the candidate.</p>
+        <p class="hint">A template creates a quiz in this opening. The candidate gets that quiz as it is now.</p>
       </fieldset>
     }
 
@@ -198,7 +198,7 @@
     <section class="created" aria-live="polite">
       <h2>Assignment created</h2>
       <p>
-        Status {{ statusLabel(assignment.status) }} · snapshot {{ assignment.snapshotTitle }} ({{
+        Status {{ statusLabel(assignment.status) }} · quiz {{ assignment.snapshotTitle }} ({{
           assignment.snapshotQuestionCount
         }}
         questions).

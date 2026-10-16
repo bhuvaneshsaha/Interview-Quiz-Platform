@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Staff sign-in, home, and navigation use the same plain names (Opening fields, Roles) and no longer mention a candidate URL. Question and quiz editors say question text, choices, wrong answer, and how a question is scored. Assignment and attempt pages say version instead of snapshot or revision, and a live join link no longer claims it is emailed. Reports describe results in everyday language (#75, #76, #77, #80, #87, #88, #90).
+
 ### Fixed
 
 - Replacing an invite that is already active or expired asks first, and the button says Re-issue. Archiving a question, disabling a user, and deleting a role ask first too (#73, #82).

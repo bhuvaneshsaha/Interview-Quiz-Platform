@@ -375,7 +375,7 @@
             </div>
             @if (needsCreditMode(i)) {
               <div class="field">
-                <label [attr.for]="'q-' + i + '-credit'">Credit mode</label>
+                <label [attr.for]="'q-' + i + '-credit'">Credit</label>
                 <select
                   [id]="'q-' + i + '-credit'"
                   formControlName="creditMode"
@@ -392,9 +392,7 @@
                 }
                 @if (questionType(i) === 'ordering') {
                   <p class="hint">
-                    Partial credit counts a hit only when positions i and i+1 match the keyed pair.
-                    The answer must be the same items. A neighboring pair in the wrong place does not
-                    score. That is stricter than a loose “order matters.”
+                    Partial credit scores a pair only when two neighboring items are in the right order.
                   </p>
                 }
               </div>
@@ -402,7 +400,7 @@
           </div>
 
           <div class="field">
-            <label [attr.for]="'q-' + i + '-stem'">Stem</label>
+            <label [attr.for]="'q-' + i + '-stem'">Question text</label>
             <textarea
               [id]="'q-' + i + '-stem'"
               rows="3"
@@ -516,7 +514,7 @@
               }
               @case ('dragDropSharedBank') {
                 <fieldset class="inner-fieldset">
-                  <legend>Bank</legend>
+                  <legend>Choices</legend>
                   @if (errorFor('questions.' + i + '.body.bank'); as message) {
                     <p class="field-error" [attr.data-field]="'questions.' + i + '.body.bank'" tabindex="-1">
                       {{ message }}
@@ -525,7 +523,7 @@
                   @for (item of bankArray(i).controls; track $index; let j = $index) {
                     <div class="item-row" [formGroup]="bankGroup(i, j)">
                       <div class="field grow">
-                        <label [attr.for]="'q-' + i + '-bank-' + j">Bank item {{ j + 1 }}</label>
+                        <label [attr.for]="'q-' + i + '-bank-' + j">Choice {{ j + 1 }}</label>
                         <input
                           [id]="'q-' + i + '-bank-' + j"
                           type="text"
@@ -539,7 +537,7 @@
                       <div class="field">
                         <label [attr.for]="'q-' + i + '-dist-' + j">
                           <input [id]="'q-' + i + '-dist-' + j" type="checkbox" formControlName="isDistractor" />
-                          Distractor
+                          Wrong answer
                         </label>
                       </div>
                       <button
@@ -548,7 +546,7 @@
                         class="button button-quiet"
                         (click)="removeBankItem(i, j)"
                       >
-                        Remove bank item
+                        Remove choice
                       </button>
                     </div>
                   }
@@ -558,7 +556,7 @@
                     class="button button-quiet"
                     (click)="addBankItem(i)"
                   >
-                    Add bank item
+                    Add choice
                   </button>
                 </fieldset>
                 <fieldset class="inner-fieldset">
@@ -583,14 +581,14 @@
                         }
                       </div>
                       <div class="field grow">
-                        <label [attr.for]="'q-' + i + '-slot-correct-' + j">Correct bank item</label>
+                        <label [attr.for]="'q-' + i + '-slot-correct-' + j">Correct choice</label>
                         <select
                           [id]="'q-' + i + '-slot-correct-' + j"
                           formControlName="correctItemId"
                           [attr.data-field]="'questions.' + i + '.body.slots.' + j + '.correctItemId'"
                         >
-                          @for (item of bankItems(i); track item.id) {
-                            <option [value]="item.id">{{ item.text || item.id }}</option>
+                          @for (item of bankItems(i); track item.id; let choiceIndex = $index) {
+                            <option [value]="item.id">{{ item.text.trim() || 'Choice ' + (choiceIndex + 1) }}</option>
                           }
                         </select>
                         @if (errorFor('questions.' + i + '.body.slots.' + j + '.correctItemId'); as message) {
@@ -728,7 +726,7 @@
                         />
                       </div>
                       <div class="field">
-                        <label [attr.for]="'q-' + i + '-ord-idx-' + j">Correct index (0 is first)</label>
+                        <label [attr.for]="'q-' + i + '-ord-idx-' + j">Correct place (0 is the first)</label>
                         <input
                           [id]="'q-' + i + '-ord-idx-' + j"
                           type="number"
@@ -836,7 +834,7 @@
       (keydown.escape)="cancelEditConfirm()"
     >
       <h2 id="edit-confirm-title">Save changes to an assigned quiz?</h2>
-      <p>{{ assignmentBanner() }} Snapshots already assigned stay frozen.</p>
+      <p>{{ assignmentBanner() }} Quizzes already sent to candidates stay as they were.</p>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" (click)="cancelEditConfirm()">Cancel</button>
         <button type="button" class="button" data-testid="confirm-quiz-edit" (click)="confirmEditAndSave()">

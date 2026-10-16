@@ -129,7 +129,7 @@ test('reporting hub, funnel chart, filter, and csv export', async ({ page }) => 
   await expect(page.getByTestId('report-table')).toContainText('Backend opening');
   await expect(page.getByRole('img', { name: /Assigned 3/ })).toBeVisible();
   await expect(page.getByText('Showing assignments created in the last 90 days.')).toBeVisible();
-  await expect(page.getByText('Do not mix cohorts across quiz versions or snapshots.')).toBeVisible();
+  await expect(page.getByText("Don't combine results from different quiz versions.")).toBeVisible();
   await expect(page.getByRole('link', { name: 'Backend opening' })).toHaveAttribute(
     'href',
     `/assignments?openingId=${openingId}`,
