@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Create opening, create user, and create role say what is missing instead of staying silent. An AI draft with no opening says to select one, and a sample draft no longer shows the word fake (#74, #83, #86).
+
 ## [0.6.2] - 2026-10-16
 
 ### Fixed
