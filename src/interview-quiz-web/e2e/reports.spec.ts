@@ -104,10 +104,15 @@ async function install(page: Page, permissions: string[], criteriaCalls: string[
   });
 }
 
-async function signIn(page: Page, returnUrl: string): Promise<void> {
+async function signIn(
+  page: Page,
+  returnUrl: string,
+  email = 'recruiter.dev@example.com',
+  password = 'Dev.Recruiter!1',
+): Promise<void> {
   await page.goto(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
-  await page.getByLabel('Email').fill('recruiter.dev@example.com');
-  await page.getByLabel('Password').fill('Dev.Recruiter!1');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
@@ -160,6 +165,44 @@ test('a signed-in reload of /reports stays on the page', async ({ page }) => {
   await expect(page).toHaveURL(/\/reports$/);
   await expect(page.getByRole('heading', { name: 'Reporting' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Reporting' })).toBeVisible();
+});
+
+test('admin.dev opens /reports', async ({ page }) => {
+  await install(
+    page,
+    [
+      'reports.read',
+      'users.manage',
+      'roles.manage',
+      'openings.read',
+      'quizzes.read',
+      'templates.read',
+    ],
+    [],
+  );
+  const login = page.waitForRequest(
+    (request) => request.method() === 'POST' && request.url().includes('/api/auth/login'),
+  );
+  await signIn(page, '/reports', 'admin.dev@example.com', 'Dev.Admin!1');
+  expect((await login).postDataJSON()).toMatchObject({
+    email: 'admin.dev@example.com',
+    password: 'Dev.Admin!1',
+  });
+  await expect(page).toHaveURL(/\/reports$/);
+  await expect(page.getByRole('heading', { name: 'Reporting' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Reporting' })).toBeVisible();
+});
+
+test('a candidate does not see Reporting and cannot open /reports', async ({ page }) => {
+  await install(page, ['candidate.attempt.participate'], []);
+  await signIn(page, '/');
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Reporting' })).toHaveCount(0);
+  await expect(page.locator('#main').getByRole('link', { name: 'Reporting' })).toHaveCount(0);
+  await page.goto('/reports');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page).not.toHaveURL(/\/login/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 });
 
 test('reports stay hidden without reports.read', async ({ page }) => {

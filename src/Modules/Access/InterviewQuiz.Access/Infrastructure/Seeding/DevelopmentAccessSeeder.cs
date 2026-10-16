@@ -88,7 +88,8 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Catalog.QuestionsRead,
                 PermissionCodes.Catalog.QuestionsWrite,
                 PermissionCodes.Catalog.AiDraftUse,
-                PermissionCodes.Search.FiltersWrite
+                PermissionCodes.Search.FiltersWrite,
+                PermissionCodes.Evaluation.ReportsRead
             ],
             cancellationToken);
 
@@ -100,7 +101,8 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Openings.Read,
                 PermissionCodes.Delivery.AssignmentsRead,
                 PermissionCodes.Evaluation.AttemptsRead,
-                PermissionCodes.Evaluation.AttemptsReview
+                PermissionCodes.Evaluation.AttemptsReview,
+                PermissionCodes.Evaluation.ReportsRead
             ],
             cancellationToken);
 
@@ -118,7 +120,8 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Access.ArchiveRestoreCatalog,
                 PermissionCodes.Openings.Read,
                 PermissionCodes.Catalog.QuizzesRead,
-                PermissionCodes.Catalog.TemplatesRead
+                PermissionCodes.Catalog.TemplatesRead,
+                PermissionCodes.Evaluation.ReportsRead
             ],
             cancellationToken);
 

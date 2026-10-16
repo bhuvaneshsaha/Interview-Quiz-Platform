@@ -85,7 +85,7 @@ Slice 5 does **not** add saved-filter `target: assignments`.
 | Code | Display name | Capability |
 |------|----------------|------------|
 | `attempts.read` | View attempts and results | `GET /api/assignments/{id}/attempts`, `GET /api/attempts/{id}` — scores/outcomes. **Not** review. Angular assignment detail results panel. Dev Recruiter seed has this. |
-| `reports.read` | View reports | Reporting v1. Company-wide `GET /api/reports/*` and CSV export. Angular `/reports` and `/reports/:reportKey`. Dev Recruiter seed includes it. Super Admin receives it from `PermissionCodes.All`. Dev Reviewer does **not**. |
+| `reports.read` | View reports | Reporting v1. Company-wide `GET /api/reports/*` and CSV export. Angular `/reports` and `/reports/:reportKey`. Every Development employee seed includes it, and Super Admin receives it from `PermissionCodes.All`. A candidate session does not. |
 | `attempts.review` | Review attempts | Score `humanOnly` and `aiAssist` items and finalise a result. `GET /api/attempts/{id}/review`, `POST /api/attempts/{id}/items/{itemId}/review`, and `POST /api/attempts/{id}/items/{itemId}/suggestion`. Angular `/assignments/:assignmentId/attempts/:attemptId/review`. Dev Reviewer seed includes it. `attempts.review` does not grant `reports.read`. Answer keys and AI drafts are on this payload only. |
 
 Generating authoring drafts is `ai.draft.use`, not this code. A review suggestion uses `attempts.review`. Auto-score does not use `attempts.review`.
@@ -153,9 +153,9 @@ Names below are **sample Identity role rows** for local seed only. Production op
 | Seed name | Permission codes (union) |
 |-----------|---------------------------|
 | Dev Recruiter | `openings.read`, `openings.write`, `quizzes.read`, `templates.read`, `assignments.read`, `assignments.write`, `sessions.live.run`, `attempts.read`, `reports.read`, `filters.write`, `filters.share` |
-| Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write`, `ai.draft.use`, `filters.write` |
-| Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review` (no `reports.read`) |
-| Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, plus read of openings/catalog as needed to administer |
+| Dev Template author | `openings.read`, `quizzes.read`, `quizzes.write`, `templates.read`, `templates.write`, `questions.read`, `questions.write`, `ai.draft.use`, `filters.write`, `reports.read` |
+| Dev Reviewer | `openings.read`, `assignments.read`, `attempts.read`, `attempts.review`, `reports.read` |
+| Dev Admin | `users.manage`, `roles.manage`, `openings.fields.manage`, `ai.rules.manage`, `archive.restore.resumes`, `archive.restore.attempts`, `archive.restore.catalog`, `reports.read`, plus read of openings/catalog as needed to administer |
 
 Never seed production with extra privilege by accident.
 
