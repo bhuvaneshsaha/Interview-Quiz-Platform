@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Every employee role can view Reporting. Development seeds for Admin, Template author, Recruiter, and Reviewer include `reports.read`, and a migration grants that code to employee roles already stored. A role that holds `candidate.attempt.participate` is left unchanged. Candidates still receive 403 from the reports API, and the app hides the Reporting link and sends `/reports` home (#61).
+- Every employee role can view Reporting. Development seeds for Admin, Template author, Recruiter, and Reviewer include `reports.read`, and a migration grants that code to employee roles already stored. A role that holds `candidate.attempt.participate` is left unchanged. Candidates still receive 403 from the reports API, and the app hides the Reporting link and sends `/reports` home. `GET /api/permissions` lists `reports.read` as “View reports” in the Evaluation group, and the role editor shows that checkbox so an admin can assign or remove it (#61).
 
 ## [0.6.2] - 2026-10-16
 

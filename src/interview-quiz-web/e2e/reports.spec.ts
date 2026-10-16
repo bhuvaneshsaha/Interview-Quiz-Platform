@@ -205,6 +205,46 @@ test('a candidate does not see Reporting and cannot open /reports', async ({ pag
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 });
 
+test('the role editor lists View reports under Evaluation', async ({ page }) => {
+  await install(page, ['roles.manage', 'reports.read'], []);
+  await page.route('**/api/permissions', async (route) => {
+    await json(route, [
+      {
+        code: 'reports.read',
+        displayName: 'View reports',
+        module: 'evaluation',
+        includeInEmployeeRoleEditor: true,
+      },
+      {
+        code: 'attempts.read',
+        displayName: 'View attempts and results',
+        module: 'evaluation',
+        includeInEmployeeRoleEditor: true,
+      },
+      {
+        code: 'candidate.attempt.participate',
+        displayName: 'Take and submit own attempt',
+        module: 'candidate',
+        includeInEmployeeRoleEditor: false,
+      },
+    ]);
+  });
+  await signIn(page, '/roles/new', 'admin.dev@example.com', 'Dev.Admin!1');
+  await expect(page.getByRole('heading', { name: 'Create role' })).toBeVisible();
+  const group = page.getByRole('region', { name: 'Evaluation' }).or(page.locator('section', { has: page.getByRole('heading', { name: 'Evaluation' }) }));
+  await expect(page.getByRole('heading', { name: 'Evaluation' })).toBeVisible();
+  const reports = page.getByRole('checkbox', { name: /View reports/ });
+  await expect(reports).toBeVisible();
+  await expect(reports).toBeEnabled();
+  await expect(page.getByText('reports.read', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Take and submit own attempt/ })).toHaveCount(0);
+  await reports.check();
+  await expect(reports).toBeChecked();
+  await reports.uncheck();
+  await expect(reports).not.toBeChecked();
+  await expect(group.getByRole('checkbox', { name: /View reports/ })).toBeVisible();
+});
+
 test('reports stay hidden without reports.read', async ({ page }) => {
   await install(page, ['assignments.read', 'attempts.read'], []);
   await signIn(page, '/');

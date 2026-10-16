@@ -6,6 +6,19 @@ import { AccessApi } from '../../../core/api/access-api.service';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PageStatus } from '../../../shared/page-status/page-status.component';
 
+const moduleLabels: Readonly<Record<string, string>> = {
+  access: 'Access',
+  openings: 'Openings',
+  catalog: 'Catalog',
+  delivery: 'Delivery',
+  evaluation: 'Evaluation',
+  search: 'Search',
+};
+
+export function permissionModuleLabel(module: string): string {
+  return moduleLabels[module] ?? module.charAt(0).toUpperCase() + module.slice(1);
+}
+
 @Component({
   selector: 'app-role-editor',
   imports: [ReactiveFormsModule, RouterLink, PageStatus],
@@ -34,7 +47,11 @@ export class RoleEditor implements OnInit {
       list.push(permission);
       groups.set(permission.module, list);
     }
-    return [...groups.entries()].map(([module, permissions]) => ({ module, permissions }));
+    return [...groups.entries()].map(([module, permissions]) => ({
+      module,
+      label: permissionModuleLabel(module),
+      permissions,
+    }));
   });
 
   readonly form = this.fb.nonNullable.group({

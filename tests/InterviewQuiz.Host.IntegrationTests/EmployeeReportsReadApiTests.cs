@@ -132,6 +132,58 @@ public sealed class EmployeeReportsReadApiTests
         }
     }
 
+    [RequiresDatabaseFact]
+    public async Task Catalog_lists_reports_read_and_an_admin_can_assign_or_remove_it()
+    {
+        var login = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new
+        {
+            email = DevelopmentAccessSeeder.AdminEmail,
+            password = DevelopmentAccessSeeder.AdminPassword
+        });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var tokens = await login.Content.ReadFromJsonAsync<TokenResponse>(JsonOptions);
+        Assert.NotNull(tokens);
+        var client = Client(tokens.AccessToken);
+
+        var catalog = await client.GetFromJsonAsync<List<PermissionResponse>>("/api/permissions", JsonOptions);
+        var reports = catalog!.Single(permission => permission.Code == PermissionCodes.Evaluation.ReportsRead);
+        Assert.Equal("View reports", reports.DisplayName);
+        Assert.Equal("evaluation", reports.Module);
+        Assert.True(reports.IncludeInEmployeeRoleEditor);
+
+        var name = $"Reports bundle {Guid.NewGuid():N}";
+        var createdResponse = await client.PostAsJsonAsync("/api/roles", new
+        {
+            name,
+            description = "Assign reports.read",
+            permissionCodes = new[] { PermissionCodes.Evaluation.ReportsRead }
+        });
+        Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
+        var created = await createdResponse.Content.ReadFromJsonAsync<RoleResponse>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.Contains(PermissionCodes.Evaluation.ReportsRead, created.PermissionCodes);
+
+        try
+        {
+            var updatedResponse = await client.PutAsJsonAsync($"/api/roles/{created.Id}", new
+            {
+                name,
+                description = "Removed reports.read",
+                permissionCodes = new[] { PermissionCodes.Openings.Read }
+            });
+            Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
+            var updated = await updatedResponse.Content.ReadFromJsonAsync<RoleResponse>(JsonOptions);
+            Assert.NotNull(updated);
+            Assert.DoesNotContain(PermissionCodes.Evaluation.ReportsRead, updated.PermissionCodes);
+            Assert.Contains(PermissionCodes.Openings.Read, updated.PermissionCodes);
+        }
+        finally
+        {
+            var deleted = await client.DeleteAsync($"/api/roles/{created.Id}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
     private static Task<bool> HasReportsReadAsync(AccessDbContext db, Guid roleId)
         => db.RolePermissions.AsNoTracking().AnyAsync(permission =>
             permission.RoleId == roleId && permission.PermissionCode == PermissionCodes.Evaluation.ReportsRead);
