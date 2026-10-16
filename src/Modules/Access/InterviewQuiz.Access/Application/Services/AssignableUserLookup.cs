@@ -19,7 +19,7 @@ public sealed class AssignableUserLookup : IAssignableUserLookup
         CancellationToken cancellationToken)
     {
         var take = Math.Clamp(limit, 1, 20);
-        var users = _db.Users.AsNoTracking().Where(user => !user.IsDisabled);
+        var users = ActiveEmployees();
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
@@ -53,12 +53,25 @@ public sealed class AssignableUserLookup : IAssignableUserLookup
             return new Dictionary<string, AssignableUserDto>(StringComparer.Ordinal);
         }
 
-        var rows = await _db.Users.AsNoTracking()
-            .Where(user => ids.Contains(user.Id) && !user.IsDisabled)
+        var rows = await ActiveEmployees()
+            .Where(user => ids.Contains(user.Id))
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(user => user.Id, Map, StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// Magic-link consume inserts the candidate into this same user table with no
+    /// password and no role (<c>FindOrCreateCandidateAsync</c>). Those rows are not
+    /// disabled, so a disabled-only filter listed them as owners and handlers.
+    /// </summary>
+    private IQueryable<Domain.ApplicationUser> ActiveEmployees()
+        => _db.Users.AsNoTracking().Where(user =>
+            !user.IsDisabled
+            && !user.MustSetPassword
+            && user.PasswordHash != null
+            && user.PasswordHash != ""
+            && _db.UserRoles.Any(assignment => assignment.UserId == user.Id));
 
     internal static AssignableUserDto Map(Domain.ApplicationUser user)
         => new(

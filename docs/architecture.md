@@ -212,7 +212,7 @@ Later (not this pass):
 
 **Versioning:** template publish → new version. Quizzes are mutable working copies; freeze is the **assignment snapshot**, not a full quiz history in v1. Each snapshot stores the quiz `RowVersion` it copied (`delivery.assignment_snapshots."QuizRowVersion"`). Later edits do not change that copy. Catalog reads the assignment count through in-process `IQuizAssignmentUsage` and does not reference Delivery. Candidate preview (`GET`/`POST /api/quizzes/candidate-preview` and the template-version equivalent) uses the same redactor as attempts and persists nothing. Bank item edits (slice 4) mutate the library row only; copies already in quizzes/templates/snapshots stay as they were.
 
-Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable` (`openings.read`) searches assignable staff. A migration maps stored emails to those ids and leaves unmatched text in place. Handler membership does not grant permissions.
+Opening `Owner` and `Handlers` store access user ids. `GET /api/users/assignable` (`openings.read`) returns active employees only: not disabled, able to sign in with a password, and assigned at least one employee role. Magic-link consume creates a candidate identity in the same user table with no password and no role, and that identity is excluded. Create and update reject any other id with 400 and name Owner or Handlers. A migration maps stored emails to those ids and leaves unmatched text in place. Handler membership does not grant permissions.
 
 **Three reuse mechanisms (do not conflate):**
 

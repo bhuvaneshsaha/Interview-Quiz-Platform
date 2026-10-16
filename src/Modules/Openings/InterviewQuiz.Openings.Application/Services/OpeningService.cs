@@ -11,6 +11,9 @@ namespace InterviewQuiz.Openings.Application.Services;
 
 public sealed class OpeningService : IOpeningService, IOpeningLookup
 {
+    public const string OwnerNotEmployeeMessage = "Owner must be an active employee.";
+    public const string HandlersNotEmployeeMessage = "Handlers must be active employees.";
+
     public static readonly ActivitySource ActivitySource = new("InterviewQuiz.Openings");
 
     private readonly IOpeningRepository _openings;
@@ -134,31 +137,37 @@ public sealed class OpeningService : IOpeningService, IOpeningLookup
         IEnumerable<string>? handlers,
         CancellationToken cancellationToken)
     {
-        var ids = new List<string>();
-        if (!string.IsNullOrWhiteSpace(owner))
-        {
-            ids.Add(owner.Trim());
-        }
-
-        foreach (var handler in handlers ?? [])
-        {
-            if (!string.IsNullOrWhiteSpace(handler))
-            {
-                ids.Add(handler.Trim());
-            }
-        }
-
-        if (ids.Count == 0)
+        var ownerId = string.IsNullOrWhiteSpace(owner) ? null : owner.Trim();
+        var handlerIds = (handlers ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (ownerId is null && handlerIds.Length == 0)
         {
             return;
         }
 
-        var known = await _users.GetByIdsAsync(ids, cancellationToken);
-        var missing = ids.Where(id => !known.ContainsKey(id)).Distinct(StringComparer.Ordinal).ToArray();
-        if (missing.Length > 0)
+        var ids = handlerIds.ToList();
+        if (ownerId is not null && !ids.Contains(ownerId, StringComparer.Ordinal))
         {
-            throw new DomainException("Unknown user.");
+            ids.Add(ownerId);
         }
+
+        var known = await _users.GetByIdsAsync(ids, cancellationToken);
+        var ownerRejected = ownerId is not null && !known.ContainsKey(ownerId);
+        var handlersRejected = handlerIds.Any(id => !known.ContainsKey(id));
+        if (!ownerRejected && !handlersRejected)
+        {
+            return;
+        }
+
+        if (ownerRejected && handlersRejected)
+        {
+            throw new DomainException($"{OwnerNotEmployeeMessage} {HandlersNotEmployeeMessage}");
+        }
+
+        throw new DomainException(ownerRejected ? OwnerNotEmployeeMessage : HandlersNotEmployeeMessage);
     }
 
     private async Task<OpeningResponse> MapAsync(Opening opening, CancellationToken cancellationToken)
