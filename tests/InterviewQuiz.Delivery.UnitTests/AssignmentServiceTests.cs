@@ -92,6 +92,7 @@ public sealed class AssignmentServiceTests
         Assert.NotEqual(QuizId, created.SnapshotId);
         Assert.Equal(1, created.SnapshotQuestionCount);
         Assert.Equal("async", created.Mode);
+        Assert.False(created.ShowScoreToCandidate);
         Assert.Null(created.InviteUrl);
 
         var loaded = await service.GetAssignmentWithSnapshotAsync(created.Id, CancellationToken.None);
@@ -100,6 +101,7 @@ public sealed class AssignmentServiceTests
         Assert.Equal(created.SnapshotId, loaded.SnapshotId);
         Assert.Single(loaded.Snapshot.Questions);
         Assert.Equal(QuestionId, loaded.Snapshot.Questions[0].Id);
+        Assert.False(loaded.ShowScoreToCandidate);
         Assert.True(loaded.Snapshot.Questions[0].Body.TryGetProperty("options", out var options));
         Assert.True(options[1].GetProperty("isCorrect").GetBoolean());
     }

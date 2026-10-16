@@ -24,6 +24,7 @@ import {
   CREDIT_MODES,
   defaultBodyForType,
   defaultCreditMode,
+  bankQuestionAsQuizDraft,
   defaultQuestionDraft,
   defaultScoringMode,
   EXPERIENCE_MAX,
@@ -139,7 +140,7 @@ export class QuizForm implements OnInit {
   }
 
   get showIncludeFromBank(): boolean {
-    return this.canWrite && this.canReadQuestions && !this.isNew();
+    return this.canWrite && this.canReadQuestions;
   }
 
   ngOnInit(): void {
@@ -157,6 +158,10 @@ export class QuizForm implements OnInit {
       if (!this.canWrite) {
         this.error.set('You do not have permission to create quizzes.');
         this.form.disable();
+        return;
+      }
+      if (this.showIncludeFromBank) {
+        this.searchBank();
       }
       return;
     }
@@ -528,7 +533,7 @@ export class QuizForm implements OnInit {
 
   includeFromBank(): void {
     this.error.set(null);
-    if (!this.showIncludeFromBank || !this.quizId) {
+    if (!this.showIncludeFromBank) {
       return;
     }
     const questionIds = [...this.selectedBankIds()];
@@ -538,6 +543,10 @@ export class QuizForm implements OnInit {
     const rawAt = this.includeAt.value.trim();
     const parsed = rawAt === '' ? this.questions.length : Number(rawAt);
     const insertAt = Number.isInteger(parsed) ? parsed : this.questions.length;
+    if (!this.quizId) {
+      this.copySelectedBankQuestions(insertAt);
+      return;
+    }
     const body: IncludeQuestionsRequest = {
       questionIds,
       insertAt,
@@ -631,13 +640,29 @@ export class QuizForm implements OnInit {
           draft: toCreateRequest(draft),
           unsaved: true,
           openingName: opening?.title ?? '',
+          returnUrl: this.router.url,
         },
       });
       return;
     }
     if (this.quizId) {
-      void this.router.navigate(['/quizzes', this.quizId, 'preview']);
+      void this.router.navigate(['/quizzes', this.quizId, 'preview'], {
+        state: { returnUrl: this.router.url },
+      });
     }
+  }
+
+  private copySelectedBankQuestions(insertAt: number): void {
+    const selected = this.bankResults().filter((item) => this.selectedBankIds().has(item.id));
+    if (selected.length === 0) {
+      return;
+    }
+    const clamped = Math.min(Math.max(insertAt, 0), this.questions.length);
+    selected.forEach((question, offset) => {
+      this.questions.insert(clamped + offset, this.createQuestionGroup(bankQuestionAsQuizDraft(question)));
+    });
+    this.selectedBankIds.set(new Set());
+    this.form.markAsDirty();
   }
 
   cancelEditConfirm(): void {

@@ -97,6 +97,39 @@ export class AssignmentList implements OnInit {
     this.load(1);
   }
 
+  onFilterFieldInput(value: string): void {
+    if (value.trim() !== '') {
+      return;
+    }
+    this.reloadIfFiltersChanged();
+  }
+
+  clearControl(control: FormControl<string>): void {
+    control.setValue('');
+    this.reloadIfFiltersChanged();
+  }
+
+  private reloadIfFiltersChanged(): void {
+    const opening = this.openingFilter.value.trim();
+    const quiz = this.quizFilter.value.trim();
+    const keyword = this.keyword.value.trim();
+    if ((opening && !isUuid(opening)) || (quiz && !isUuid(quiz))) {
+      return;
+    }
+    if (
+      opening === this.appliedOpeningId() &&
+      quiz === this.appliedQuizId() &&
+      keyword === this.appliedKeyword()
+    ) {
+      return;
+    }
+    this.appliedOpeningId.set(opening);
+    this.appliedQuizId.set(quiz);
+    this.quizId.set(quiz);
+    this.appliedKeyword.set(keyword);
+    this.load(1);
+  }
+
   load(page = 1): void {
     this.loading.set(true);
     this.error.set(null);

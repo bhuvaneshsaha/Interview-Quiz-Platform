@@ -135,12 +135,12 @@ describe('QuizForm', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeNull();
   });
 
-  it('hides include from bank on create-new even with both permissions', async () => {
+  it('shows include from bank on create-new when quizzes.write and questions.read are granted', async () => {
     await setup(
       [PermissionCodes.QuizzesRead, PermissionCodes.QuizzesWrite, PermissionCodes.QuestionsRead],
       null,
     );
-    expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="include-from-bank"]')).toBeTruthy();
   });
 
   it('shows include from bank when quizzes.write and questions.read on an existing quiz', async () => {

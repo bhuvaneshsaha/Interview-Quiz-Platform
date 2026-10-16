@@ -9,8 +9,16 @@ public sealed class CandidateSubmitResponse
     public DateTimeOffset StartedAtUtc { get; init; }
     public DateTimeOffset DueAtUtc { get; init; }
     public DateTimeOffset? SubmittedAtUtc { get; init; }
-    public decimal AutoPointsAwarded { get; init; }
-    public decimal AutoPointsAvailable { get; init; }
-    public decimal TotalPointsAvailable { get; init; }
-    public IReadOnlyList<CandidateItemResultDto> ItemResults { get; init; } = [];
+
+    /// <summary>Omitted when the assignment hides the score from the candidate.</summary>
+    public decimal? AutoPointsAwarded { get; init; }
+
+    /// <summary>Omitted when the assignment hides the score from the candidate.</summary>
+    public decimal? AutoPointsAvailable { get; init; }
+
+    /// <summary>Omitted when the assignment hides the score from the candidate.</summary>
+    public decimal? TotalPointsAvailable { get; init; }
+
+    /// <summary>Omitted when the assignment hides per-item correctness from the candidate.</summary>
+    public IReadOnlyList<CandidateItemResultDto>? ItemResults { get; init; }
 }

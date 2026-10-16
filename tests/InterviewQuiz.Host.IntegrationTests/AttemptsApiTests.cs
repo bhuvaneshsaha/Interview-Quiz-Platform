@@ -35,7 +35,7 @@ public sealed class AttemptsApiTests
     [RequiresDatabaseFact]
     public async Task Consume_start_save_submit_auto_quiz_completes_without_keys_on_results()
     {
-        var (assignment, questionId) = await CreateAutoAssignmentAsync();
+        var (assignment, questionId) = await CreateAutoAssignmentAsync(showScoreToCandidate: true);
         var token = MagicLinkApiTests.TokenFromInviteUrl(assignment.InviteUrl!);
 
         var client = _factory.CreateClient();
@@ -296,7 +296,8 @@ public sealed class AttemptsApiTests
             QuizId = quiz!.Id,
             CandidateEmail = $"freeze.{Guid.NewGuid():N}@example.com",
             Mode = "async",
-            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 20 }
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 20 },
+            ShowScoreToCandidate = true
         });
         var assignment = await assignmentResponse.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
         Assert.NotNull(assignment);
@@ -768,7 +769,80 @@ public sealed class AttemptsApiTests
         return created!.Id;
     }
 
-    private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync()
+    [RequiresDatabaseFact]
+    public async Task Submit_omits_score_and_item_correctness_unless_show_score_is_on()
+    {
+        var (hiddenAssignment, hiddenQuestionId) = await CreateAutoAssignmentAsync();
+        Assert.False(hiddenAssignment.ShowScoreToCandidate);
+        var hiddenClient = await CandidateClientAsync(hiddenAssignment.InviteUrl!);
+        Assert.Equal(
+            HttpStatusCode.Created,
+            (await hiddenClient.PostAsync($"/api/assignments/{hiddenAssignment.Id}/attempts", null)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await hiddenClient.PutAsJsonAsync(
+                $"/api/assignments/{hiddenAssignment.Id}/attempts/current/answers",
+                new SaveAnswersRequest
+                {
+                    Answers =
+                    [
+                        new AnswerDto
+                        {
+                            QuestionId = hiddenQuestionId,
+                            Value = JsonSerializer.SerializeToElement(new { value = true }, JsonOptions)
+                        }
+                    ]
+                })).StatusCode);
+        var hiddenSubmit = await hiddenClient.PostAsync(
+            $"/api/assignments/{hiddenAssignment.Id}/attempts/current/submit",
+            null);
+        Assert.Equal(HttpStatusCode.OK, hiddenSubmit.StatusCode);
+        var hiddenJson = await hiddenSubmit.Content.ReadAsStringAsync();
+        Assert.Contains("\"resultStatus\":\"complete\"", hiddenJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("autoPointsAwarded", hiddenJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("autoPointsAvailable", hiddenJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("totalPointsAvailable", hiddenJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("itemResults", hiddenJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pointsAwarded", hiddenJson, StringComparison.OrdinalIgnoreCase);
+        var hiddenCurrent = await hiddenClient.GetStringAsync(
+            $"/api/assignments/{hiddenAssignment.Id}/attempts/current");
+        Assert.DoesNotContain("itemResults", hiddenCurrent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pointsAwarded", hiddenCurrent, StringComparison.OrdinalIgnoreCase);
+
+        var (shownAssignment, shownQuestionId) = await CreateAutoAssignmentAsync(showScoreToCandidate: true);
+        Assert.True(shownAssignment.ShowScoreToCandidate);
+        var shownClient = await CandidateClientAsync(shownAssignment.InviteUrl!);
+        Assert.Equal(
+            HttpStatusCode.Created,
+            (await shownClient.PostAsync($"/api/assignments/{shownAssignment.Id}/attempts", null)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await shownClient.PutAsJsonAsync(
+                $"/api/assignments/{shownAssignment.Id}/attempts/current/answers",
+                new SaveAnswersRequest
+                {
+                    Answers =
+                    [
+                        new AnswerDto
+                        {
+                            QuestionId = shownQuestionId,
+                            Value = JsonSerializer.SerializeToElement(new { value = true }, JsonOptions)
+                        }
+                    ]
+                })).StatusCode);
+        var shownSubmit = await shownClient.PostAsync(
+            $"/api/assignments/{shownAssignment.Id}/attempts/current/submit",
+            null);
+        var shown = await shownSubmit.Content.ReadFromJsonAsync<CandidateSubmitResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, shownSubmit.StatusCode);
+        Assert.Equal(1m, shown!.AutoPointsAwarded);
+        Assert.NotNull(shown.ItemResults);
+        Assert.Equal("scored", shown.ItemResults![0].Status);
+        Assert.Equal(1m, shown.ItemResults[0].PointsAwarded);
+    }
+
+    private async Task<(AssignmentResponse Assignment, Guid QuestionId)> CreateAutoAssignmentAsync(
+        bool showScoreToCandidate = false)
     {
         var recruiter = CreateAuthenticatedClient(JwtTestTokens.Create(
             PermissionCodes.Delivery.AssignmentsRead,
@@ -786,12 +860,14 @@ public sealed class AttemptsApiTests
             QuizId = quizId,
             CandidateEmail = $"auto.{Guid.NewGuid():N}@example.com",
             Mode = "async",
-            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 }
+            Timing = new AssignmentTimingRequest { OverallDurationMinutes = 30 },
+            ShowScoreToCandidate = showScoreToCandidate
         });
         Assert.Equal(HttpStatusCode.Created, post.StatusCode);
         var assignment = await post.Content.ReadFromJsonAsync<AssignmentResponse>(JsonOptions);
         Assert.NotNull(assignment);
-        return (assignment!, questionId);
+        Assert.Equal(showScoreToCandidate, assignment!.ShowScoreToCandidate);
+        return (assignment, questionId);
     }
 
     private static async Task<Guid> CreateAutoQuizAsync(HttpClient client)

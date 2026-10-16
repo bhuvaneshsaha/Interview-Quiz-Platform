@@ -1,8 +1,8 @@
 import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, HostListener, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, Subject, switchMap } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import {
@@ -30,6 +30,7 @@ import { itemResultLabel, resultStatusLabel } from '../../../shared/labels/statu
 import { OfflineBanner } from '../../../core/pwa/offline-banner/offline-banner.component';
 import {
   answerHint,
+  BankItemView,
   bankItems,
   candidateTypeBadge,
   boolValueOf,
@@ -63,6 +64,7 @@ const LIVE_POLL_MS = 2000;
 })
 export class Attempt implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly magicLinks = inject(MagicLinkApi);
   private readonly attemptsApi = inject(AttemptsApi);
   private readonly quizzesApi = inject(QuizzesApi);
@@ -436,6 +438,72 @@ export class Attempt implements OnInit {
     this.patchAnswer(question.id, { slots });
   }
 
+  bankListId(question: CandidateQuestion): string {
+    return `bank-${question.id}`;
+  }
+
+  slotListId(question: CandidateQuestion, slotId: string): string {
+    return `slot-${question.id}-${slotId}`;
+  }
+
+  sharedConnections(question: CandidateQuestion): string[] {
+    return [
+      this.bankListId(question),
+      ...sharedSlots(question).map((slot) => this.slotListId(question, slot.id)),
+    ];
+  }
+
+  unassignedBank(question: CandidateQuestion): BankItemView[] {
+    const used = new Set(
+      sharedSlots(question)
+        .map((slot) => this.slotItemId(this.answer(question.id), slot.id))
+        .filter((id) => id.length > 0),
+    );
+    return bankItems(question).filter((item) => !used.has(item.id));
+  }
+
+  assignedBankItem(question: CandidateQuestion, slotId: string): BankItemView | null {
+    const id = this.slotItemId(this.answer(question.id), slotId);
+    return bankItems(question).find((item) => item.id === id) ?? null;
+  }
+
+  dropShared(
+    question: CandidateQuestion,
+    event: { item: { data: unknown } },
+    slotId: string | null,
+  ): void {
+    const itemId = typeof event.item.data === 'string' ? event.item.data : '';
+    if (!itemId || this.submitted() || this.sessionPaused()) {
+      return;
+    }
+    const slots = sharedSlots(question).map((slot) => {
+      const current = this.slotItemId(this.answer(question.id), slot.id);
+      if (slotId === null) {
+        return { slotId: slot.id, itemId: current === itemId ? '' : current };
+      }
+      if (slot.id === slotId) {
+        return { slotId: slot.id, itemId };
+      }
+      return { slotId: slot.id, itemId: current === itemId ? '' : current };
+    });
+    this.patchAnswer(question.id, { slots });
+  }
+
+  exitPreview(): void {
+    if (!this.previewMode()) {
+      return;
+    }
+    void this.router.navigateByUrl(this.previewReturnUrl());
+  }
+
+  @HostListener('document:keydown.escape')
+  onPreviewEscape(): void {
+    if (!this.previewMode() || this.confirmSubmit()) {
+      return;
+    }
+    this.exitPreview();
+  }
+
   dropOrder(question: CandidateQuestion, event: { previousIndex: number; currentIndex: number }): void {
     if (this.submitted() || event.previousIndex === event.currentIndex) {
       return;
@@ -451,6 +519,22 @@ export class Attempt implements OnInit {
       optionId: slot.id === slotId ? optionId : this.slotOptionId(this.answer(question.id), slot.id),
     }));
     this.patchAnswer(question.id, { slots });
+  }
+
+  private previewReturnUrl(): string {
+    const state = history.state as { returnUrl?: unknown } | null;
+    const raw = typeof state?.returnUrl === 'string' ? state.returnUrl : '';
+    if (raw.startsWith('/') && !raw.startsWith('//')) {
+      return raw;
+    }
+    const id = this.route.snapshot.paramMap.get('id');
+    if (this.previewKind() === 'template' && id) {
+      return `/templates/${id}`;
+    }
+    if (this.previewKind() === 'quiz' && id) {
+      return `/quizzes/${id}`;
+    }
+    return '/quizzes/new';
   }
 
   moveOrder(question: CandidateQuestion, index: number, delta: number): void {

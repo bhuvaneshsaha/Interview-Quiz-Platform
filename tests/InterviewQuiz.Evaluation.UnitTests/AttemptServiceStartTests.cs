@@ -28,7 +28,7 @@ public sealed class AttemptServiceStartTests
         var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var attempts = new InMemoryAttempts();
         var lifecycle = new RecordingLifecycle();
-        var header = Header();
+        var header = Header(showScoreToCandidate: true);
         var started = Attempt.Start(
             AssignmentId,
             OpeningId,
@@ -111,6 +111,60 @@ public sealed class AttemptServiceStartTests
         Assert.Equal(1, preview.QuestionCount);
         Assert.Null(await attempts.GetInProgressAsync(AssignmentId, CancellationToken.None));
         Assert.Null(await attempts.GetLatestAsync(AssignmentId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Submit_omits_score_and_item_results_unless_show_score_is_on()
+    {
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
+
+        var hidden = await ScoreSubmissionAsync(clock, showScoreToCandidate: false);
+        Assert.Equal("complete", hidden.Submit.ResultStatus);
+        Assert.Null(hidden.Submit.AutoPointsAwarded);
+        Assert.Null(hidden.Submit.AutoPointsAvailable);
+        Assert.Null(hidden.Submit.TotalPointsAvailable);
+        Assert.Null(hidden.Submit.ItemResults);
+        Assert.Null(hidden.Current.ItemResults);
+
+        var shown = await ScoreSubmissionAsync(clock, showScoreToCandidate: true);
+        Assert.Equal(1m, shown.Submit.AutoPointsAwarded);
+        Assert.Equal(1m, shown.Submit.AutoPointsAvailable);
+        Assert.NotNull(shown.Submit.ItemResults);
+        Assert.Equal("scored", shown.Submit.ItemResults![0].Status);
+        Assert.Equal(1m, shown.Submit.ItemResults[0].PointsAwarded);
+        Assert.NotNull(shown.Current.ItemResults);
+        Assert.Equal("scored", shown.Current.ItemResults![0].Status);
+    }
+
+    private static async Task<(CandidateSubmitResponse Submit, CandidateAttemptResponse Current)> ScoreSubmissionAsync(
+        FixedClock clock,
+        bool showScoreToCandidate)
+    {
+        var attempts = new InMemoryAttempts();
+        var service = new AttemptService(
+            attempts,
+            new FixedSnapshotReader(Header(showScoreToCandidate)),
+            new RecordingLifecycle(),
+            clock,
+            NullLogger<AttemptService>.Instance);
+        await service.StartAsync(AssignmentId, CancellationToken.None);
+        await service.SaveAnswersAsync(
+            AssignmentId,
+            new SaveAnswersRequest
+            {
+                Answers =
+                [
+                    new AnswerDto
+                    {
+                        QuestionId = QuestionId,
+                        Value = JsonSerializer.SerializeToElement(new { value = true }, CatalogJson.SerializerOptions)
+                    }
+                ]
+            },
+            CancellationToken.None);
+        var submit = await service.SubmitAsync(AssignmentId, CancellationToken.None);
+        var current = await service.GetCurrentAsync(AssignmentId, CancellationToken.None);
+        return (submit, current);
     }
 
     [Fact]
@@ -237,7 +291,7 @@ public sealed class AttemptServiceStartTests
         Assert.False(started.IsSubmitted);
     }
 
-    private static AssignmentWithSnapshotDto Header()
+    private static AssignmentWithSnapshotDto Header(bool showScoreToCandidate = false)
     {
         var snapshot = new QuizSnapshotDto(
             QuizId,
@@ -272,7 +326,8 @@ public sealed class AttemptServiceStartTests
             30,
             1,
             "inProgress",
-            snapshot);
+            snapshot,
+            ShowScoreToCandidate: showScoreToCandidate);
     }
 
     private sealed class FixedClock : IClock

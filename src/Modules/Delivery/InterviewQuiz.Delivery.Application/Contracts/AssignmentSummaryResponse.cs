@@ -15,6 +15,7 @@ public class AssignmentSummaryResponse
     public string Mode { get; init; } = "";
     public int? OverallDurationMinutes { get; init; }
     public int AttemptLimit { get; init; }
+    public bool ShowScoreToCandidate { get; init; }
     public string Status { get; init; } = "";
     public DateTimeOffset CreatedAtUtc { get; init; }
     public DateTimeOffset UpdatedAtUtc { get; init; }

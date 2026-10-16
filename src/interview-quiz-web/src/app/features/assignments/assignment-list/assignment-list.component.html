@@ -7,7 +7,7 @@
   <div class="field">
     @if (canReadOpenings) {
       <label for="opening-filter">Opening</label>
-      <select id="opening-filter" [formControl]="openingFilter">
+      <select id="opening-filter" [formControl]="openingFilter" (change)="onFilterFieldInput(openingFilter.value)">
         <option value="">All openings</option>
         @for (opening of openings(); track opening.id) {
           <option [value]="opening.id">{{ opening.title }}</option>
@@ -15,12 +15,30 @@
       </select>
     } @else {
       <label for="opening-filter">Opening id</label>
-      <input id="opening-filter" type="text" [formControl]="openingFilter" autocomplete="off" />
+      <input
+        id="opening-filter"
+        type="text"
+        [formControl]="openingFilter"
+        autocomplete="off"
+        (input)="onFilterFieldInput(openingFilter.value)"
+      />
     }
+    <button type="button" class="button button-quiet filter-clear" aria-label="Clear opening" (click)="clearControl(openingFilter)">
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="quiz-filter">Quiz id</label>
-    <input id="quiz-filter" type="text" [formControl]="quizFilter" autocomplete="off" />
+    <input
+      id="quiz-filter"
+      type="text"
+      [formControl]="quizFilter"
+      autocomplete="off"
+      (input)="onFilterFieldInput(quizFilter.value)"
+    />
+    <button type="button" class="button button-quiet filter-clear" aria-label="Clear quiz id" (click)="clearControl(quizFilter)">
+      Clear
+    </button>
   </div>
   <div class="field">
     <label for="assignment-keyword">Keyword</label>
@@ -30,7 +48,11 @@
       [formControl]="keyword"
       autocomplete="off"
       aria-describedby="assignment-keyword-hint"
+      (input)="onFilterFieldInput(keyword.value)"
     />
+    <button type="button" class="button button-quiet filter-clear" aria-label="Clear keyword" (click)="clearControl(keyword)">
+      Clear
+    </button>
     <p id="assignment-keyword-hint" class="hint">Matches candidate email or snapshot title.</p>
   </div>
   <button type="submit" class="button">Filter</button>

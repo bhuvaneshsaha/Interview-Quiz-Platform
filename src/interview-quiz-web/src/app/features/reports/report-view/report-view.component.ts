@@ -143,6 +143,26 @@ export class ReportView implements OnInit {
     this.load();
   }
 
+  onDraftInput(next: string): void {
+    this.value.set(next);
+    if (next.trim() === '') {
+      this.valueTo.set('');
+    }
+  }
+
+  clearDraft(): void {
+    this.value.set('');
+    this.valueTo.set('');
+    const field = this.field();
+    const next = this.chips().filter((chip) => chip.field !== field);
+    if (next.length === this.chips().length) {
+      return;
+    }
+    this.chips.set(next);
+    this.page.set(1);
+    this.load();
+  }
+
   removeChip(index: number): void {
     this.chips.update((chips) => chips.filter((_, chipIndex) => chipIndex !== index));
     this.page.set(1);

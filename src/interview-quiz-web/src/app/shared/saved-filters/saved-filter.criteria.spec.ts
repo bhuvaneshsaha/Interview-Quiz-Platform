@@ -86,7 +86,7 @@ describe('saved-filter.criteria', () => {
     expect(tagsForListForm('Role', 'Backend', applied)).toEqual(applied);
     expect(tagsForListForm('Role', 'Frontend', applied)).toEqual({ Role: 'Frontend', Client: 'Acme' });
     expect(tagsForListForm('Stack', 'Angular', applied)).toEqual({ Client: 'Acme', Stack: 'Angular' });
-    expect(tagsForListForm('', '', applied)).toEqual(applied);
+    expect(tagsForListForm('', '', applied)).toBeUndefined();
     expect(tagsForListForm('Role', '', applied)).toBeUndefined();
   });
 });

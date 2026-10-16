@@ -131,10 +131,7 @@ export function tagsForListForm(
 ): Record<string, string> | undefined {
   const pair = tagsFromPair(key, value);
   if (!pair) {
-    if (key.trim() || value.trim()) {
-      return undefined;
-    }
-    return applied && Object.keys(applied).length > 0 ? applied : undefined;
+    return undefined;
   }
 
   const result = { ...(applied ?? {}) };
@@ -145,6 +142,10 @@ export function tagsForListForm(
   }
   Object.assign(result, pair);
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+export function sameCriteria(left: object, right: object): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function optionalIntFromInput(raw: string): number | undefined {

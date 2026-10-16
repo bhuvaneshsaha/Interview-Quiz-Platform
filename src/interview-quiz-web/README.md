@@ -79,11 +79,11 @@ ng test --watch=false
 
 Production build registers the Angular service worker. Dev `ng serve` does not (service worker `enabled: !isDevMode()`).
 
-The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. `npm test` reports **110 passed**.
+The client has component specs for quiz list/editor, templates, SavedFilters, question bank list/editor/include, assignment list/form, and candidate `/attempt`. `npm test` reports **144 passed**.
 
 ## End-to-end tests (Playwright)
 
-Chromium runs with the API mocked, so PostgreSQL and the .NET host are not required. Covered flows: candidate welcome (the timer starts only from Start quiz), one question at a time with Previous/Next, mark for review, and a 375px attempt layout; a muted type badge with points still hidden; drag-and-drop ordering plus Move up / Move down; slot questions answered from dropdowns with “Match each slot”; stored question and option order across refresh; recruiter attempt detail showing option text and Correct / Wrong / Partly correct / Pending review; quiz shuffle checkboxes; candidate preview; and opening owner/handler pickers. A separate `mobile` project at 375×812 (`e2e/mobile-layout.spec.ts`) covers the assignment list, attempt questions, and recruiter lists. Desktop specs stay on the `chromium` project.
+Chromium runs with the API mocked, so PostgreSQL and the .NET host are not required. Covered flows: candidate welcome (the timer starts only from Start quiz), one question at a time with Previous/Next, mark for review, and a 375px attempt layout; a muted type badge with points hidden unless the assignment shows the score; drag-and-drop ordering plus Move up / Move down; shared-bank questions answered from a drag area and per-slot questions from dropdowns, both with “Match each slot”; stored question and option order across refresh; recruiter attempt detail showing option text and Correct / Wrong / Partly correct / Pending review; quiz shuffle checkboxes; candidate preview; and opening owner/handler pickers. A separate `mobile` project at 375×812 (`e2e/mobile-layout.spec.ts`) covers the assignment list, attempt questions, and recruiter lists. Desktop specs stay on the `chromium` project.
 
 ```bash
 cd src/interview-quiz-web

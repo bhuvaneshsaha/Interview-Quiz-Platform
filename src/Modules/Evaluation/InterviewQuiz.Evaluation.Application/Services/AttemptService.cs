@@ -67,7 +67,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             inProgress = await AutoSubmitIfDueAsync(inProgress, header, cancellationToken);
             if (!inProgress.IsSubmitted || expiredInPlace)
             {
-                return (MapCandidate(inProgress, header.Snapshot), false);
+                return (MapCandidate(inProgress, header), false);
             }
         }
 
@@ -103,7 +103,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             var raced = await _attempts.GetInProgressAsync(assignmentId, cancellationToken);
             if (raced is not null && !raced.IsSubmitted)
             {
-                return (MapCandidate(raced, header.Snapshot), false);
+                return (MapCandidate(raced, header), false);
             }
 
             throw;
@@ -118,7 +118,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             assignmentId,
             header.SnapshotId);
 
-        return (MapCandidate(attempt, header.Snapshot), true);
+        return (MapCandidate(attempt, header), true);
     }
 
     public async Task<CandidateAttemptPreviewResponse> GetPreviewAsync(
@@ -182,7 +182,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         }
 
         var live = IsLive(header) ? await LiveViewAsync(assignmentId, cancellationToken) : null;
-        return MapCandidate(attempt, header.Snapshot, live);
+        return MapCandidate(attempt, header, live);
     }
 
     public async Task<CandidateAttemptResponse> SaveAnswersAsync(
@@ -231,7 +231,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             assignmentId);
 
         var live = IsLive(header) ? await LiveViewAsync(assignmentId, cancellationToken) : null;
-        return MapCandidate(attempt, header.Snapshot, live);
+        return MapCandidate(attempt, header, live);
     }
 
     public async Task<CandidateSubmitResponse> SubmitAsync(
@@ -259,7 +259,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             throw new ConcurrencyException(Attempt.AlreadySubmittedMessage);
         }
 
-        return MapSubmit(attempt);
+        return MapSubmit(attempt, header.ShowScoreToCandidate);
     }
 
     public Task ApplyLazyAsync(Guid assignmentId, CancellationToken cancellationToken)
@@ -758,9 +758,10 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
 
     private CandidateAttemptResponse MapCandidate(
         Attempt attempt,
-        QuizSnapshotDto snapshot,
+        AssignmentWithSnapshotDto header,
         LiveSessionView? live = null)
     {
+        var snapshot = header.Snapshot;
         var promptOrder = CandidateQuestionRedactor.ParsePromptOrder(attempt.PromptOrderJson);
         var optionOrder = AttemptDisplayOrder.ParseOptionOrder(attempt.DisplayOrderJson);
         var questions = AttemptDisplayOrder.OrderQuestions(snapshot.Questions, attempt.DisplayOrderJson)
@@ -785,7 +786,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             .ToList();
 
         IReadOnlyList<CandidateItemResultDto>? itemResults = null;
-        if (attempt.IsSubmitted)
+        if (attempt.IsSubmitted && header.ShowScoreToCandidate)
         {
             itemResults = attempt.ItemResults
                 .Select(r => new CandidateItemResultDto
@@ -816,8 +817,9 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
         };
     }
 
-    private static CandidateSubmitResponse MapSubmit(Attempt attempt)
-        => new()
+    private static CandidateSubmitResponse MapSubmit(Attempt attempt, bool showScore)
+    {
+        var response = new CandidateSubmitResponse
         {
             Id = attempt.Id,
             AssignmentId = attempt.AssignmentId,
@@ -825,7 +827,22 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
             ResultStatus = attempt.ResultStatus is { } status ? Camel(status) : AttemptResultStatuses.Incomplete,
             StartedAtUtc = attempt.StartedAtUtc,
             DueAtUtc = attempt.DueAtUtc,
-            SubmittedAtUtc = attempt.SubmittedAtUtc,
+            SubmittedAtUtc = attempt.SubmittedAtUtc
+        };
+        if (!showScore)
+        {
+            return response;
+        }
+
+        return new CandidateSubmitResponse
+        {
+            Id = response.Id,
+            AssignmentId = response.AssignmentId,
+            Status = response.Status,
+            ResultStatus = response.ResultStatus,
+            StartedAtUtc = response.StartedAtUtc,
+            DueAtUtc = response.DueAtUtc,
+            SubmittedAtUtc = response.SubmittedAtUtc,
             AutoPointsAwarded = attempt.AutoPointsAwarded,
             AutoPointsAvailable = attempt.AutoPointsAvailable,
             TotalPointsAvailable = attempt.TotalPointsAvailable,
@@ -836,6 +853,7 @@ public sealed class AttemptService : IAttemptService, IAttemptClock, ICandidateA
                 PointsAwarded = r.PointsAwarded
             }).ToList()
         };
+    }
 
     private static AttemptSummaryResponse MapSummary(Attempt attempt)
         => new()

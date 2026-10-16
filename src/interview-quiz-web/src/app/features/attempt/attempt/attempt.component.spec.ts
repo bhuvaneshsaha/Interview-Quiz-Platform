@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { ApiError } from '../../../core/http/api-error';
 import {
@@ -314,7 +314,7 @@ describe('Attempt', () => {
     expect(nextAfter.disabled).toBe(true);
   });
 
-  it('answers shared-bank and per-slot questions from dropdowns only', async () => {
+  it('places shared-bank items and answers per-slot questions from dropdowns', async () => {
     previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
     startedAttempt = {
       ...attempt,
@@ -327,22 +327,22 @@ describe('Attempt', () => {
     expect(root.textContent).toContain('Match each slot');
     expect(root.textContent).not.toMatch(/drag/i);
     expect(root.textContent).toContain('Match each HTTP method to what it typically does.');
-    expectDropdownOnlySlots(root);
-    const sharedSelects = [...root.querySelectorAll('select')] as HTMLSelectElement[];
-    expect(sharedSelects.map((select) => select.id)).toEqual([
-      'shared-q-shared-slot-get',
-      'shared-q-shared-slot-post',
-    ]);
-    expect(sharedSelects[0].options[1].text).toBe('Read a resource');
+    expect(root.querySelector('select')).toBeNull();
+    expect(root.querySelectorAll('.slot-drop').length).toBe(2);
+    expect(root.querySelectorAll('.drag-bank .drag-chip').length).toBe(2);
+    expect(root.textContent).toContain('Place an item here');
 
-    chooseOption(sharedSelects[0], 'item-read');
-    chooseOption(sharedSelects[1], 'item-create');
+    const question = fixture.componentInstance.attempt()!.questions[0];
+    fixture.componentInstance.dropShared(question, { item: { data: 'item-read' } }, 'slot-get');
+    fixture.componentInstance.dropShared(question, { item: { data: 'item-create' } }, 'slot-post');
+    fixture.detectChanges();
     expect(fixture.componentInstance.answers()['q-shared']).toEqual({
       slots: [
         { slotId: 'slot-get', itemId: 'item-read' },
         { slotId: 'slot-post', itemId: 'item-create' },
       ],
     });
+    expect(root.querySelectorAll('.drag-bank .drag-chip').length).toBe(0);
 
     const next = [...root.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Next',
@@ -365,14 +365,19 @@ describe('Attempt', () => {
     });
   });
 
-  it('uses the same dropdowns in candidate preview', async () => {
+  it('uses the drag area in candidate preview and leaves from Exit preview', async () => {
     routeSnapshot.data['previewKind'] = 'quiz';
+    history.replaceState({ returnUrl: '/quizzes/quiz-1' }, '');
     await render();
 
     expect(consumeCalls).toEqual([]);
     expect(fixture.nativeElement.textContent).toContain('Candidate preview');
     expect(fixture.nativeElement.textContent).toContain('Preview, not recorded');
-    (fixture.nativeElement.querySelector('button.button') as HTMLButtonElement).click();
+    expect(fixture.nativeElement.querySelector('[data-testid="exit-preview"]')).not.toBeNull();
+    const start = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Start quiz',
+    ) as HTMLButtonElement;
+    start.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -380,15 +385,71 @@ describe('Attempt', () => {
     expect(root.textContent).toContain('Match each slot to an item from the list.');
     expect(root.textContent).toContain('Match each slot');
     expect(root.textContent).not.toMatch(/drag/i);
-    expectDropdownOnlySlots(root);
-    const select = root.querySelector('#shared-q-shared-slot-get') as HTMLSelectElement;
-    chooseOption(select, 'item-read');
+    expect(root.querySelector('select')).toBeNull();
+    expect(root.querySelector('.slot-drop')).not.toBeNull();
+    const question = fixture.componentInstance.attempt()!.questions[0];
+    fixture.componentInstance.dropShared(question, { item: { data: 'item-read' } }, 'slot-get');
+    fixture.detectChanges();
     expect(fixture.componentInstance.answers()['q-shared']).toEqual({
       slots: [
         { slotId: 'slot-get', itemId: 'item-read' },
         { slotId: 'slot-post', itemId: '' },
       ],
     });
+
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    (root.querySelector('[data-testid="exit-preview"]') as HTMLButtonElement).click();
+    expect(navigate).toHaveBeenCalledWith('/quizzes/quiz-1');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it('omits the score when submit does not include points', async () => {
+    previewResponse = { ...previewWelcome, attemptStatus: 'inProgress' };
+    await render();
+    fixture.componentInstance.submitSummary.set({
+      id: attempt.id,
+      assignmentId,
+      status: 'submitted',
+      resultStatus: 'complete',
+      startedAtUtc: attempt.startedAtUtc,
+      dueAtUtc: attempt.dueAtUtc,
+      submittedAtUtc: '2026-10-16T00:00:00Z',
+      autoPointsAwarded: null,
+      autoPointsAvailable: null,
+      totalPointsAvailable: null,
+      itemResults: null,
+    });
+    fixture.componentInstance.itemResults.set([]);
+    fixture.detectChanges();
+    const hidden = fixture.nativeElement.textContent as string;
+    expect(hidden).toContain('The score is not shown for this assignment.');
+    expect(hidden).not.toContain('Auto-scored');
+    expect(hidden).not.toContain('Scored:');
+
+    fixture.componentInstance.submitSummary.set({
+      id: attempt.id,
+      assignmentId,
+      status: 'submitted',
+      resultStatus: 'complete',
+      startedAtUtc: attempt.startedAtUtc,
+      dueAtUtc: attempt.dueAtUtc,
+      submittedAtUtc: '2026-10-16T00:00:00Z',
+      autoPointsAwarded: 1,
+      autoPointsAvailable: 2,
+      totalPointsAvailable: 3,
+      itemResults: [
+        { questionId: attempt.questions[0].id, status: 'scored', pointsAwarded: 1 },
+      ],
+    });
+    fixture.componentInstance.itemResults.set([
+      { questionId: attempt.questions[0].id, status: 'scored', pointsAwarded: 1 },
+    ]);
+    fixture.detectChanges();
+    const shown = fixture.nativeElement.textContent as string;
+    expect(shown).toContain('Auto-scored 1 of 2');
+    expect(shown).toContain('Scored: 1');
   });
 
   it('ends an in-progress attempt when the invite is revoked', async () => {

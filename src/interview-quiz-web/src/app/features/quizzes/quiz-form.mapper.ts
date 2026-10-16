@@ -978,6 +978,21 @@ function tagsFromDraft(tags: TagDraft[]): Record<string, string> {
   return result;
 }
 
+export function bankQuestionAsQuizDraft(question: BankQuestionResponse): QuestionDraft {
+  const draft = questionToDraft({
+    id: question.id,
+    sortOrder: 0,
+    type: question.type,
+    stem: question.stem,
+    scoringMode: question.scoringMode,
+    creditMode: question.creditMode,
+    points: question.points,
+    body: question.body,
+    sourceQuestionId: null,
+  });
+  return { ...draft, id: null, sourceQuestionId: question.id };
+}
+
 export function questionToDraft(question: QuestionResponse): QuestionDraft {
   return {
     id: question.id,

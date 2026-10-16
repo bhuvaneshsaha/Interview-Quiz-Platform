@@ -148,6 +148,7 @@
               <a
                 class="button button-quiet"
                 [routerLink]="['/templates', item.id, 'versions', version.id, 'preview']"
+                [state]="{ returnUrl: '/templates/' + item.id }"
               >
                 Preview as candidate
               </a>

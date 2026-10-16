@@ -68,6 +68,7 @@ export class AssignmentForm implements OnInit {
     mode: this.fb.nonNullable.control<AssignmentMode>('async', Validators.required),
     overallDurationMinutes: [30, [Validators.required, Validators.min(1), Validators.max(480)]],
     attemptLimit: [1, [Validators.required, Validators.min(1), Validators.max(20)]],
+    showScoreToCandidate: [false],
     source: this.fb.nonNullable.control<'quiz' | 'template'>('quiz'),
     templateId: [''],
     templateVersionId: [''],
@@ -160,6 +161,7 @@ export class AssignmentForm implements OnInit {
         candidateEmail: value.candidateEmail.trim(),
         mode: value.mode,
         attemptLimit: Number(value.attemptLimit),
+        showScoreToCandidate: value.showScoreToCandidate,
       };
       const versionId = value.templateVersionId.trim();
       if (isUuid(versionId)) {
@@ -190,6 +192,7 @@ export class AssignmentForm implements OnInit {
       candidateEmail: value.candidateEmail.trim(),
       mode: value.mode,
       attemptLimit: Number(value.attemptLimit),
+      showScoreToCandidate: value.showScoreToCandidate,
     };
     body.timing = { overallDurationMinutes: Number(value.overallDurationMinutes) };
     if (value.mode === 'async' && inviteExpiresAt) {

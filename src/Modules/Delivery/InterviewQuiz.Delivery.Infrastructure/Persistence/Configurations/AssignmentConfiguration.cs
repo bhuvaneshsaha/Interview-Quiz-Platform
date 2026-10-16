@@ -18,6 +18,7 @@ public sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignmen
         builder.Property(e => e.CandidateEmail).HasMaxLength(Assignment.EmailMaxLength).IsRequired();
         builder.Property(e => e.OverallDurationMinutes);
         builder.Property(e => e.AttemptLimit).IsRequired();
+        builder.Property(e => e.ShowScoreToCandidate).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.CreatedByUserId).HasMaxLength(64).IsRequired();
         builder.Property(e => e.CreatedAtUtc).IsRequired();
         builder.Property(e => e.UpdatedAtUtc).IsRequired();

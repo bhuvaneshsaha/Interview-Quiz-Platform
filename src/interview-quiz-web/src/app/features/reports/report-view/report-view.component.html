@@ -46,12 +46,15 @@
           <option value="live">Live</option>
         </select>
       } @else if (selectedField().kind === 'datetime') {
-        <input type="datetime-local" [value]="value()" (input)="value.set($any($event.target).value)" />
+        <input type="datetime-local" [value]="value()" (input)="onDraftInput($any($event.target).value)" />
       } @else if (selectedField().kind === 'number') {
-        <input type="number" [value]="value()" (input)="value.set($any($event.target).value)" />
+        <input type="number" [value]="value()" (input)="onDraftInput($any($event.target).value)" />
       } @else {
-        <input type="text" [value]="value()" (input)="value.set($any($event.target).value)" />
+        <input type="text" [value]="value()" (input)="onDraftInput($any($event.target).value)" />
       }
+      <button type="button" class="button button-quiet filter-clear" aria-label="Reset filter" (click)="clearDraft()">
+        Clear
+      </button>
     </label>
     @if (operator() === 'between') {
       <label class="field">

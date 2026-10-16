@@ -11,6 +11,7 @@ import { PageStatus } from '../../../shared/page-status/page-status.component';
 import {
   optionalIntFromInput,
   quizCriteriaFromUnknown,
+  sameCriteria,
 } from '../../../shared/saved-filters/saved-filter.criteria';
 import { SavedFilters } from '../../../shared/saved-filters/saved-filters.component';
 import { isUuid } from '../quiz-form.mapper';
@@ -86,6 +87,31 @@ export class QuizList implements OnInit {
       return;
     }
     this.appliedCriteria.set(this.criteriaFromForm());
+    this.load(1);
+  }
+
+  onFilterFieldInput(value: string): void {
+    if (value.trim() !== '') {
+      return;
+    }
+    this.reloadIfCriteriaChanged();
+  }
+
+  clearControl(control: FormControl<string>): void {
+    control.setValue('');
+    this.reloadIfCriteriaChanged();
+  }
+
+  private reloadIfCriteriaChanged(): void {
+    const next = this.criteriaFromForm();
+    if (sameCriteria(next, this.appliedCriteria())) {
+      return;
+    }
+    const rawOpening = next.openingId?.trim() ?? '';
+    if (rawOpening && !isUuid(rawOpening)) {
+      return;
+    }
+    this.appliedCriteria.set(next);
     this.load(1);
   }
 
