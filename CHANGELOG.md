@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-16
+
 ### Changed
 
 - A page you cannot open explains that on Home. Opening counts link to assignments once, quiz and template pages link to the related item instead of showing an id, and the assignment list picks a quiz by name. Saved filters say “these filters” and let a recruiter pick a person. An empty question bank or template list offers Clear filters, and View and Review stay separate (#78, #79, #81, #84, #85, #91, #92, #93).
@@ -98,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...v0.6.1
