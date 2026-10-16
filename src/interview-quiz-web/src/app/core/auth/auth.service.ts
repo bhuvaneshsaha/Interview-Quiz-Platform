@@ -19,6 +19,7 @@ export class AuthService {
   readonly sessionReady = signal(false);
 
   private refreshInFlight: Observable<TokenResponse> | null = null;
+  private sessionRestore: Observable<boolean> | null = null;
   private loggingOut = false;
 
   isAuthenticated(): boolean {
@@ -33,22 +34,20 @@ export class AuthService {
   }
 
   restoreSession(): Observable<boolean> {
-    if (this.isAuthenticated()) {
-      this.sessionReady.set(true);
-      return of(true);
+    if (this.sessionReady()) {
+      return of(this.isAuthenticated());
     }
-    if (!this.tokens.hasRefreshToken()) {
-      this.sessionReady.set(true);
-      return of(false);
+    if (!this.sessionRestore) {
+      // One restore for the initializer and every guard. A second refresh of the
+      // same token would revoke the whole family and bounce a deep link to login.
+      this.sessionRestore = this.beginRestore().pipe(
+        finalize(() => {
+          this.sessionRestore = null;
+        }),
+        shareReplay(1),
+      );
     }
-    return this.refreshTokens().pipe(
-      switchMap((tokens) => this.establishSession(tokens).pipe(map(() => true))),
-      catchError(() => {
-        this.clearLocalSession();
-        this.sessionReady.set(true);
-        return of(false);
-      }),
-    );
+    return this.sessionRestore;
   }
 
   refreshTokens(): Observable<TokenResponse> {
@@ -87,15 +86,38 @@ export class AuthService {
     void this.router.navigateByUrl('/login');
   }
 
+  private beginRestore(): Observable<boolean> {
+    if (!this.isAuthenticated() && !this.tokens.hasRefreshToken()) {
+      this.sessionReady.set(true);
+      return of(false);
+    }
+    const established = this.isAuthenticated()
+      ? of(undefined)
+      : this.refreshTokens().pipe(map(() => undefined));
+    return established.pipe(
+      switchMap(() => this.loadProfile()),
+      catchError(() => {
+        this.clearLocalSession();
+        this.sessionReady.set(true);
+        return of(false);
+      }),
+    );
+  }
+
   private establishSession(tokens: TokenResponse): Observable<void> {
     this.tokens.setSession(tokens);
+    this.sessionReady.set(false);
+    return this.loadProfile().pipe(map(() => undefined));
+  }
+
+  private loadProfile(): Observable<boolean> {
     return this.http.get<MeResponse>('/api/me').pipe(
       tap((me) => {
         this.currentUser.set(me);
         this.permissions.set(me.permissions);
         this.sessionReady.set(true);
       }),
-      map(() => undefined),
+      map(() => true),
     );
   }
 
@@ -104,5 +126,6 @@ export class AuthService {
     this.permissions.clear();
     this.currentUser.set(null);
     this.refreshInFlight = null;
+    this.sessionReady.set(false);
   }
 }

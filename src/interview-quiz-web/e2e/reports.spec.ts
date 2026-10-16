@@ -141,6 +141,27 @@ test('reporting hub, funnel chart, filter, and csv export', async ({ page }) => 
   expect(download.suggestedFilename()).toBe('funnel.csv');
 });
 
+test('super admin sees the Reporting nav link', async ({ page }) => {
+  await install(
+    page,
+    ['reports.read', 'users.manage', 'roles.manage', 'openings.read', 'assignments.read'],
+    [],
+  );
+  await signIn(page, '/');
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Reporting' })).toBeVisible();
+});
+
+test('a signed-in reload of /reports stays on the page', async ({ page }) => {
+  await install(page, ['reports.read'], []);
+  await signIn(page, '/reports');
+  await expect(page.getByRole('heading', { name: 'Reporting' })).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/\/reports$/);
+  await expect(page.getByRole('heading', { name: 'Reporting' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Reporting' })).toBeVisible();
+});
+
 test('reports stay hidden without reports.read', async ({ page }) => {
   await install(page, ['assignments.read', 'attempts.read'], []);
   await signIn(page, '/');
@@ -148,5 +169,6 @@ test('reports stay hidden without reports.read', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
   await page.goto('/reports');
   await expect(page).toHaveURL(/\/$/);
+  await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 });
