@@ -17,7 +17,7 @@ public sealed class DevelopmentAccessSeeder
     public static readonly Guid RecruiterRoleId = Guid.Parse("aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2001");
     public static readonly Guid TemplateAuthorRoleId = Guid.Parse("aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2002");
     public static readonly Guid ReviewerRoleId = Guid.Parse("aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2003");
-    public static readonly Guid AdminRoleId = Guid.Parse("aaaaaaaa-0a01-4c9a-9e11-0f8c2b6a2004");
+    public static readonly Guid AdminRoleId = AdminRole.Id;
 
     public const string RecruiterEmail = "recruiter.dev@example.com";
     public const string RecruiterPassword = "Dev.Recruiter!1";
@@ -88,7 +88,8 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Catalog.QuestionsRead,
                 PermissionCodes.Catalog.QuestionsWrite,
                 PermissionCodes.Catalog.AiDraftUse,
-                PermissionCodes.Search.FiltersWrite
+                PermissionCodes.Search.FiltersWrite,
+                PermissionCodes.Evaluation.ReportsRead
             ],
             cancellationToken);
 
@@ -100,32 +101,16 @@ public sealed class DevelopmentAccessSeeder
                 PermissionCodes.Openings.Read,
                 PermissionCodes.Delivery.AssignmentsRead,
                 PermissionCodes.Evaluation.AttemptsRead,
-                PermissionCodes.Evaluation.AttemptsReview
-            ],
-            cancellationToken);
-
-        await SeedRoleAsync(
-            AdminRoleId,
-            "Dev Admin",
-            "Local sample bundle (not a product role).",
-            [
-                PermissionCodes.Access.UsersManage,
-                PermissionCodes.Access.RolesManage,
-                PermissionCodes.Openings.FieldsManage,
-                PermissionCodes.Catalog.AiRulesManage,
-                PermissionCodes.Access.ArchiveRestoreResumes,
-                PermissionCodes.Access.ArchiveRestoreAttempts,
-                PermissionCodes.Access.ArchiveRestoreCatalog,
-                PermissionCodes.Openings.Read,
-                PermissionCodes.Catalog.QuizzesRead,
-                PermissionCodes.Catalog.TemplatesRead
+                PermissionCodes.Evaluation.AttemptsReview,
+                PermissionCodes.Evaluation.ReportsRead
             ],
             cancellationToken);
 
         await SeedUserAsync(RecruiterEmail, RecruiterPassword, RecruiterRoleId, cancellationToken);
         await SeedUserAsync(AuthorEmail, AuthorPassword, TemplateAuthorRoleId, cancellationToken);
         await SeedUserAsync(ReviewerEmail, ReviewerPassword, ReviewerRoleId, cancellationToken);
-        await SeedUserAsync(AdminEmail, AdminPassword, AdminRoleId, cancellationToken);
+        // Admin is a built-in role. Migration and startup own its permission rows; this only keeps the local holder.
+        await SeedUserAsync(AdminEmail, AdminPassword, AdminRole.Id, cancellationToken);
     }
 
     private async Task SeedRoleAsync(

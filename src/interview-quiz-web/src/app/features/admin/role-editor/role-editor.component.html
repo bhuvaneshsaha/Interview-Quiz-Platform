@@ -4,10 +4,12 @@
 </div>
 
 @if (isSystem()) {
-  <p class="system-badge" role="status">
-    System role. Super Admin includes every employee permission except candidate attempt access. It
-    cannot be renamed, deleted, or reduced.
-  </p>
+  <p class="system-badge" role="status">System</p>
+} @else if (isBuiltIn()) {
+  <p class="builtin-badge" role="status">Built-in</p>
+}
+@if ((isSystem() || isBuiltIn()) && explanation()) {
+  <p class="role-explanation">{{ explanation() }}</p>
 }
 
 <app-page-status
@@ -31,7 +33,7 @@
       <p class="hint">Candidate attempt access is not shown here and cannot be granted as an employee role.</p>
       @for (group of modules(); track group.module) {
         <section class="permission-module">
-          <h2>{{ group.module }}</h2>
+          <h2>{{ group.label }}</h2>
           @for (permission of group.permissions; track permission.code) {
             <label class="check-row">
               <input
@@ -55,7 +57,7 @@
         <button type="submit" class="button" [disabled]="saving()">
           {{ saving() ? 'Saving…' : 'Save role' }}
         </button>
-        @if (!isNew()) {
+        @if (!isNew() && !isBuiltIn()) {
           <button type="button" class="button button-quiet" [disabled]="saving()" (click)="deleteRole()">
             Delete role
           </button>

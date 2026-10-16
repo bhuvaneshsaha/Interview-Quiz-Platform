@@ -37,6 +37,7 @@ export interface RoleResponse {
   permissionCodes: string[];
   userIds: string[];
   isSystem: boolean;
+  isBuiltIn: boolean;
 }
 
 export interface CreateRoleRequest {
