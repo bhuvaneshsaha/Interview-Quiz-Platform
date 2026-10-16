@@ -19,15 +19,29 @@ export class UserList implements OnInit {
   readonly page = signal(1);
   readonly totalCount = signal(0);
   readonly pageSize = 20;
+  readonly showCandidates = signal(false);
 
   ngOnInit(): void {
     this.load();
   }
 
+  onShowCandidates(event: Event): void {
+    const target = event.target;
+    this.showCandidates.set(target instanceof HTMLInputElement && target.checked);
+    this.load(1);
+  }
+
+  roleLabel(user: UserResponse): string {
+    if (user.isCandidate) {
+      return 'Candidate';
+    }
+    return user.roleNames.length > 0 ? user.roleNames.join(', ') : 'No roles';
+  }
+
   load(page = 1): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.listUsers(page, this.pageSize).subscribe({
+    this.api.listUsers(page, this.pageSize, this.showCandidates()).subscribe({
       next: (result) => {
         this.users.set(result.items);
         this.page.set(result.page);

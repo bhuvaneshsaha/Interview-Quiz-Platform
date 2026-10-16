@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The users list hides invite-only candidates until Show candidates is turned on. Those people are labeled Candidate, and employees show role names instead of a count (#89).
+
 ## [0.8.0] - 2026-10-16
 
 ### Changed

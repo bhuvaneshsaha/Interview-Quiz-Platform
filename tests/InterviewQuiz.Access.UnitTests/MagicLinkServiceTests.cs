@@ -552,9 +552,13 @@ public sealed class MagicLinkServiceTests
 
         public Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<int> CountAsync(CancellationToken cancellationToken) => Task.FromResult(_users.Count);
+        public Task<int> CountAsync(bool includeCandidates, CancellationToken cancellationToken) => Task.FromResult(_users.Count);
 
-        public Task<IReadOnlyList<ApplicationUser>> ListAsync(int skip, int take, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ApplicationUser>> ListAsync(
+            int skip,
+            int take,
+            bool includeCandidates,
+            CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<ApplicationUser>>(_users.Skip(skip).Take(take).ToArray());
     }
 }

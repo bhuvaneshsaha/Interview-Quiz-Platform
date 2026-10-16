@@ -48,7 +48,11 @@ public interface IRoleAdminService
 
 public interface IUserAdminService
 {
-    Task<PagedUsersResponse> ListAsync(int page, int pageSize, CancellationToken cancellationToken);
+    Task<PagedUsersResponse> ListAsync(
+        int page,
+        int pageSize,
+        bool includeCandidates,
+        CancellationToken cancellationToken);
 
     Task<UserResponse> GetAsync(string userId, CancellationToken cancellationToken);
 

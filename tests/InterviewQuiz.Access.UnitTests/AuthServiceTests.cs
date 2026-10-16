@@ -189,9 +189,13 @@ public sealed class AuthServiceTests
         public Task UpdateAsync(ApplicationUser user, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
-        public Task<int> CountAsync(CancellationToken cancellationToken) => Task.FromResult(1);
+        public Task<int> CountAsync(bool includeCandidates, CancellationToken cancellationToken) => Task.FromResult(1);
 
-        public Task<IReadOnlyList<ApplicationUser>> ListAsync(int skip, int take, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ApplicationUser>> ListAsync(
+            int skip,
+            int take,
+            bool includeCandidates,
+            CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<ApplicationUser>>([_user]);
     }
 

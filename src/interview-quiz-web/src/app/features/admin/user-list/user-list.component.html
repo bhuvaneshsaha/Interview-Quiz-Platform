@@ -3,13 +3,22 @@
   <a routerLink="/users/new" class="button">Create user</a>
 </div>
 <p>There is no self-registration. Admins provision employee accounts.</p>
+<label class="check-row" for="show-candidates">
+  <input
+    id="show-candidates"
+    type="checkbox"
+    [checked]="showCandidates()"
+    (change)="onShowCandidates($event)"
+  />
+  Show candidates
+</label>
 
 <app-page-status
   [loading]="loading()"
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && users().length === 0"
-  emptyMessage="No users yet."
+  [emptyMessage]="showCandidates() ? 'No users yet.' : 'No staff users yet.'"
   loadingMessage="Loading users."
 >
   <table class="data-table data-table-cards">
@@ -17,7 +26,7 @@
       <tr>
         <th scope="col">Email</th>
         <th scope="col">Status</th>
-        <th scope="col">Roles assigned</th>
+        <th scope="col">Roles</th>
       </tr>
     </thead>
     <tbody>
@@ -27,7 +36,7 @@
             <a [routerLink]="['/users', user.id]">{{ user.email }}</a>
           </th>
           <td data-label="Status">{{ user.isDisabled ? 'Disabled' : 'Active' }}</td>
-          <td data-label="Roles assigned">{{ user.roleIds.length }}</td>
+          <td data-label="Roles">{{ roleLabel(user) }}</td>
         </tr>
       }
     </tbody>
