@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Replacing an invite that is already active or expired asks first, and the button says Re-issue. Archiving a question, disabling a user, and deleting a role ask first too (#73, #82).
 - Create opening, create user, and create role say what is missing instead of staying silent. An AI draft with no opening says to select one, and a sample draft no longer shows the word fake (#74, #83, #86).
 
 ## [0.7.0] - 2026-10-16

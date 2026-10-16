@@ -33,6 +33,7 @@ export class RoleEditor implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly confirmingDelete = signal(false);
   readonly error = signal<string | null>(null);
   readonly correlationId = signal<string | null>(null);
   readonly isNew = signal(true);
@@ -141,10 +142,22 @@ export class RoleEditor implements OnInit {
     });
   }
 
+  requestDelete(): void {
+    if (!this.roleId || this.isSystem()) {
+      return;
+    }
+    this.confirmingDelete.set(true);
+  }
+
+  cancelDelete(): void {
+    this.confirmingDelete.set(false);
+  }
+
   deleteRole(): void {
     if (!this.roleId || this.isSystem() || this.isBuiltIn()) {
       return;
     }
+    this.confirmingDelete.set(false);
     this.saving.set(true);
     this.api.deleteRole(this.roleId).subscribe({
       next: () => void this.router.navigateByUrl('/roles'),

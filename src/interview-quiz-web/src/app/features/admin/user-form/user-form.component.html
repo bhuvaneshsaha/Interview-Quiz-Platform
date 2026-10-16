@@ -71,7 +71,7 @@
       @if (current.isDisabled) {
         <button type="button" class="button" [disabled]="saving()" (click)="setDisabled(false)">Enable user</button>
       } @else {
-        <button type="button" class="button" [disabled]="saving()" (click)="setDisabled(true)">Disable user</button>
+        <button type="button" class="button" [disabled]="saving()" (click)="requestDisable()">Disable user</button>
       }
     </div>
     <section *hasPermission="codes.RolesManage">
@@ -90,3 +90,26 @@
     </section>
   }
 </app-page-status>
+
+@if (confirmingDisable()) {
+  <div class="dialog-backdrop" (click)="cancelDisable()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="disable-user-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelDisable()"
+    >
+      <h2 id="disable-user-title">Disable this user?</h2>
+      <p>They will not be able to sign in until someone enables the account.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" (click)="cancelDisable()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-disable" (click)="setDisabled(true)">
+          Disable user
+        </button>
+      </div>
+    </div>
+  </div>
+}

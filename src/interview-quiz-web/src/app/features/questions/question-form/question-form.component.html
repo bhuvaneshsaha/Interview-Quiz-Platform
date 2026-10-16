@@ -592,3 +592,26 @@
     </div>
   </form>
 </app-page-status>
+
+@if (confirmingArchive()) {
+  <div class="dialog-backdrop" (click)="cancelArchive()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="archive-question-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="cancelArchive()"
+    >
+      <h2 id="archive-question-title">Archive this question?</h2>
+      <p>It leaves the bank list until someone shows archived questions and restores it.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" (click)="cancelArchive()">Cancel</button>
+        <button type="button" class="button" data-testid="confirm-archive" (click)="confirmArchive()">
+          Archive
+        </button>
+      </div>
+    </div>
+  </div>
+}
