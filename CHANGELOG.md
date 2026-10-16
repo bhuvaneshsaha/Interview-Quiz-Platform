@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Replacing an invite that is already active or expired asks first, and the button says Re-issue. Archiving a question, disabling a user, and deleting a role ask first too (#73, #82).
+
 ## [0.6.2] - 2026-10-16
 
 ### Fixed
