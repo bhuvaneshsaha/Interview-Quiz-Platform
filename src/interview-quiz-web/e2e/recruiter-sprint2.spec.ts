@@ -6,9 +6,17 @@ const quizId = '4b8d2e21-7c3e-4d0b-8f22-1a9d3c7b2001';
 const recruiterId = '11111111-1111-1111-1111-111111111111';
 const authorId = '22222222-2222-2222-2222-222222222222';
 
+const candidateEmail = 'candidate.dev@example.com';
+
 const users = [
-  { id: recruiterId, name: 'Recruiter Dev', email: 'recruiter.dev@example.com' },
-  { id: authorId, name: 'Author Dev', email: 'author.dev@example.com' },
+  { id: recruiterId, name: 'Recruiter Dev', email: 'recruiter.dev@example.com', employee: true },
+  { id: authorId, name: 'Author Dev', email: 'author.dev@example.com', employee: true },
+  {
+    id: '33333333-3333-3333-3333-333333333333',
+    name: 'Candidate Dev',
+    email: candidateEmail,
+    employee: false,
+  },
 ];
 
 const opening = {
@@ -181,10 +189,11 @@ async function installStaffApi(page: Page): Promise<{
       const term = (url.searchParams.get('q') ?? '').toLowerCase();
       const matches = users.filter(
         (user) =>
-          !term ||
-          user.email.includes(term) ||
-          user.name.toLowerCase().includes(term) ||
-          user.id === term,
+          user.employee &&
+          (!term ||
+            user.email.includes(term) ||
+            user.name.toLowerCase().includes(term) ||
+            user.id === term),
       );
       await json(route, matches);
       return;
@@ -336,6 +345,29 @@ test('unsaved quiz edits preview from the current form', async ({ page }) => {
   await expect(page.getByText('Preview, not recorded')).toBeVisible();
   expect(calls.quizWrites).toBe(0);
   expect(calls.attemptWrites).toBe(0);
+});
+
+test('opening owner and handler pickers omit candidate emails', async ({ page }) => {
+  await installStaffApi(page);
+  await signIn(page, '/openings/new');
+  await expect(page.getByRole('heading', { name: 'Create opening' })).toBeVisible();
+
+  const owner = page.getByLabel('Owner');
+  await owner.click();
+  const ownerList = page.locator('#owner-list');
+  await expect(ownerList.getByRole('option', { name: /Recruiter Dev/ })).toBeVisible();
+  await expect(ownerList).not.toContainText(candidateEmail);
+
+  await owner.fill(candidateEmail);
+  await expect(ownerList.getByText('No matching users.')).toBeVisible();
+  await expect(ownerList).not.toContainText(candidateEmail);
+
+  const handlers = page.getByLabel('Handlers');
+  await handlers.click();
+  const handlerList = page.locator('#handlers-list');
+  await handlers.fill(candidateEmail);
+  await expect(handlerList.getByText('No matching users.')).toBeVisible();
+  await expect(handlerList).not.toContainText(candidateEmail);
 });
 
 test('opening owner and handlers are user pickers', async ({ page }) => {
