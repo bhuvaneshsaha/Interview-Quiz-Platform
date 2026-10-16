@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - A page you cannot open explains that on Home. Opening counts link to assignments once, quiz and template pages link to the related item instead of showing an id, and the assignment list picks a quiz by name. Saved filters say “these filters” and let a recruiter pick a person. An empty question bank or template list offers Clear filters, and View and Review stay separate (#78, #79, #81, #84, #85, #91, #92, #93).
+- Staff sign-in, home, and navigation use the same plain names (Opening fields, Roles) and no longer mention a candidate URL. Question and quiz editors say question text, choices, wrong answer, and how a question is scored. Assignment and attempt pages say version instead of snapshot or revision, and a live join link no longer claims it is emailed. Reports describe results in everyday language (#75, #76, #77, #80, #87, #88, #90).
+
+### Fixed
+
+- Replacing an invite that is already active or expired asks first, and the button says Re-issue. Archiving a question, disabling a user, and deleting a role ask first too (#73, #82).
+- Create opening, create user, and create role say what is missing instead of staying silent. An AI draft with no opening says to select one, and a sample draft no longer shows the word fake (#74, #83, #86).
+
+## [0.7.0] - 2026-10-16
+
+### Changed
+
+- Every employee role can view Reporting. The built-in Admin role and the Development seeds for Template author, Recruiter, and Reviewer include `reports.read`, and a migration grants that code to employee roles already stored. A role that holds `candidate.attempt.participate` is left unchanged. Candidates still receive 403 from the reports API, and the app hides the Reporting link and sends `/reports` home. `GET /api/permissions` lists `reports.read` as “View reports” in the Evaluation group, and the role editor shows that checkbox so an admin can assign or remove it (#61).
+- Admin is a built-in role in every environment, with a stable id. It starts with every employee permission, those permissions can be edited, and it cannot be deleted or used to assign or revoke Super Admin. It never has `candidate.attempt.participate`. Existing Dev Admin holders map onto this role, so there is one Admin role. Super Admin stays the locked system role: it holds every employee permission, only a Super Admin can assign or revoke it, and the last active holder is protected. The role editor shows a System or Built-in badge and each role’s description (#62).
 
 ## [0.6.2] - 2026-10-16
 
@@ -85,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.5.0...v0.6.0

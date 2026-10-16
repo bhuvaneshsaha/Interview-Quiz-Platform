@@ -654,9 +654,9 @@ export class QuizForm implements OnInit {
   assignmentBanner(): string {
     const count = this.assignmentCount();
     if (count === 1) {
-      return '1 assignment uses an earlier snapshot. Changes apply only to new assignments.';
+      return '1 assignment still uses an older version of this quiz. Changes apply only to new assignments.';
     }
-    return `${count} assignments use earlier snapshots. Changes apply only to new assignments.`;
+    return `${count} assignments still use an older version of this quiz. Changes apply only to new assignments.`;
   }
 
   private patch(quiz: QuizResponse): void {

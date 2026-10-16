@@ -73,18 +73,30 @@ public sealed class RoleAdminService : IRoleAdminService
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(AccessRole), id);
 
-        if (role.IsSystem || role.Id == SuperAdminRole.Id)
+        if (IsSystemRole(role))
         {
             throw new ConflictException(SuperAdminRole.ImmutableMessage);
         }
 
-        var name = NormalizeName(request.Name);
-        RejectReservedName(name);
+        string name;
+        string? description;
+        if (IsBuiltInRole(role))
+        {
+            name = AdminRole.Name;
+            description = AdminRole.Description;
+        }
+        else
+        {
+            name = NormalizeName(request.Name);
+            RejectReservedName(name);
+            description = NormalizeDescription(request.Description);
+        }
+
         await EnsureNameAvailableAsync(name, exceptRoleId: id, cancellationToken);
         var permissionCodes = await ValidatePermissionCodesAsync(request.PermissionCodes, cancellationToken);
 
         role.Name = name;
-        role.Description = NormalizeDescription(request.Description);
+        role.Description = description;
         role.Permissions.Clear();
         foreach (var code in permissionCodes)
         {
@@ -99,9 +111,14 @@ public sealed class RoleAdminService : IRoleAdminService
     {
         var role = await _db.Roles.SingleOrDefaultAsync(item => item.Id == id, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(AccessRole), id);
-        if (role.IsSystem || role.Id == SuperAdminRole.Id)
+        if (IsSystemRole(role))
         {
             throw new ConflictException(SuperAdminRole.ImmutableMessage);
+        }
+
+        if (IsBuiltInRole(role))
+        {
+            throw new ConflictException(AdminRole.DeleteForbiddenMessage);
         }
 
         _db.Roles.Remove(role);
@@ -189,7 +206,8 @@ public sealed class RoleAdminService : IRoleAdminService
                 .Select(assignment => assignment.UserId)
                 .OrderBy(id => id, StringComparer.Ordinal)
                 .ToArray(),
-            role.IsSystem || role.Id == SuperAdminRole.Id);
+            IsSystemRole(role),
+            IsBuiltInRole(role) && role.Id != SuperAdminRole.Id);
 
     private async Task EnsureNameAvailableAsync(
         string name,
@@ -322,11 +340,22 @@ public sealed class RoleAdminService : IRoleAdminService
             correlation);
     }
 
+    private static bool IsSystemRole(AccessRole role)
+        => role.IsSystem || role.Id == SuperAdminRole.Id;
+
+    private static bool IsBuiltInRole(AccessRole role)
+        => role.Id != SuperAdminRole.Id && (role.IsBuiltIn || role.Id == AdminRole.Id);
+
     private static void RejectReservedName(string name)
     {
         if (string.Equals(name, SuperAdminRole.Name, StringComparison.OrdinalIgnoreCase))
         {
             throw new DomainException(SuperAdminRole.ReservedNameMessage);
+        }
+
+        if (string.Equals(name, AdminRole.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainException(AdminRole.ReservedNameMessage);
         }
     }
 

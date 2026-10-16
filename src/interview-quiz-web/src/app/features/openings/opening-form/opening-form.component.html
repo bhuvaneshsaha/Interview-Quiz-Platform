@@ -12,7 +12,16 @@
   <form id="opening-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <div class="field">
       <label for="title">Title</label>
-      <input id="title" type="text" formControlName="title" />
+      <input
+        id="title"
+        type="text"
+        formControlName="title"
+        [attr.aria-invalid]="form.controls.title.touched && form.controls.title.invalid"
+        [attr.aria-describedby]="form.controls.title.touched && form.controls.title.invalid ? 'title-error' : null"
+      />
+      @if (form.controls.title.touched && form.controls.title.invalid) {
+        <p id="title-error" class="field-error">Title is required.</p>
+      }
     </div>
     <div class="field">
       <label for="jobDescription">Job description</label>
@@ -29,11 +38,25 @@
         labelledBy="owner-label"
         [known]="ownerPeople()"
       />
+      @if (form.controls.owner.touched && form.controls.owner.invalid) {
+        <p id="owner-error" class="field-error">Choose an owner.</p>
+      }
     </div>
     <div class="field-row">
       <div class="field">
         <label for="startDate">Start date</label>
-        <input id="startDate" type="date" formControlName="startDate" />
+        <input
+          id="startDate"
+          type="date"
+          formControlName="startDate"
+          [attr.aria-invalid]="form.controls.startDate.touched && form.controls.startDate.invalid"
+          [attr.aria-describedby]="
+            form.controls.startDate.touched && form.controls.startDate.invalid ? 'start-date-error' : null
+          "
+        />
+        @if (form.controls.startDate.touched && form.controls.startDate.invalid) {
+          <p id="start-date-error" class="field-error">Start date is required.</p>
+        }
       </div>
       <div class="field">
         <label for="expectedCloseDate">Expected close date</label>

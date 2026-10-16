@@ -44,7 +44,7 @@
       autocomplete="off"
       aria-describedby="assignment-keyword-hint"
     />
-    <p id="assignment-keyword-hint" class="hint">Matches candidate email or snapshot title.</p>
+    <p id="assignment-keyword-hint" class="hint">Matches the candidate email or the quiz name.</p>
   </div>
   <button type="submit" class="button">Filter</button>
 </form>
@@ -60,14 +60,14 @@
   loadingMessage="Loading assignments."
 >
   @if (quizId()) {
-    <p class="hint" role="status">Showing assignments for this quiz. Results are not comparable across revisions.</p>
+    <p class="hint" role="status">Showing assignments for this quiz. Each candidate keeps the version they were given.</p>
   }
   <table class="data-table data-table-cards stack-table">
     <thead>
       <tr>
         <th scope="col">Candidate</th>
         <th scope="col">Quiz</th>
-        <th scope="col">Revision</th>
+        <th scope="col">Version</th>
         <th scope="col">Opening</th>
         <th scope="col">Mode</th>
         <th scope="col">Status</th>
@@ -81,7 +81,7 @@
             <a [routerLink]="['/assignments', assignment.id]">{{ assignment.candidateEmail }}</a>
           </th>
           <td data-label="Quiz">{{ assignment.snapshotTitle }}</td>
-          <td data-label="Revision">Quiz revision {{ assignment.snapshotQuizRowVersion }}</td>
+          <td data-label="Version">Version {{ assignment.snapshotQuizRowVersion }}</td>
           <td data-label="Opening">{{ openingTitle(assignment.openingId) }}</td>
           <td data-label="Mode">{{ modeLabel(assignment.mode) }}</td>
           <td data-label="Status">{{ statusLabel(assignment.status) }}</td>

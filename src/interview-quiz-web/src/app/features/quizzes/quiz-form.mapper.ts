@@ -41,23 +41,23 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   trueFalse: 'True / false',
   shortText: 'Short text',
   longText: 'Long text',
-  dragDropSharedBank: 'Drag and drop (shared bank)',
-  dragDropPerSlot: 'Drag and drop (per slot)',
+  dragDropSharedBank: 'Match from one list',
+  dragDropPerSlot: 'Match each blank',
   ordering: 'Ordering',
 };
 
 export const SCORING_MODES: readonly ScoringMode[] = ['auto', 'aiAssist', 'humanOnly'];
 
 export const SCORING_MODE_LABELS: Record<ScoringMode, string> = {
-  auto: 'Auto',
-  aiAssist: 'AI assist',
-  humanOnly: 'Human only',
+  auto: 'Scored automatically',
+  aiAssist: 'AI suggests a score',
+  humanOnly: 'A person scores this',
 };
 
 export const CREDIT_MODES: readonly CreditMode[] = ['partial', 'allOrNothing'];
 
 export const CREDIT_MODE_LABELS: Record<CreditMode, string> = {
-  partial: 'Partial',
+  partial: 'Partial credit',
   allOrNothing: 'All or nothing',
 };
 
@@ -510,11 +510,11 @@ export function validateQuestionDraft(question: QuestionDraft, prefix: string): 
 
   const stem = question.stem.trim();
   if (!stem) {
-    errors.push({ path: fieldPath(prefix, 'stem'), message: 'Stem is required.' });
+    errors.push({ path: fieldPath(prefix, 'stem'), message: 'Question text is required.' });
   } else if (stem.length > QUESTION_STEM_MAX) {
     errors.push({
       path: fieldPath(prefix, 'stem'),
-      message: `Stem cannot exceed ${QUESTION_STEM_MAX} characters.`,
+      message: `Question text cannot exceed ${QUESTION_STEM_MAX} characters.`,
     });
   }
 
@@ -531,20 +531,23 @@ export function validateQuestionDraft(question: QuestionDraft, prefix: string): 
   }
 
   if (question.type === 'longText' && question.scoringMode === 'auto') {
-    errors.push({ path: fieldPath(prefix, 'scoringMode'), message: 'Long text questions cannot use auto scoring.' });
+    errors.push({
+      path: fieldPath(prefix, 'scoringMode'),
+      message: 'A long written answer has to be scored by a person or by AI.',
+    });
   }
 
   if (requiresCreditMode(question.type)) {
     if (question.creditMode !== 'partial' && question.creditMode !== 'allOrNothing') {
       errors.push({
         path: fieldPath(prefix, 'creditMode'),
-        message: `Credit mode is required for ${QUESTION_TYPE_LABELS[question.type].toLowerCase()} questions.`,
+        message: `Choose how credit works for ${QUESTION_TYPE_LABELS[question.type].toLowerCase()} questions.`,
       });
     }
   } else if (question.creditMode) {
     errors.push({
       path: fieldPath(prefix, 'creditMode'),
-      message: `Credit mode must be omitted for ${question.type} questions.`,
+      message: 'Credit does not apply to this question.',
     });
   }
 
@@ -672,28 +675,28 @@ function validateLongText(body: QuestionBodyDraft, prefix: string): FieldError[]
 function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
   if (!isSharedBankBody(body)) {
-    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'Shared-bank drag-and-drop body is invalid.' });
+    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'This match question is incomplete.' });
     return errors;
   }
   if (body.slots.length === 0) {
     errors.push({
       path: `${fieldPath(prefix, 'body')}.slots`,
-      message: 'Shared-bank drag-and-drop requires at least one slot.',
+      message: 'Add at least one blank to match.',
     });
   }
   if (body.bank.length === 0) {
     errors.push({
       path: `${fieldPath(prefix, 'body')}.bank`,
-      message: 'Shared-bank drag-and-drop requires a non-empty bank.',
+      message: 'Add at least one choice.',
     });
   }
-  errors.push(...validateUniqueIds(body.bank.map((item) => item.id), `${fieldPath(prefix, 'body')}.bank`, 'bank item'));
+  errors.push(...validateUniqueIds(body.bank.map((item) => item.id), `${fieldPath(prefix, 'body')}.bank`, 'choice'));
   errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${fieldPath(prefix, 'body')}.slots`, 'slot'));
   const nonDistractors = new Set<string>();
   const bankIds = new Set<string>();
   body.bank.forEach((item, index) => {
-    errors.push(...validateId(item.id, `${fieldPath(prefix, 'body')}.bank.${index}.id`, 'Bank item'));
-    errors.push(...validateText(item.text, `${fieldPath(prefix, 'body')}.bank.${index}.text`, 'Bank item text'));
+    errors.push(...validateId(item.id, `${fieldPath(prefix, 'body')}.bank.${index}.id`, 'Choice'));
+    errors.push(...validateText(item.text, `${fieldPath(prefix, 'body')}.bank.${index}.text`, 'Choice text'));
     bankIds.add(item.id.trim());
     if (!item.isDistractor) {
       nonDistractors.add(item.id.trim());
@@ -702,7 +705,7 @@ function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefi
   if (body.bank.length > 0 && nonDistractors.size === 0) {
     errors.push({
       path: `${fieldPath(prefix, 'body')}.bank`,
-      message: 'Shared-bank drag-and-drop requires at least one non-distractor bank item.',
+      message: 'Mark at least one choice as a correct answer, not a wrong answer.',
     });
   }
   body.slots.forEach((slot, index) => {
@@ -712,17 +715,17 @@ function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefi
     if (!correctItemId) {
       errors.push({
         path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
-        message: 'Slot correctItemId is required.',
+        message: 'Choose the correct choice for this blank.',
       });
     } else if (scoring === 'auto' && !nonDistractors.has(correctItemId)) {
       errors.push({
         path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
-        message: `Slot '${slot.id}' correctItemId must reference a non-distractor bank item.`,
+        message: 'The correct choice cannot be marked as a wrong answer.',
       });
     } else if (scoring !== 'auto' && !bankIds.has(correctItemId)) {
       errors.push({
         path: `${fieldPath(prefix, 'body')}.slots.${index}.correctItemId`,
-        message: `Slot '${slot.id}' correctItemId must reference a bank item.`,
+        message: 'Choose a choice from the list.',
       });
     }
   });
@@ -732,13 +735,13 @@ function validateSharedBank(body: QuestionBodyDraft, scoring: ScoringMode, prefi
 function validatePerSlot(body: QuestionBodyDraft, scoring: ScoringMode, prefix: string): FieldError[] {
   const errors: FieldError[] = [];
   if (!isPerSlotBody(body)) {
-    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'Per-slot drag-and-drop body is invalid.' });
+    errors.push({ path: `${fieldPath(prefix, 'body')}`, message: 'This match question is incomplete.' });
     return errors;
   }
   if (body.slots.length === 0) {
     errors.push({
       path: `${fieldPath(prefix, 'body')}.slots`,
-      message: 'Per-slot drag-and-drop requires at least one slot.',
+      message: 'Add at least one blank to match.',
     });
   }
   errors.push(...validateUniqueIds(body.slots.map((slot) => slot.id), `${fieldPath(prefix, 'body')}.slots`, 'slot'));
@@ -777,7 +780,7 @@ function validatePerSlot(body: QuestionBodyDraft, scoring: ScoringMode, prefix: 
     if (scoring === 'auto' && slot.options.length >= 2 && correctCount !== 1) {
       errors.push({
         path: `${fieldPath(prefix, 'body')}.slots.${slotIndex}.options`,
-        message: `Slot '${slot.id}' auto scoring requires exactly one correct option.`,
+        message: 'Each blank needs exactly one correct option when it is scored automatically.',
       });
     }
   });
@@ -805,7 +808,7 @@ function validateOrdering(body: QuestionBodyDraft, prefix: string): FieldError[]
     if (!Number.isInteger(correctIndex)) {
       errors.push({
         path: `${fieldPath(prefix, 'body')}.items.${index}.correctIndex`,
-        message: 'Ordering correctIndex must be an integer.',
+        message: 'Enter a whole number. 0 is the first place.',
       });
     } else {
       indexes.push(correctIndex);

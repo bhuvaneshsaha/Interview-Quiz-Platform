@@ -60,7 +60,7 @@
         <th scope="col">Title</th>
         <th scope="col">Type</th>
         <th scope="col">Experience</th>
-        <th scope="col">Stem</th>
+        <th scope="col">Question</th>
         <th scope="col">Status</th>
       </tr>
     </thead>
@@ -72,12 +72,12 @@
           </th>
           <td data-label="Type">{{ typeLabel(question.type) }}</td>
           <td data-label="Experience">{{ question.expectedExperienceYears }}</td>
-          <td data-label="Stem">{{ stemExcerpt(question.stem) }}</td>
+          <td data-label="Question">{{ stemExcerpt(question.stem) }}</td>
           <td data-label="Status">
             @if (question.archivedAtUtc) {
               <span class="badge">Archived</span>
             } @else {
-              Live
+              Available
             }
           </td>
         </tr>

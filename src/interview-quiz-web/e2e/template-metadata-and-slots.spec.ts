@@ -60,7 +60,7 @@ test('metadata reuses questions and the editor saves drag-and-drop slots', async
   const slot = page.getByTestId('shared-slot-label');
   await expect(slot).toHaveValue('GET');
   await expect(page.getByRole('button', { name: 'Add slot' })).toBeVisible();
-  await expect(page.getByLabel('Correct bank item')).toBeVisible();
+  await expect(page.getByLabel('Correct choice')).toBeVisible();
   await page.screenshot({ path: screenshotPath('template-slot-editor.png'), fullPage: true });
 
   await slot.fill('GET method');

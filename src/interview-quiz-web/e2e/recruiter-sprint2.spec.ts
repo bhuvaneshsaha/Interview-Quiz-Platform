@@ -269,7 +269,7 @@ test('editing an assigned quiz warns and asks before save', async ({ page }) => 
 
   await expect(page.getByRole('heading', { name: 'Quizzes' })).toBeVisible();
   await page.getByRole('link', { name: 'Edit' }).click();
-  await expect(page.getByText('2 assignments use earlier snapshots. Changes apply only to new assignments.')).toBeVisible();
+  await expect(page.getByText('2 assignments still use an older version of this quiz. Changes apply only to new assignments.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'View assignments' })).toBeVisible();
   await page.screenshot({ path: screenshotPath('after-quiz-edit-warning.png'), fullPage: true });
 
@@ -277,7 +277,7 @@ test('editing an assigned quiz warns and asks before save', async ({ page }) => 
   await page.getByLabel('Shuffle questions').check();
   await page.getByTestId('save-quiz').click();
   await expect(page.getByRole('alertdialog')).toContainText('Save changes to an assigned quiz?');
-  await expect(page.getByRole('alertdialog')).toContainText('Snapshots already assigned stay frozen.');
+  await expect(page.getByRole('alertdialog')).toContainText('Quizzes already sent to candidates stay as they were.');
   expect(calls.quizWrites).toBe(0);
   await page.getByTestId('confirm-quiz-edit').click();
   await expect(page.getByLabel('Title')).toHaveValue('Backend interview — revised');
