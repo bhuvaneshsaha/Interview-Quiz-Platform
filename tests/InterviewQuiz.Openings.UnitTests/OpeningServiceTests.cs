@@ -101,10 +101,62 @@ public sealed class OpeningServiceTests
             NullLogger<OpeningService>.Instance,
             new KnownUsers("user-owner"));
 
-        var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            service.CreateAsync(ValidCreate(owner: "missing-user"), CancellationToken.None));
+        var request = ValidCreate(owner: "missing-user");
+        request.Handlers = ["user-owner"];
 
-        Assert.Equal("Unknown user.", ex.Message);
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(request, CancellationToken.None));
+
+        Assert.Equal(OpeningService.OwnerNotEmployeeMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_non_employee_handler()
+    {
+        var service = new OpeningService(
+            new FakeOpeningRepository(),
+            _clock,
+            NullLogger<OpeningService>.Instance,
+            new KnownUsers("user-owner"));
+        var request = ValidCreate(owner: "user-owner");
+        request.Handlers = ["user-owner", "candidate-user"];
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(request, CancellationToken.None));
+
+        Assert.Equal(OpeningService.HandlersNotEmployeeMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_non_employee_owner_and_handler()
+    {
+        var service = new OpeningService(
+            new FakeOpeningRepository(),
+            _clock,
+            NullLogger<OpeningService>.Instance,
+            new KnownUsers("user-owner"));
+        var created = await service.CreateAsync(ValidCreate(owner: "user-owner"), CancellationToken.None);
+        var request = new UpdateOpeningRequest
+        {
+            Id = created.Id,
+            Title = created.Title,
+            JobDescription = created.JobDescription,
+            Owner = "candidate-user",
+            StartDate = created.StartDate,
+            ExpectedCloseDate = created.ExpectedCloseDate,
+            Headcount = created.Headcount,
+            ExpectedExperienceYears = created.ExpectedExperienceYears,
+            Handlers = ["missing-handler"],
+            Tags = created.Tags.ToDictionary(pair => pair.Key, pair => pair.Value),
+            RowVersion = created.RowVersion
+        };
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateAsync(request, CancellationToken.None));
+
+        Assert.Equal(
+            $"{OpeningService.OwnerNotEmployeeMessage} {OpeningService.HandlersNotEmployeeMessage}",
+            ex.Message);
     }
 
     private static CreateOpeningRequest ValidCreate(string owner = "owner@example.com", string title = "Platform engineer")
@@ -117,7 +169,7 @@ public sealed class OpeningServiceTests
             ExpectedCloseDate = new DateOnly(2026, 12, 1),
             Headcount = 1,
             ExpectedExperienceYears = 4,
-            Handlers = ["owner@example.com"],
+            Handlers = [owner],
             Tags = new Dictionary<string, string> { ["Client"] = "Internal" }
         };
 
@@ -192,6 +244,7 @@ public sealed class OpeningServiceTests
         {
             var map = userIds
                 .Where(id => _ids.Contains(id))
+                .Distinct(StringComparer.Ordinal)
                 .ToDictionary(id => id, id => new AssignableUserDto(id, id, id + "@example.com"), StringComparer.Ordinal);
             return Task.FromResult<IReadOnlyDictionary<string, AssignableUserDto>>(map);
         }

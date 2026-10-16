@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening Owner and Handlers pickers list only active employees. `GET /api/users/assignable` excludes candidate identities created when a magic link is consumed, users with no employee role, users who cannot sign in with a password, and disabled users. Creating or updating an opening with one of those ids returns 400 and names Owner or Handlers.
+
 ## [0.6.0] - 2026-10-16
 
 ### Added
