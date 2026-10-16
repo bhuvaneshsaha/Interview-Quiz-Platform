@@ -1,9 +1,10 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { AssignmentSummaryResponse, OpeningResponse } from '../../../core/api/contracts';
+import { AssignmentSummaryResponse, OpeningResponse, QuizResponse } from '../../../core/api/contracts';
 import { AssignmentsApi } from '../../../core/api/assignments-api.service';
 import { OpeningsApi } from '../../../core/api/openings-api.service';
+import { QuizzesApi } from '../../../core/api/quizzes-api.service';
 import { HasPermission } from '../../../core/permissions/has-permission.directive';
 import { PermissionCodes } from '../../../core/permissions/permission-codes';
 import { PermissionService } from '../../../core/permissions/permission.service';
@@ -20,11 +21,13 @@ import { isUuid } from '../../quizzes/quiz-form.mapper';
 export class AssignmentList implements OnInit {
   private readonly api = inject(AssignmentsApi);
   private readonly openingsApi = inject(OpeningsApi);
+  private readonly quizzesApi = inject(QuizzesApi);
   private readonly permissions = inject(PermissionService);
   private readonly route = inject(ActivatedRoute);
 
   readonly codes = PermissionCodes;
   readonly canReadOpenings = this.permissions.hasPermission(PermissionCodes.OpeningsRead);
+  readonly canReadQuizzes = this.permissions.hasPermission(PermissionCodes.QuizzesRead);
   readonly canWrite = computed(() => this.permissions.hasPermission(PermissionCodes.AssignmentsWrite));
   readonly filtered = computed(
     () =>
@@ -48,6 +51,7 @@ export class AssignmentList implements OnInit {
   readonly correlationId = signal<string | null>(null);
   readonly assignments = signal<AssignmentSummaryResponse[]>([]);
   readonly openings = signal<OpeningResponse[]>([]);
+  readonly quizzes = signal<QuizResponse[]>([]);
   readonly page = signal(1);
   readonly totalCount = signal(0);
   readonly pageSize = 20;
@@ -72,6 +76,12 @@ export class AssignmentList implements OnInit {
       this.openingsApi.list(1, 100).subscribe({
         next: (result) => this.openings.set(result.items),
         error: () => this.openings.set([]),
+      });
+    }
+    if (this.canReadQuizzes) {
+      this.quizzesApi.list(1, 100).subscribe({
+        next: (result) => this.quizzes.set(result.items),
+        error: () => this.quizzes.set([]),
       });
     }
     this.load();
@@ -134,6 +144,10 @@ export class AssignmentList implements OnInit {
           this.loading.set(false);
         },
       });
+  }
+
+  knownQuiz(quizId: string): boolean {
+    return this.quizzes().some((quiz) => quiz.id === quizId);
   }
 
   openingTitle(openingId: string): string {

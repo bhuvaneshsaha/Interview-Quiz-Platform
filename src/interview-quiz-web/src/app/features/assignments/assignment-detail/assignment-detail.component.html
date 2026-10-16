@@ -223,10 +223,13 @@
                   <td data-label="Started">{{ formatDate(attempt.startedAtUtc) }}</td>
                   <td data-label="Submitted">{{ formatDate(attempt.submittedAtUtc) }}</td>
                   <td data-label="Detail">
-                    <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id]">View</a>
-                    @if (canReview) {
-                      <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id, 'review']">Review</a>
-                    }
+                    <span class="attempt-links">
+                      <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id]">View</a>
+                      @if (canReview) {
+                        <span aria-hidden="true">·</span>
+                        <a [routerLink]="['/assignments', item.id, 'attempts', attempt.id, 'review']">Review</a>
+                      }
+                    </span>
                   </td>
                 </tr>
               }

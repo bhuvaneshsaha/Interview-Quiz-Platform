@@ -1,4 +1,7 @@
 <h1>Home</h1>
+@if (accessDenied()) {
+  <p role="status">You don't have access to that page.</p>
+}
 @if (user(); as me) {
   <p>Signed in as {{ me.email }}.</p>
 }

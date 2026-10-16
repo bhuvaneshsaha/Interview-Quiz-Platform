@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AccessApi } from '../../core/api/access-api.service';
+import { UsersApi } from '../../core/api/users-api.service';
 import { FilterResponse } from '../../core/api/contracts';
 import { FiltersApi } from '../../core/api/filters-api.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -44,6 +45,12 @@ describe('SavedFilters', () => {
           provide: AccessApi,
           useValue: {
             listUsers: () => of({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
+          },
+        },
+        {
+          provide: UsersApi,
+          useValue: {
+            searchAssignable: () => of([]),
           },
         },
         {

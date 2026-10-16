@@ -19,8 +19,21 @@
     }
   </div>
   <div class="field">
-    <label for="quiz-filter">Quiz id</label>
-    <input id="quiz-filter" type="text" [formControl]="quizFilter" autocomplete="off" />
+    @if (canReadQuizzes) {
+      <label for="quiz-filter">Quiz</label>
+      <select id="quiz-filter" [formControl]="quizFilter">
+        <option value="">All quizzes</option>
+        @for (quiz of quizzes(); track quiz.id) {
+          <option [value]="quiz.id">{{ quiz.title }}</option>
+        }
+        @if (quizFilter.value && !knownQuiz(quizFilter.value)) {
+          <option [value]="quizFilter.value">Selected quiz</option>
+        }
+      </select>
+    } @else {
+      <label for="quiz-filter">Quiz id</label>
+      <input id="quiz-filter" type="text" [formControl]="quizFilter" autocomplete="off" />
+    }
   </div>
   <div class="field">
     <label for="assignment-keyword">Keyword</label>

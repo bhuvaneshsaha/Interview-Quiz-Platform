@@ -131,9 +131,8 @@
               </p>
               @if (canReadAssignments && quiz.candidates; as counts) {
                 <p class="count-links">
-                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Assigned {{ counts.assigned }}</a>
-                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Appeared {{ counts.appeared }}</a>
-                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">Submitted {{ counts.submitted }}</a>
+                  Assigned {{ counts.assigned }} · Started {{ counts.appeared }} · Submitted {{ counts.submitted }}
+                  <a [routerLink]="['/assignments']" [queryParams]="countQuery(quiz.id)">View assignments</a>
                 </p>
               }
             </li>
@@ -150,9 +149,8 @@
         <p>No candidates have been assigned to this opening.</p>
       } @else if (summary()?.candidates; as counts) {
         <p class="count-links">
-          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Assigned {{ counts.assigned }}</a>
-          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Appeared {{ counts.appeared }}</a>
-          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">Submitted {{ counts.submitted }}</a>
+          Assigned {{ counts.assigned }} · Started {{ counts.appeared }} · Submitted {{ counts.submitted }}
+          <a [routerLink]="['/assignments']" [queryParams]="countQuery()">View assignments</a>
         </p>
       }
     </section>

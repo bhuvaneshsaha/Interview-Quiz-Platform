@@ -23,7 +23,7 @@ export const permissionGuard: CanActivateFn = (route, state) => {
       if (permissions.hasAny(codes)) {
         return true;
       }
-      return router.createUrlTree(['/']);
+      return router.createUrlTree(['/'], { queryParams: { denied: '1' } });
     }),
   );
 };

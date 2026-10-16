@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A page you cannot open explains that on Home. Opening counts link to assignments once, quiz and template pages link to the related item instead of showing an id, and the assignment list picks a quiz by name. Saved filters say “these filters” and let a recruiter pick a person. An empty question bank or template list offers Clear filters, and View and Review stay separate (#78, #79, #81, #84, #85, #91, #92, #93).
 - Staff sign-in, home, and navigation use the same plain names (Opening fields, Roles) and no longer mention a candidate URL. Question and quiz editors say question text, choices, wrong answer, and how a question is scored. Assignment and attempt pages say version instead of snapshot or revision, and a live join link no longer claims it is emailed. Reports describe results in everyday language (#75, #76, #77, #80, #87, #88, #90).
 
 ### Fixed

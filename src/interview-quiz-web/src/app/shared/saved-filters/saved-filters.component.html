@@ -1,6 +1,6 @@
 <section class="saved-filters" aria-labelledby="saved-filters-heading">
   <h2 id="saved-filters-heading" class="saved-filters-heading">Saved filters</h2>
-  <p class="hint">Apply a visible saved filter, or save the criteria currently on this list.</p>
+  <p class="hint">Apply a saved filter, or save the filters currently on this list.</p>
 
   @if (loading()) {
     <p class="status" role="status">Loading saved filters.</p>
@@ -40,7 +40,7 @@
 
   <div class="saved-filters-row" *hasPermission="codes.FiltersWrite">
     <div class="field grow">
-      <label for="saved-filter-name">Name for current criteria</label>
+      <label for="saved-filter-name">Name for these filters</label>
       <input
         id="saved-filter-name"
         type="text"
@@ -56,7 +56,7 @@
       [disabled]="saving()"
       (click)="saveCurrent()"
     >
-      Save current criteria
+      Save these filters
     </button>
   </div>
 
@@ -65,37 +65,48 @@
       <legend>Share this filter</legend>
       <p class="hint">Sharing is only available for filters you own.</p>
       <div class="field">
-        <label for="saved-filter-share-mode">Share mode</label>
+        <label for="saved-filter-share-mode">Who can use this</label>
         <select id="saved-filter-share-mode" [formControl]="shareMode" (change)="onShareModeChange()">
           <option value="publicInsideCompany">{{ shareLabels.publicInsideCompany }}</option>
           <option value="specificUsers">{{ shareLabels.specificUsers }}</option>
         </select>
       </div>
       @if (shareModeValue() === 'specificUsers') {
-        @if (canManageUsers && users().length > 0) {
+        @if (canPickPeople && people().length > 0) {
           <div class="field">
             <label for="saved-filter-pick-user">Add a person</label>
-            <select id="saved-filter-pick-user" (change)="addUserFromPicker($event)">
-              <option value="">Select a user to add</option>
-              @for (user of users(); track user.id) {
-                <option [value]="user.id">{{ user.email }}</option>
+            <select id="saved-filter-pick-user" (change)="addPerson($event)">
+              <option value="">Select a person</option>
+              @for (person of people(); track person.id) {
+                <option [value]="person.id">{{ person.email }}</option>
               }
             </select>
           </div>
+          @if (selectedPeople().length > 0) {
+            <ul>
+              @for (person of selectedPeople(); track person.id) {
+                <li>
+                  {{ person.email }}
+                  <button type="button" class="button button-quiet" (click)="removePerson(person.id)">Remove</button>
+                </li>
+              }
+            </ul>
+          }
+        } @else if (canPickPeople) {
+          <p class="hint">No coworkers are available to add.</p>
+        } @else {
+          <div class="field">
+            <label for="saved-filter-user-ids">User ids</label>
+            <input
+              id="saved-filter-user-ids"
+              type="text"
+              [formControl]="shareUserIds"
+              autocomplete="off"
+              aria-describedby="saved-filter-user-ids-hint"
+            />
+            <p id="saved-filter-user-ids-hint" class="hint">Enter each person's id, separated by commas.</p>
+          </div>
         }
-        <div class="field">
-          <label for="saved-filter-user-ids">User ids</label>
-          <input
-            id="saved-filter-user-ids"
-            type="text"
-            [formControl]="shareUserIds"
-            autocomplete="off"
-            aria-describedby="saved-filter-user-ids-hint"
-          />
-          <p id="saved-filter-user-ids-hint" class="hint">
-            Comma-separated user ids. Recruiter accounts typically paste ids here.
-          </p>
-        </div>
       }
       <div class="saved-filters-row">
         <button type="button" class="button" [disabled]="saving()" (click)="shareSelected()">Share</button>

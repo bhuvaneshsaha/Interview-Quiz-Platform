@@ -1,6 +1,7 @@
 <div class="page-heading">
   <h1>Templates</h1>
 </div>
+<p class="hint">A template is published from a quiz.</p>
 
 <form class="filter-row" (submit)="$event.preventDefault(); submitFilter()">
   <div class="field">
@@ -33,7 +34,9 @@
   [error]="error()"
   [correlationId]="correlationId()"
   [empty]="!loading() && !error() && templates().length === 0"
-  emptyMessage="No templates match this filter."
+  [emptyMessage]="filtered() ? 'No templates match these filters.' : 'No templates yet.'"
+  [emptySecondaryLabel]="filtered() ? 'Clear filters' : null"
+  (emptySecondary)="clearFilters()"
   loadingMessage="Loading templates."
 >
   <table class="data-table data-table-cards">
