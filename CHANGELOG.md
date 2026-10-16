@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
 ### Changed
 
 - Every employee role can view Reporting. The built-in Admin role and the Development seeds for Template author, Recruiter, and Reviewer include `reports.read`, and a migration grants that code to employee roles already stored. A role that holds `candidate.attempt.participate` is left unchanged. Candidates still receive 403 from the reports API, and the app hides the Reporting link and sends `/reports` home. `GET /api/permissions` lists `reports.read` as “View reports” in the Evaluation group, and the role editor shows that checkbox so an admin can assign or remove it (#61).
@@ -86,7 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An expired invite returns “This invite has expired.” and a revoked invite returns “This invite has been revoked.” The attempt page shows that state and does not start the quiz (#43).
 - Revoke ends an in-progress attempt. A JWT already issued can still save and submit after simple expiry until submit or `dueAtUtc` (#44).
 
-[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bhuvaneshsaha/Interview-Quiz-Platform/compare/v0.5.0...v0.6.0
